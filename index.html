@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MindVault — Your Second Brain for Meaningful Relationships</title>
+  
+  <!-- FontAwesome & Custom CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div id="app-container">
+  
+  <!-- Glass Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">
+        <i class="fa-solid fa-brain"></i>
+      </div>
+      <div class="brand-text">
+        <h1>MindVault</h1>
+        <p>Relationship AI</p>
+      </div>
+    </div>
+
+    <div class="nav-section-label">Main Navigation</div>
+    <ul class="nav-menu">
+      <li class="nav-item">
+        <button class="active" data-view="dashboard">
+          <i class="fa-solid fa-chart-pie nav-icon"></i>
+          <span>Dashboard</span>
+        </button>
+      </li>
+      <li class="nav-item">
+        <button data-view="friends">
+          <i class="fa-solid fa-user-group nav-icon"></i>
+          <span>Friends Directory</span>
+          <span class="nav-badge">4</span>
+        </button>
+      </li>
+      <li class="nav-item">
+        <button data-view="diaries">
+          <i class="fa-solid fa-book-bookmark nav-icon"></i>
+          <span>Conversation Diary</span>
+        </button>
+      </li>
+      <li class="nav-item">
+        <button data-view="topics">
+          <i class="fa-solid fa-comments nav-icon"></i>
+          <span>Today's Topics</span>
+        </button>
+      </li>
+    </ul>
+
+    <div class="nav-section-label">Intelligence</div>
+    <ul class="nav-menu">
+      <li class="nav-item">
+        <button data-view="graph">
+          <i class="fa-solid fa-circle-nodes nav-icon"></i>
+          <span>Knowledge Graph</span>
+        </button>
+      </li>
+      <li class="nav-item">
+        <button data-view="calendar">
+          <i class="fa-solid fa-calendar-check nav-icon"></i>
+          <span>Reminders</span>
+        </button>
+      </li>
+    </ul>
+
+    <!-- Bottom User Card -->
+    <div class="user-profile-card">
+      <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80" class="user-avatar" alt="Aria Chen">
+      <div class="user-info">
+        <h4>Aria Chen</h4>
+        <p>Pro Member ✨</p>
+      </div>
+      <i class="fa-solid fa-gear" style="margin-left: auto; color: var(--text-muted); cursor: pointer;" onclick="MindVaultApp.switchView('settings')"></i>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main class="main-wrapper">
+    
+    <!-- Top Header -->
+    <header class="top-header">
+      <div class="search-box">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" placeholder="Search friends, topics, memories, gifts...">
+      </div>
+
+      <div class="header-actions">
+        <button class="btn btn-secondary btn-pill" onclick="MindVaultApp.openPrepModal(1)">
+          <i class="fa-solid fa-bolt" style="color: var(--accent);"></i>
+          <span>Meeting Prep</span>
+        </button>
+        <button class="btn btn-primary btn-pill" onclick="document.getElementById('modal-add-diary').classList.add('active')">
+          <i class="fa-solid fa-plus"></i>
+          <span>Log Memory</span>
+        </button>
+        <button class="btn btn-icon-only">
+          <i class="fa-regular fa-bell"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- PAGE VIEW 1: DASHBOARD -->
+    <section id="view-dashboard" class="page-view active">
+      
+      <!-- Hero Banner -->
+      <div class="hero-banner">
+        <div class="hero-content">
+          <h2>Good morning, Aria! 🌸</h2>
+          <p>Your relationships are thriving. You have 3 conversation suggestions ready for today and Sophia's pet checkup reminder tomorrow.</p>
+          <div class="quote-pill">
+            <i class="fa-solid fa-quote-left"></i>
+            <span>"The quality of your life is the quality of your relationships."</span>
+          </div>
+        </div>
+        <div class="hero-illustration">
+          <span>💖</span>
+        </div>
+      </div>
+
+      <!-- Stats Grid -->
+      <div class="grid-4" style="margin-bottom: 28px;">
+        <div class="glass-card stat-widget">
+          <div class="stat-icon-wrapper pink-theme">
+            <i class="fa-solid fa-heart-pulse"></i>
+          </div>
+          <div class="stat-info">
+            <h3 id="dash-health-score">88%</h3>
+            <p>Relationship Health</p>
+          </div>
+        </div>
+
+        <div class="glass-card stat-widget">
+          <div class="stat-icon-wrapper lavender-theme">
+            <i class="fa-solid fa-users"></i>
+          </div>
+          <div class="stat-info">
+            <h3>4</h3>
+            <p>Active Friends</p>
+          </div>
+        </div>
+
+        <div class="glass-card stat-widget">
+          <div class="stat-icon-wrapper mint-theme">
+            <i class="fa-solid fa-book-open"></i>
+          </div>
+          <div class="stat-info">
+            <h3>12</h3>
+            <p>Diaried Memories</p>
+          </div>
+        </div>
+
+        <div class="glass-card stat-widget">
+          <div class="stat-icon-wrapper yellow-theme">
+            <i class="fa-solid fa-lightbulb"></i>
+          </div>
+          <div class="stat-info">
+            <h3>8</h3>
+            <p>AI Insights</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Grid layout -->
+      <div class="grid-main-sidebar">
+        
+        <!-- Left Column: Topics & Recent Diaries -->
+        <div style="display: flex; flex-direction: column; gap: 24px;">
+          
+          <div class="glass-card">
+            <div class="card-title-row">
+              <h3><i class="fa-solid fa-sparkles"></i> Today's Conversation Topics</h3>
+              <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;">Refresh AI</button>
+            </div>
+            <div id="dash-topics-list">
+              <!-- Dynamically rendered -->
+            </div>
+          </div>
+
+          <div class="glass-card">
+            <div class="card-title-row">
+              <h3><i class="fa-solid fa-clock-rotate-left"></i> Recent Memories & Diaries</h3>
+              <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="MindVaultApp.switchView('diaries')">View All</button>
+            </div>
+            <div id="dash-recent-diaries">
+              <!-- Dynamically rendered -->
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right Column: Health Gauge & Quick Actions -->
+        <div style="display: flex; flex-direction: column; gap: 24px;">
+          
+          <div class="glass-card text-center">
+            <div class="card-title-row">
+              <h3><i class="fa-solid fa-chart-pie"></i> Intimacy Gauge</h3>
+            </div>
+            <div class="health-score-container">
+              <div class="gauge-circle">
+                <div class="gauge-inner">
+                  <span class="gauge-score">88</span>
+                  <span class="gauge-label">Excellent</span>
+                </div>
+              </div>
+              <p style="font-size: 12px; color: var(--text-muted); margin-top: 14px;">High engagement with inner circle friends this month.</p>
+            </div>
+          </div>
+
+          <div class="glass-card">
+            <div class="card-title-row">
+              <h3><i class="fa-solid fa-wand-magic-sparkles"></i> AI Quick Tools</h3>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <button class="btn btn-secondary" style="width: 100%; justify-content: flex-start;" onclick="MindVaultApp.openPrepModal(1)">
+                ⚡ Meeting Cheat-Sheet
+              </button>
+              <button class="btn btn-secondary" style="width: 100%; justify-content: flex-start;" onclick="MindVaultApp.openSimulatorModal(1)">
+                💬 Conversation Simulator
+              </button>
+              <button class="btn btn-secondary" style="width: 100%; justify-content: flex-start;" onclick="MindVaultApp.switchView('graph')">
+                🕸️ Relationship Graph
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- PAGE VIEW 2: FRIENDS DIRECTORY -->
+    <section id="view-friends" class="page-view">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <div>
+          <h2 style="font-size: 24px; font-weight: 800;">Friends Directory</h2>
+          <p style="font-size: 14px; color: var(--text-muted);">Manage intimacy tiers, favorites, and AI summaries.</p>
+        </div>
+        <button class="btn btn-primary" onclick="document.getElementById('modal-add-friend').classList.add('active')">
+          <i class="fa-solid fa-user-plus"></i>
+          <span>Add New Friend</span>
+        </button>
+      </div>
+
+      <div class="grid-4" id="friends-grid-container">
+        <!-- Dynamically rendered -->
+      </div>
+    </section>
+
+    <!-- PAGE VIEW 3: FRIEND PROFILE -->
+    <section id="view-profile" class="page-view">
+      <div class="profile-header-banner">
+        <img id="profile-avatar" src="" class="profile-avatar-large" alt="Profile">
+        <div class="profile-main-info">
+          <h2 id="profile-name">Sophia Martinez</h2>
+          <p id="profile-relation">Close Friend & Co-founder</p>
+          <div style="margin-top: 10px; display: flex; gap: 8px;">
+            <span class="tag-chip" id="profile-score-val">94% Score</span>
+            <span class="tag-chip" style="background: var(--lavender-light); color: var(--lavender-deep);">Inner Circle</span>
+          </div>
+        </div>
+        <div class="profile-actions-bar">
+          <button class="btn btn-secondary" onclick="MindVaultApp.openPrepModal(MindVaultApp.selectedFriendId)">⚡ Prep Meeting</button>
+          <button class="btn btn-primary" onclick="MindVaultApp.openSimulatorModal(MindVaultApp.selectedFriendId)">💬 Practice Chat</button>
+        </div>
+      </div>
+
+      <div class="grid-main-sidebar">
+        
+        <div style="display: flex; flex-direction: column; gap: 24px;">
+          
+          <div class="glass-card">
+            <div class="card-title-row">
+              <h3><i class="fa-solid fa-sparkles"></i> AI Memory Summary</h3>
+            </div>
+            <p id="profile-ai-summary" style="font-size: 14px; color: var(--text-medium); line-height: 1.6;"></p>
+          </div>
+
+          <div class="glass-card">
+            <div class="card-title-row">
+              <h3><i class="fa-solid fa-user-clock"></i> Current Life Status</h3>
+            </div>
+            <p id="profile-current-life" style="font-size: 14px; color: var(--text-medium); line-height: 1.6;"></p>
+          </div>
+
+          <div class="grid-2">
+            <div class="glass-card">
+              <div class="card-title-row">
+                <h3><i class="fa-solid fa-circle-check" style="color: #059669;"></i> Safe Topics</h3>
+              </div>
+              <div id="profile-safe-topics"></div>
+            </div>
+
+            <div class="glass-card">
+              <div class="card-title-row">
+                <h3><i class="fa-solid fa-triangle-exclamation" style="color: #DC2626;"></i> Avoid Topics</h3>
+              </div>
+              <div id="profile-avoid-topics"></div>
+            </div>
+          </div>
+
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 24px;">
+          
+          <div class="glass-card">
+            <div class="card-title-row">
+              <h3><i class="fa-solid fa-star"></i> Favorites</h3>
+            </div>
+            <div id="profile-favorites-list"></div>
+          </div>
+
+          <div class="glass-card">
+            <div class="card-title-row">
+              <h3><i class="fa-solid fa-gift"></i> AI Gift Recommendations</h3>
+            </div>
+            <div id="profile-gift-ideas"></div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- PAGE VIEW 4: DIARY -->
+    <section id="view-diaries" class="page-view">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <div>
+          <h2 style="font-size: 24px; font-weight: 800;">Conversation Diary</h2>
+          <p style="font-size: 14px; color: var(--text-muted);">Log conversation history, location notes, and mood tags.</p>
+        </div>
+        <button class="btn btn-primary" onclick="document.getElementById('modal-add-diary').classList.add('active')">
+          <i class="fa-solid fa-pen"></i>
+          <span>Log New Memory</span>
+        </button>
+      </div>
+
+      <div id="diaries-full-list"></div>
+    </section>
+
+    <!-- PAGE VIEW 5: KNOWLEDGE GRAPH -->
+    <section id="view-graph" class="page-view">
+      <div style="margin-bottom: 20px;">
+        <h2 style="font-size: 24px; font-weight: 800;">Relationship Knowledge Graph</h2>
+        <p style="font-size: 14px; color: var(--text-muted);">Visual network connecting friends, mutual hobbies, and shared interests.</p>
+      </div>
+
+      <div class="glass-card">
+        <canvas id="knowledge-graph-canvas"></canvas>
+      </div>
+    </section>
+
+    <!-- PAGE VIEW 6: TOPICS & THOUGHTS -->
+    <section id="view-topics" class="page-view">
+      <h2 style="font-size: 24px; font-weight: 800; margin-bottom: 20px;">Today's Topics & Personal Thoughts</h2>
+      <div class="grid-2">
+        <div class="glass-card">
+          <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 16px;">💡 AI Suggested Starters</h3>
+          <div style="padding: 14px; background: white; border-radius: 14px; margin-bottom: 10px; border: 1px solid var(--card-border);">
+            "Ask Sophia about Mochi's Friday vet checkup"
+          </div>
+          <div style="padding: 14px; background: white; border-radius: 14px; margin-bottom: 10px; border: 1px solid var(--card-border);">
+            "Congratulate Liam on his 45km marathon training run"
+          </div>
+        </div>
+
+        <div class="glass-card">
+          <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 16px;">📝 My Relationship Reflections</h3>
+          <div style="padding: 14px; background: var(--bg-main); border-radius: 14px; font-style: italic; font-size: 13px; margin-bottom: 10px;">
+            "Great relationships aren't built on grand gestures, but on remembering the small details that matter."
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAGE VIEW 7: CALENDAR & REMINDERS -->
+    <section id="view-calendar" class="page-view">
+      <h2 style="font-size: 24px; font-weight: 800; margin-bottom: 20px;">Upcoming Birthdays & Smart Reminders</h2>
+      <div id="reminders-list-container"></div>
+    </section>
+
+    <!-- PAGE VIEW 8: SETTINGS -->
+    <section id="view-settings" class="page-view">
+      <h2 style="font-size: 24px; font-weight: 800; margin-bottom: 20px;">Settings & Cloud Connection</h2>
+      <div style="display: flex; flex-direction: column; gap: 20px; max-width: 600px;">
+        
+        <div class="glass-card">
+          <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 14px;"><i class="fa-solid fa-database" style="color: var(--accent-hover);"></i> Supabase Backend Connection</h3>
+          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">Connect your live Supabase cloud database or run in local offline mode.</p>
+          
+          <div class="form-group">
+            <label>Supabase Project URL</label>
+            <input type="text" id="setting-supabase-url" class="form-control" placeholder="https://xyzcompany.supabase.co">
+          </div>
+          <div class="form-group">
+            <label>Supabase Anon Key</label>
+            <input type="password" id="setting-supabase-key" class="form-control" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6...">
+          </div>
+          <button class="btn btn-primary" onclick="MindVaultApp.saveSupabaseConfig()">
+            <i class="fa-solid fa-plug"></i> Connect Supabase Database
+          </button>
+          <div id="supabase-status-badge" style="margin-top: 12px; font-size: 13px; font-weight: 600;"></div>
+        </div>
+
+        <div class="glass-card">
+          <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 14px;"><i class="fa-solid fa-user-gear"></i> User Preferences</h3>
+          <div class="form-group">
+            <label>Your Name</label>
+            <input type="text" class="form-control" value="Aria Chen">
+          </div>
+          <div class="form-group">
+            <label>Theme Accent Color</label>
+            <input type="text" class="form-control" value="Pastel Pink (#F8BBD9)">
+          </div>
+          <button class="btn btn-secondary">Save Preferences</button>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- MODAL: MEETING PREP CHEAT-SHEET -->
+<div id="modal-meeting-prep" class="modal-overlay">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 style="display: flex; align-items: center; gap: 10px;">
+        ⚡ 1-Minute Meeting Cheat-Sheet
+      </h3>
+      <button class="modal-close-btn">&times;</button>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px; padding: 14px; background: var(--bg-main); border-radius: 16px;">
+      <img id="prep-friend-avatar" src="" style="width: 54px; height: 54px; border-radius: 50%; object-fit: cover;" alt="">
+      <div>
+        <h4 id="prep-friend-name" style="font-size: 16px; font-weight: 800;"></h4>
+        <p style="font-size: 12px; color: var(--text-muted);">Pre-meeting brief generated by MindVault AI</p>
+      </div>
+    </div>
+
+    <div style="margin-bottom: 18px;">
+      <strong style="font-size: 13px; color: var(--accent-hover);">📰 Current Life Update:</strong>
+      <p id="prep-current-life" style="font-size: 13px; margin-top: 4px; color: var(--text-medium);"></p>
+    </div>
+
+    <div class="grid-2" style="margin-bottom: 20px;">
+      <div>
+        <strong style="font-size: 13px; color: #059669;">🟢 Safe Topics to Bring Up:</strong>
+        <ul id="prep-safe-list" style="list-style: none; margin-top: 8px;"></ul>
+      </div>
+      <div>
+        <strong style="font-size: 13px; color: #DC2626;">🔴 Topics to Avoid:</strong>
+        <ul id="prep-avoid-list" style="list-style: none; margin-top: 8px;"></ul>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" style="width: 100%;" onclick="document.getElementById('modal-meeting-prep').classList.remove('active')">Got It, Ready to Meet! 🎉</button>
+  </div>
+</div>
+
+<!-- MODAL: CONVERSATION SIMULATOR -->
+<div id="modal-sim-chat" class="modal-overlay">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>💬 Conversation Simulator (<span id="sim-friend-name">Sophia</span>)</h3>
+      <button class="modal-close-btn">&times;</button>
+    </div>
+
+    <div id="sim-chat-log" style="height: 280px; overflow-y: auto; background: var(--bg-main); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+      <!-- Chat bubbles -->
+    </div>
+
+    <div style="display: flex; gap: 8px;">
+      <input type="text" id="sim-chat-input" class="form-control" placeholder="Type what you want to say..." onkeypress="if(event.key==='Enter') MindVaultApp.sendSimMessage()">
+      <button class="btn btn-primary" onclick="MindVaultApp.sendSimMessage()">Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ADD FRIEND -->
+<div id="modal-add-friend" class="modal-overlay">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>✨ Add New Friend Profile</h3>
+      <button class="modal-close-btn">&times;</button>
+    </div>
+    <div class="form-group">
+      <label>Full Name</label>
+      <input type="text" class="form-control" placeholder="e.g. Chloe Bennett">
+    </div>
+    <div class="form-group">
+      <label>Relationship / Tier</label>
+      <input type="text" class="form-control" placeholder="e.g. Close Friend, Inner Circle">
+    </div>
+    <div class="form-group">
+      <label>Current Life Update</label>
+      <textarea class="form-control" placeholder="What is happening in their life right now?"></textarea>
+    </div>
+    <button class="btn btn-primary" style="width: 100%;" onclick="alert('Friend added to MindVault!'); document.getElementById('modal-add-friend').classList.remove('active');">Create Friend Profile</button>
+  </div>
+</div>
+
+<!-- MODAL: ADD DIARY -->
+<div id="modal-add-diary" class="modal-overlay">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>📖 Log New Memory / Conversation</h3>
+      <button class="modal-close-btn">&times;</button>
+    </div>
+    <div class="form-group">
+      <label>Title</label>
+      <input type="text" class="form-control" placeholder="e.g. Dinner & Catchup at Bistro">
+    </div>
+    <div class="form-group">
+      <label>Friend</label>
+      <select class="form-control">
+        <option>Sophia Martinez</option>
+        <option>Liam Vance</option>
+        <option>Maya Lin</option>
+        <option>Ethan Wright</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Memory Details</label>
+      <textarea class="form-control" placeholder="What did you talk about? Any preferences or updates mentioned?"></textarea>
+    </div>
+    <button class="btn btn-primary" style="width: 100%;" onclick="alert('Memory logged successfully!'); document.getElementById('modal-add-diary').classList.remove('active');">Save Memory Log</button>
+  </div>
+</div>
+
+<!-- FLOATING AI ASSISTANT -->
+<div class="ai-floating-widget">
+  <button class="ai-fab" id="ai-fab-btn" title="MindVault AI Assistant">
+    <i class="fa-solid fa-sparkles"></i>
+  </button>
+</div>
+
+<div class="ai-chat-drawer" id="ai-chat-drawer">
+  <div class="ai-chat-header">
+    <h4><i class="fa-solid fa-sparkles"></i> MindVault Assistant</h4>
+    <button id="ai-chat-close" style="background: transparent; border: none; color: white; cursor: pointer; font-size: 18px;">&times;</button>
+  </div>
+  <div class="ai-chat-messages" id="ai-chat-messages">
+    <div class="chat-bubble ai">
+      Hi Aria! I'm your Relationship Intelligence Assistant. Ask me anything about your friends, past conversations, or gift recommendations!
+    </div>
+  </div>
+  <div class="ai-chat-input-row">
+    <input type="text" id="ai-chat-input" placeholder="Ask AI about friends..." onkeypress="if(event.key==='Enter') MindVaultApp.sendAIChatMessage()">
+    <button class="btn btn-primary" style="padding: 8px 12px;" onclick="MindVaultApp.sendAIChatMessage()">
+      <i class="fa-solid fa-paper-plane"></i>
+    </button>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/data.js"></script>
+<script src="js/supabaseClient.js"></script>
+<script src="js/graph.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
