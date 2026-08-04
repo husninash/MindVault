@@ -671,7 +671,7 @@ const MindVaultApp = {
 
     if (response && response.error) {
       if (typingEl) {
-        typingEl.innerHTML = `❌ <strong>Google Gemini API Error:</strong><br>${response.message}<br><br><small><em>Tips: API Key Google Gemini (Google AI Studio) harus diawali dengan <code>AIzaSy...</code>. Silakan dapatkan API Key gratis di <a href="https://aistudio.google.com" target="_blank" style="color: var(--accent); font-weight: 700;">aistudio.google.com</a> dan simpan di menu Settings.</em></small>`;
+        typingEl.innerHTML = `❌ <strong>Google Gemini API Error:</strong><br>${response.message}<br><br><small><em>Tips: Dapatkan Gemini API Key resmi gratis dari <a href="https://aistudio.google.com" target="_blank" style="color: var(--accent); font-weight: 700;">aistudio.google.com</a> dan simpan di menu ⚙️ Settings -> Gemini AI.</em></small>`;
       }
       log.scrollTop = log.scrollHeight;
       return;
