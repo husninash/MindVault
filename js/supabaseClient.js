@@ -218,6 +218,46 @@ const MindVaultSupabase = {
     }
   },
 
+  async updateFriend(friendObj) {
+    if (!this.isConfigured || !this.client) {
+      const idx = MindVaultData.friends.findIndex(f => f.id === friendObj.id);
+      if (idx !== -1) {
+        MindVaultData.friends[idx] = { ...MindVaultData.friends[idx], ...friendObj };
+      }
+      return friendObj;
+    }
+    try {
+      const payload = {
+        name: friendObj.name,
+        relation: friendObj.relation || 'Friend',
+        avatar: friendObj.avatar,
+        tier: friendObj.tier || 'Close Circle',
+        birthday: friendObj.birthday || null,
+        bio: friendObj.bio || '',
+        favorites: friendObj.favorites || {},
+        likes: friendObj.likes || [],
+        dislikes: friendObj.dislikes || [],
+        safe_topics: friendObj.safeTopics || [],
+        avoid_topics: friendObj.avoidTopics || [],
+        current_life: friendObj.currentLife || '',
+        gift_ideas: friendObj.giftIdeas || []
+      };
+
+      const { error } = await this.client.from('friends').update(payload).eq('id', friendObj.id);
+      if (error) {
+        console.error('Error updating friend in Supabase:', error);
+      }
+      const idx = MindVaultData.friends.findIndex(f => f.id === friendObj.id);
+      if (idx !== -1) {
+        MindVaultData.friends[idx] = { ...MindVaultData.friends[idx], ...friendObj };
+      }
+      return friendObj;
+    } catch (e) {
+      console.error('Update friend exception:', e);
+      return null;
+    }
+  },
+
   async fetchReminders() {
     if (!this.isConfigured || !this.client) return MindVaultData.reminders;
     try {

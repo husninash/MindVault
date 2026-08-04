@@ -186,52 +186,168 @@ const MindVaultApp = {
     reader.readAsDataURL(file);
   },
 
-  async saveNewFriend() {
-    const name = document.getElementById('add-friend-name')?.value.trim();
-    const relation = document.getElementById('add-friend-relation')?.value.trim();
-    const avatarInput = document.getElementById('add-friend-avatar')?.value.trim();
-    const currentLife = document.getElementById('add-friend-life')?.value.trim();
-
-    if (!name) {
-      this.showToast('Please enter a friend name.', 'warning');
-      return;
-    }
-
-    // Prioritize uploaded device photo Data URL -> pasted web URL -> personalized initial avatar
-    const initialAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=F8BBD9&color=2D1A29&bold=true&size=250`;
-    const avatar = this.uploadedAvatarData || avatarInput || initialAvatar;
-
-    const newFriend = {
-      name: name,
-      relation: relation || 'Friend',
-      avatar: avatar,
-      tier: 'Close Circle',
-      score: 85,
-      currentLife: currentLife || 'Recently added to MindVault.',
-      safeTopics: ['Recent life updates', 'Hobbies & interests'],
-      avoidTopics: [],
-      likes: ['Coffee', 'Travel'],
-      dislikes: [],
-      aiSummary: `${name} is a valued connection in your network.`,
-      favorites: {},
-      giftIdeas: []
-    };
-
-    await MindVaultSupabase.insertFriend(newFriend);
-    this.showToast(`${name} has been added to your friend directory! ✨`, 'success');
-    document.getElementById('modal-add-friend')?.classList.remove('active');
+  openAddFriendModal() {
+    const titleEl = document.getElementById('modal-add-friend-title');
+    if (titleEl) titleEl.innerText = '✨ Add New Friend Profile';
+    const idEl = document.getElementById('edit-friend-id');
+    if (idEl) idEl.value = '';
+    const btnEl = document.getElementById('btn-save-friend');
+    if (btnEl) btnEl.innerText = 'Create Friend Profile';
 
     // Clear form inputs & reset upload state
     this.uploadedAvatarData = null;
+    ['name', 'relation', 'birthday', 'avatar', 'bio', 'life', 'fav-drink', 'fav-food', 'fav-color', 'fav-hobby', 'fav-book', 'likes', 'dislikes', 'safe-topics', 'avoid-topics', 'gifts'].forEach(id => {
+      const el = document.getElementById('add-friend-' + id);
+      if (el) el.value = '';
+    });
     if (document.getElementById('add-friend-file')) document.getElementById('add-friend-file').value = '';
-    if (document.getElementById('add-friend-name')) document.getElementById('add-friend-name').value = '';
-    if (document.getElementById('add-friend-relation')) document.getElementById('add-friend-relation').value = '';
-    if (document.getElementById('add-friend-avatar')) document.getElementById('add-friend-avatar').value = '';
-    if (document.getElementById('add-friend-life')) document.getElementById('add-friend-life').value = '';
     const container = document.getElementById('add-friend-preview-container');
     if (container) container.style.display = 'none';
 
+    document.getElementById('modal-add-friend')?.classList.add('active');
+  },
+
+  openEditProfileModal(friendId) {
+    const friend = MindVaultData.friends.find(f => f.id === friendId) || MindVaultData.friends[0];
+    if (!friend) {
+      this.showToast('Friend not found.', 'warning');
+      return;
+    }
+
+    const titleEl = document.getElementById('modal-add-friend-title');
+    if (titleEl) titleEl.innerText = `✏️ Edit Profile: ${friend.name}`;
+    const idEl = document.getElementById('edit-friend-id');
+    if (idEl) idEl.value = friend.id;
+    const btnEl = document.getElementById('btn-save-friend');
+    if (btnEl) btnEl.innerText = 'Save Changes';
+
+    if (document.getElementById('add-friend-name')) document.getElementById('add-friend-name').value = friend.name || '';
+    if (document.getElementById('add-friend-relation')) document.getElementById('add-friend-relation').value = friend.relation || '';
+    if (document.getElementById('add-friend-birthday')) document.getElementById('add-friend-birthday').value = friend.birthday || '';
+    if (document.getElementById('add-friend-avatar')) document.getElementById('add-friend-avatar').value = friend.avatar || '';
+    if (document.getElementById('add-friend-bio')) document.getElementById('add-friend-bio').value = friend.bio || '';
+    if (document.getElementById('add-friend-life')) document.getElementById('add-friend-life').value = friend.currentLife || '';
+
+    // Favorites
+    const favs = friend.favorites || {};
+    if (document.getElementById('add-friend-fav-drink')) document.getElementById('add-friend-fav-drink').value = favs.drink || '';
+    if (document.getElementById('add-friend-fav-food')) document.getElementById('add-friend-fav-food').value = favs.food || '';
+    if (document.getElementById('add-friend-fav-color')) document.getElementById('add-friend-fav-color').value = favs.color || '';
+    if (document.getElementById('add-friend-fav-hobby')) document.getElementById('add-friend-fav-hobby').value = favs.hobby || '';
+    if (document.getElementById('add-friend-fav-book')) document.getElementById('add-friend-fav-book').value = favs.book || '';
+
+    // Preferences & Topics
+    if (document.getElementById('add-friend-likes')) document.getElementById('add-friend-likes').value = (friend.likes || []).join(', ');
+    if (document.getElementById('add-friend-dislikes')) document.getElementById('add-friend-dislikes').value = (friend.dislikes || []).join(', ');
+    if (document.getElementById('add-friend-safe-topics')) document.getElementById('add-friend-safe-topics').value = (friend.safeTopics || []).join(', ');
+    if (document.getElementById('add-friend-avoid-topics')) document.getElementById('add-friend-avoid-topics').value = (friend.avoidTopics || []).join(', ');
+
+    // Gift Ideas
+    const gifts = (friend.giftIdeas || []).map(g => `${g.item}${g.price ? ' (' + g.price + ')' : ''}`).join(', ');
+    if (document.getElementById('add-friend-gifts')) document.getElementById('add-friend-gifts').value = gifts;
+
+    document.getElementById('modal-add-friend')?.classList.add('active');
+  },
+
+  async saveFriendFromModal() {
+    const editId = document.getElementById('edit-friend-id')?.value;
+    if (editId) {
+      await this.saveEditedFriend(isNaN(Number(editId)) ? editId : Number(editId));
+    } else {
+      await this.saveNewFriend();
+    }
+  },
+
+  readFriendFormData() {
+    const name = document.getElementById('add-friend-name')?.value.trim();
+    const relation = document.getElementById('add-friend-relation')?.value.trim();
+    const birthday = document.getElementById('add-friend-birthday')?.value;
+    const avatarInput = document.getElementById('add-friend-avatar')?.value.trim();
+    const bio = document.getElementById('add-friend-bio')?.value.trim();
+    const currentLife = document.getElementById('add-friend-life')?.value.trim();
+
+    // Favorites
+    const favDrink = document.getElementById('add-friend-fav-drink')?.value.trim();
+    const favFood = document.getElementById('add-friend-fav-food')?.value.trim();
+    const favColor = document.getElementById('add-friend-fav-color')?.value.trim();
+    const favHobby = document.getElementById('add-friend-fav-hobby')?.value.trim();
+    const favBook = document.getElementById('add-friend-fav-book')?.value.trim();
+
+    const favorites = {};
+    if (favDrink) favorites.drink = favDrink;
+    if (favFood) favorites.food = favFood;
+    if (favColor) favorites.color = favColor;
+    if (favHobby) favorites.hobby = favHobby;
+    if (favBook) favorites.book = favBook;
+
+    // Topics & Likes
+    const parseList = (id) => (document.getElementById(id)?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+    const likes = parseList('add-friend-likes');
+    const dislikes = parseList('add-friend-dislikes');
+    const safeTopics = parseList('add-friend-safe-topics');
+    const avoidTopics = parseList('add-friend-avoid-topics');
+
+    // Gift Ideas parser
+    const giftsRaw = parseList('add-friend-gifts');
+    const giftIdeas = giftsRaw.map(g => {
+      const match = g.match(/^(.*?)(?:\s*\((.*?)\))?$/);
+      return { item: match ? match[1] : g, price: match && match[2] ? match[2] : '', tag: 'Gift' };
+    });
+
+    const initialAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'Friend')}&background=F8BBD9&color=2D1A29&bold=true&size=250`;
+    const avatar = this.uploadedAvatarData || avatarInput || initialAvatar;
+
+    return {
+      name: name || 'Teman Baru',
+      relation: relation || 'Friend',
+      birthday: birthday || null,
+      avatar: avatar,
+      bio: bio || '',
+      currentLife: currentLife || 'Recently added to MindVault.',
+      favorites,
+      likes,
+      dislikes,
+      safeTopics,
+      avoidTopics,
+      giftIdeas
+    };
+  },
+
+  async saveNewFriend() {
+    const friendData = this.readFriendFormData();
+
+    const newFriend = {
+      ...friendData,
+      tier: friendData.relation || 'Close Circle',
+      score: 85,
+      aiSummary: `${friendData.name} is a valued connection in your network.`
+    };
+
+    await MindVaultSupabase.insertFriend(newFriend);
+    this.showToast(`${newFriend.name} has been added to your friend directory! ✨`, 'success');
+    document.getElementById('modal-add-friend')?.classList.remove('active');
+
     this.renderFriendsGrid();
+    this.populateDiaryFriendOptions();
+    this.updateFriendsCountBadge();
+  },
+
+  async saveEditedFriend(friendId) {
+    const friendData = this.readFriendFormData();
+    const existing = MindVaultData.friends.find(f => f.id === friendId) || {};
+
+    const updatedFriend = {
+      ...existing,
+      ...friendData,
+      id: friendId
+    };
+
+    await MindVaultSupabase.updateFriend(updatedFriend);
+    this.showToast(`Profile ${updatedFriend.name} successfully updated! ✨`, 'success');
+    document.getElementById('modal-add-friend')?.classList.remove('active');
+
+    this.renderFriendsGrid();
+    this.renderFriendProfile(friendId);
     this.populateDiaryFriendOptions();
     this.updateFriendsCountBadge();
   },
@@ -452,70 +568,91 @@ const MindVaultApp = {
   // Render Single Friend Profile View
   renderFriendProfile(id) {
     const friend = MindVaultData.friends.find(f => f.id === id) || MindVaultData.friends[0];
+    if (!friend) return;
 
     // Basic Header Info
     const nameEl = document.getElementById('profile-name');
-    if (nameEl) nameEl.innerText = friend.name;
+    if (nameEl) nameEl.innerText = friend.name || 'Teman';
 
     const relationEl = document.getElementById('profile-relation');
-    if (relationEl) relationEl.innerText = friend.relation;
+    if (relationEl) relationEl.innerText = friend.relation || 'Friend';
 
     const avatarEl = document.getElementById('profile-avatar');
-    if (avatarEl) avatarEl.src = friend.avatar;
+    if (avatarEl) avatarEl.src = friend.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80';
 
     const bioEl = document.getElementById('profile-bio');
-    if (bioEl) bioEl.innerText = friend.bio;
+    if (bioEl) bioEl.innerText = friend.bio || 'Belum ada bio ringkas.';
 
     const scoreEl = document.getElementById('profile-score-val');
-    if (scoreEl) scoreEl.innerText = `${friend.score}% Intimacy Score`;
+    if (scoreEl) scoreEl.innerText = `${friend.score || 85}% Intimacy Score`;
 
     const lifeEl = document.getElementById('profile-current-life');
-    if (lifeEl) lifeEl.innerText = friend.currentLife;
+    if (lifeEl) lifeEl.innerText = friend.currentLife || 'Belum ada kabar terbaru.';
 
     const summaryEl = document.getElementById('profile-ai-summary');
-    if (summaryEl) summaryEl.innerText = friend.aiSummary;
+    if (summaryEl) summaryEl.innerText = friend.aiSummary || `${friend.name} adalah salah satu koneksi berharga di antarmuka MindVault Anda.`;
 
     // Favorites
     const favsContainer = document.getElementById('profile-favorites-list');
-    if (favsContainer && friend.favorites) {
-      favsContainer.innerHTML = Object.entries(friend.favorites).map(([key, val]) => `
-        <div style="padding: 10px 14px; background: #FFF9FC; border-radius: 12px; margin-bottom: 8px; font-size: 13px;">
-          <strong style="text-transform: capitalize; color: var(--accent-hover);">${key}:</strong> ${val}
-        </div>
-      `).join('');
+    if (favsContainer) {
+      const favEntries = Object.entries(friend.favorites || {});
+      if (favEntries.length === 0) {
+        favsContainer.innerHTML = '<p style="font-size: 13px; color: var(--text-muted); padding: 6px;">Belum ada favorit yang diisi. Klik Edit Profile untuk menambahkan.</p>';
+      } else {
+        favsContainer.innerHTML = favEntries.map(([key, val]) => `
+          <div style="padding: 10px 14px; background: #FFF9FC; border-radius: 12px; margin-bottom: 8px; font-size: 13px;">
+            <strong style="text-transform: capitalize; color: var(--accent-hover);">${key}:</strong> ${val}
+          </div>
+        `).join('');
+      }
     }
 
     // Safe & Avoid Topics
     const safeContainer = document.getElementById('profile-safe-topics');
-    if (safeContainer && friend.safeTopics) {
-      safeContainer.innerHTML = friend.safeTopics.map(topic => `
-        <div class="topic-box safe-topic-box">
-          🟢 <strong>Great Topic:</strong> ${topic}
-        </div>
-      `).join('');
+    if (safeContainer) {
+      const safeList = friend.safeTopics || [];
+      if (safeList.length === 0) {
+        safeContainer.innerHTML = '<p style="font-size: 13px; color: var(--text-muted);">Belum ada topik aman.</p>';
+      } else {
+        safeContainer.innerHTML = safeList.map(topic => `
+          <div class="topic-box safe-topic-box">
+            🟢 <strong>Great Topic:</strong> ${topic}
+          </div>
+        `).join('');
+      }
     }
 
     const avoidContainer = document.getElementById('profile-avoid-topics');
-    if (avoidContainer && friend.avoidTopics) {
-      avoidContainer.innerHTML = friend.avoidTopics.map(topic => `
-        <div class="topic-box avoid-topic-box">
-          🔴 <strong>Topic to Avoid:</strong> ${topic}
-        </div>
-      `).join('');
+    if (avoidContainer) {
+      const avoidList = friend.avoidTopics || [];
+      if (avoidList.length === 0) {
+        avoidContainer.innerHTML = '<p style="font-size: 13px; color: var(--text-muted);">Belum ada topik yang dihindari.</p>';
+      } else {
+        avoidContainer.innerHTML = avoidList.map(topic => `
+          <div class="topic-box avoid-topic-box">
+            🔴 <strong>Topic to Avoid:</strong> ${topic}
+          </div>
+        `).join('');
+      }
     }
 
     // Gift Ideas
     const giftsContainer = document.getElementById('profile-gift-ideas');
-    if (giftsContainer && friend.giftIdeas) {
-      giftsContainer.innerHTML = friend.giftIdeas.map(gift => `
-        <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: white; border-radius: 14px; border: 1px solid var(--card-border); margin-bottom: 8px;">
-          <div>
-            <strong style="font-size: 13px; color: var(--text-dark);">${gift.item}</strong>
-            <div style="font-size: 11px; color: var(--text-muted);">${gift.tag}</div>
+    if (giftsContainer) {
+      const giftList = friend.giftIdeas || [];
+      if (giftList.length === 0) {
+        giftsContainer.innerHTML = '<p style="font-size: 13px; color: var(--text-muted);">Belum ada ide hadiah.</p>';
+      } else {
+        giftsContainer.innerHTML = giftList.map(gift => `
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: white; border-radius: 14px; border: 1px solid var(--card-border); margin-bottom: 8px;">
+            <div>
+              <strong style="font-size: 13px; color: var(--text-dark);">${gift.item}</strong>
+              <div style="font-size: 11px; color: var(--text-muted);">${gift.tag || 'Gift'}</div>
+            </div>
+            <span style="font-weight: 800; color: var(--accent-hover); font-size: 14px;">${gift.price || ''}</span>
           </div>
-          <span style="font-weight: 800; color: var(--accent-hover); font-size: 14px;">${gift.price}</span>
-        </div>
-      `).join('');
+        `).join('');
+      }
     }
   },
 

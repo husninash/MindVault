@@ -246,7 +246,7 @@
           <h2 style="font-size: 24px; font-weight: 800;">Friends Directory</h2>
           <p style="font-size: 14px; color: var(--text-muted);">Manage intimacy tiers, favorites, and AI summaries.</p>
         </div>
-        <button class="btn btn-primary" onclick="document.getElementById('modal-add-friend').classList.add('active')">
+        <button class="btn btn-primary" onclick="MindVaultApp.openAddFriendModal()">
           <i class="fa-solid fa-user-plus"></i>
           <span>Add New Friend</span>
         </button>
@@ -270,6 +270,7 @@
           </div>
         </div>
         <div class="profile-actions-bar">
+          <button class="btn btn-secondary" onclick="MindVaultApp.openEditProfileModal(MindVaultApp.selectedFriendId)"><i class="fa-solid fa-pen-to-square" style="color: var(--accent-hover);"></i> Edit Profile</button>
           <button class="btn btn-secondary" onclick="MindVaultApp.openPrepModal(MindVaultApp.selectedFriendId)">⚡ Prep Meeting</button>
           <button class="btn btn-primary" onclick="MindVaultApp.openSimulatorModal(MindVaultApp.selectedFriendId)">💬 Practice Chat</button>
         </div>
@@ -499,20 +500,30 @@
   </div>
 </div>
 
-<!-- MODAL: ADD FRIEND -->
+<!-- MODAL: ADD / EDIT FRIEND -->
 <div id="modal-add-friend" class="modal-overlay">
-  <div class="modal-card">
+  <div class="modal-card" style="max-width: 680px;">
     <div class="modal-header">
-      <h3>✨ Add New Friend Profile</h3>
+      <h3 id="modal-add-friend-title">✨ Add New Friend Profile</h3>
       <button class="modal-close-btn">&times;</button>
     </div>
+    <input type="hidden" id="edit-friend-id" value="">
+    
+    <!-- Section 1: Basic Info -->
+    <div style="font-weight: 700; font-size: 13px; color: var(--accent-hover); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">👤 Basic Information</div>
     <div class="form-group">
-      <label>Full Name</label>
+      <label>Full Name <span style="color: red;">*</span></label>
       <input type="text" id="add-friend-name" class="form-control" placeholder="e.g. Chloe Bennett">
     </div>
-    <div class="form-group">
-      <label>Relationship / Tier</label>
-      <input type="text" id="add-friend-relation" class="form-control" placeholder="e.g. Close Friend, Inner Circle">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+      <div class="form-group">
+        <label>Relationship / Tier</label>
+        <input type="text" id="add-friend-relation" class="form-control" placeholder="e.g. Close Friend, Inner Circle">
+      </div>
+      <div class="form-group">
+        <label>Birthday (Tanggal Lahir)</label>
+        <input type="date" id="add-friend-birthday" class="form-control">
+      </div>
     </div>
     <div class="form-group">
       <label>Avatar Photo</label>
@@ -529,11 +540,68 @@
       <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px; text-align: center;">- OR paste web image URL -</div>
       <input type="text" id="add-friend-avatar" class="form-control" style="margin-top: 4px;" placeholder="https://images.unsplash.com/... (Optional URL)">
     </div>
+    
+    <div class="form-group">
+      <label>Bio / Bio Ringkas</label>
+      <input type="text" id="add-friend-bio" class="form-control" placeholder="e.g. Coffee enthusiast, UI designer, loves Tokyo travel">
+    </div>
     <div class="form-group">
       <label>Current Life Update</label>
-      <textarea id="add-friend-life" class="form-control" placeholder="What is happening in their life right now?"></textarea>
+      <textarea id="add-friend-life" class="form-control" placeholder="What is happening in their life right now? (Optional)"></textarea>
     </div>
-    <button class="btn btn-primary" style="width: 100%;" onclick="MindVaultApp.saveNewFriend()">Create Friend Profile</button>
+
+    <!-- Section 2: Favorites -->
+    <div style="font-weight: 700; font-size: 13px; color: var(--accent-hover); margin-top: 18px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">⭐ Favorites / Favorit (Optional)</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+      <div class="form-group">
+        <label>Favorite Drink</label>
+        <input type="text" id="add-friend-fav-drink" class="form-control" placeholder="e.g. Iced Oat Latte">
+      </div>
+      <div class="form-group">
+        <label>Favorite Food</label>
+        <input type="text" id="add-friend-fav-food" class="form-control" placeholder="e.g. Truffle Ramen">
+      </div>
+      <div class="form-group">
+        <label>Favorite Color</label>
+        <input type="text" id="add-friend-fav-color" class="form-control" placeholder="e.g. Lavender & Sage">
+      </div>
+      <div class="form-group">
+        <label>Favorite Hobby</label>
+        <input type="text" id="add-friend-fav-hobby" class="form-control" placeholder="e.g. Film Photography">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Favorite Book</label>
+      <input type="text" id="add-friend-fav-book" class="form-control" placeholder="e.g. Atomic Habits">
+    </div>
+
+    <!-- Section 3: Topics & Preferences -->
+    <div style="font-weight: 700; font-size: 13px; color: var(--accent-hover); margin-top: 18px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">💬 Topics & Preferences (Optional)</div>
+    <div class="form-group">
+      <label>Likes & Interests (Pisahkan dengan koma)</label>
+      <input type="text" id="add-friend-likes" class="form-control" placeholder="e.g. Design, Japan, Coffee, Cat Cafes">
+    </div>
+    <div class="form-group">
+      <label>Dislikes (Hal yang Dibenci)</label>
+      <input type="text" id="add-friend-dislikes" class="form-control" placeholder="e.g. Cilantro, Late arrivals without text">
+    </div>
+    <div class="form-group">
+      <label>🟢 Safe Topics (Topik Aman/Asyik untuk Dibahas)</label>
+      <input type="text" id="add-friend-safe-topics" class="form-control" placeholder="Pisahkan dengan koma, e.g. Upcoming trip, New studio">
+    </div>
+    <div class="form-group">
+      <label>🔴 Avoid Topics (Topik Dihindari)</label>
+      <input type="text" id="add-friend-avoid-topics" class="form-control" placeholder="Pisahkan dengan koma, e.g. Ex-partner, Work drama">
+    </div>
+
+    <!-- Section 4: Gift Ideas -->
+    <div style="font-weight: 700; font-size: 13px; color: var(--accent-hover); margin-top: 18px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">🎁 Gift Ideas / Ide Hadiah (Optional)</div>
+    <div class="form-group">
+      <label>Ide Hadiah (Format: Nama Barang ($Harga))</label>
+      <input type="text" id="add-friend-gifts" class="form-control" placeholder="e.g. Instax Camera ($199), Ceramic Bowl ($45)">
+    </div>
+
+    <button id="btn-save-friend" class="btn btn-primary" style="width: 100%; margin-top: 16px; padding: 14px;" onclick="MindVaultApp.saveFriendFromModal()">Save Friend Profile</button>
   </div>
 </div>
 
