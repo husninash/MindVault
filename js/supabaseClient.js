@@ -5,7 +5,7 @@ const MindVaultSupabase = {
 
   init() {
     // Read credentials from window.ENV, localStorage, or custom config
-    const supabaseUrl = (window.ENV && window.ENV.SUPABASE_URL) || localStorage.getItem('MINDVAULT_SUPABASE_URL');
+    const supabaseUrl = (window.ENV && window.ENV.SUPABASE_URL) || localStorage.getItem('MINDVAULT_SUPABASE_URL') || 'https://dlryqgpucgkcgnocnvqn.supabase.co';
     const supabaseKey = (window.ENV && window.ENV.SUPABASE_ANON_KEY) || localStorage.getItem('MINDVAULT_SUPABASE_ANON_KEY');
 
     if (window.supabase && supabaseUrl && supabaseKey) {
