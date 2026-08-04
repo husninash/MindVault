@@ -38,16 +38,17 @@ const MindVaultGemini = {
 
       if (!response.ok) {
         const errJson = await response.json().catch(() => ({}));
+        const errMsg = errJson.error?.message || `HTTP ${response.status}`;
         console.warn('Gemini API Error:', response.status, errJson);
-        throw new Error(`Gemini API HTTP ${response.status}`);
+        return { error: true, message: errMsg };
       }
 
       const data = await response.json();
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
       return text || "I couldn't process that response. Please try again!";
     } catch (err) {
-      console.warn('Gemini fetch failed, returning smart fallback:', err);
-      return null;
+      console.warn('Gemini fetch failed:', err);
+      return { error: true, message: err.message || "Failed to reach Gemini API endpoint." };
     }
   },
 

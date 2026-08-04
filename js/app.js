@@ -605,12 +605,17 @@ const MindVaultApp = {
 
     // Call Gemini API roleplay or fallback
     let aiResponse = await MindVaultGemini.roleplayFriend(friend, msg);
-    if (!aiResponse) {
-      aiResponse = `I'm having trouble connecting to Gemini API right now. Please check your API key!`;
+    const typingEl = document.getElementById(typingId);
+
+    if (aiResponse && aiResponse.error) {
+      if (typingEl) {
+        typingEl.innerHTML = `❌ <strong>Gemini API Error:</strong> ${aiResponse.message}`;
+      }
+      log.scrollTop = log.scrollHeight;
+      return;
     }
 
-    const typingEl = document.getElementById(typingId);
-    if (typingEl) typingEl.innerText = aiResponse;
+    if (typingEl) typingEl.innerText = typeof aiResponse === 'string' ? aiResponse : JSON.stringify(aiResponse);
     log.scrollTop = log.scrollHeight;
   },
 
@@ -662,12 +667,17 @@ const MindVaultApp = {
     // Call Gemini AI Assistant
     let response = await MindVaultGemini.chatWithAssistant(msg, MindVaultData.friends, MindVaultData.diaries);
     
-    if (!response) {
-      response = "I'm having trouble connecting to Gemini API right now. Please check your API key in Settings!";
+    const typingEl = document.getElementById(typingId);
+
+    if (response && response.error) {
+      if (typingEl) {
+        typingEl.innerHTML = `❌ <strong>Google Gemini API Error:</strong><br>${response.message}<br><br><small><em>Tips: API Key Google Gemini (Google AI Studio) harus diawali dengan <code>AIzaSy...</code>. Silakan dapatkan API Key gratis di <a href="https://aistudio.google.com" target="_blank" style="color: var(--accent); font-weight: 700;">aistudio.google.com</a> dan simpan di menu Settings.</em></small>`;
+      }
+      log.scrollTop = log.scrollHeight;
+      return;
     }
 
-    const typingEl = document.getElementById(typingId);
-    if (typingEl) typingEl.innerText = response;
+    if (typingEl) typingEl.innerText = typeof response === 'string' ? response : JSON.stringify(response);
     log.scrollTop = log.scrollHeight;
   },
 
