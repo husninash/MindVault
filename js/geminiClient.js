@@ -12,7 +12,9 @@ const MindVaultGemini = {
       console.log('ℹ️ Gemini API key not configured. Using local intelligence fallback.');
       return null;
     }
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    
+    // Primary model: gemini-2.5-flash, Fallback model: gemini-2.0-flash
+    let endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
     const requestBody = {
       contents: [
