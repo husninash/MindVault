@@ -31,6 +31,7 @@ const MindVaultApp = {
     this.renderRemindersList();
     this.populateDiaryFriendOptions();
     this.updateSupabaseStatusUI();
+    this.updateFriendsCountBadge();
   },
 
   async checkAuthSession() {
@@ -107,7 +108,7 @@ const MindVaultApp = {
     const name = document.getElementById('auth-input-name')?.value.trim();
 
     if (!email || !password) {
-      alert('Please fill in your email and password.');
+      this.showToast('Please fill in your email and password.', 'warning');
       return;
     }
 
@@ -115,17 +116,17 @@ const MindVaultApp = {
       if (typeof MindVaultSupabase !== 'undefined' && MindVaultSupabase.isConfigured) {
         const { data, error } = await MindVaultSupabase.signUp(email, password, name || 'User');
         if (error) {
-          alert('Sign Up Error: ' + error.message);
+          this.showToast('Sign Up Error: ' + error.message, 'error');
           return;
         }
-        alert('🎉 Account created! Check your email to confirm registration.');
+        this.showToast('Account created! Check your email to confirm registration.', 'success');
       }
       this.currentUser = { name: name || email.split('@')[0], email: email, avatar: MindVaultData.user.avatar };
     } else {
       if (typeof MindVaultSupabase !== 'undefined' && MindVaultSupabase.isConfigured) {
         const { data, error } = await MindVaultSupabase.signIn(email, password);
         if (error) {
-          alert('Login Failed: ' + error.message);
+          this.showToast('Login Failed: ' + error.message, 'error');
           return;
         }
         const user = data.user;
@@ -136,7 +137,7 @@ const MindVaultApp = {
     }
 
     localStorage.setItem('MINDVAULT_AUTH_SESSION', JSON.stringify(this.currentUser));
-    alert(`👋 Welcome back, ${this.currentUser.name}!`);
+    this.showToast(`Welcome back, ${this.currentUser.name}! 👋`, 'success');
     this.hideAuthScreen();
   },
 
@@ -168,7 +169,7 @@ const MindVaultApp = {
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      alert('File size too large. Please select an image under 5MB.');
+      this.showToast('File size too large. Please select an image under 5MB.', 'warning');
       return;
     }
 
@@ -192,7 +193,7 @@ const MindVaultApp = {
     const currentLife = document.getElementById('add-friend-life')?.value.trim();
 
     if (!name) {
-      alert('Please enter a friend name.');
+      this.showToast('Please enter a friend name.', 'warning');
       return;
     }
 
@@ -217,7 +218,7 @@ const MindVaultApp = {
     };
 
     await MindVaultSupabase.insertFriend(newFriend);
-    alert(`🎉 ${name} has been added to your Supabase database!`);
+    this.showToast(`${name} has been added to your friend directory! ✨`, 'success');
     document.getElementById('modal-add-friend')?.classList.remove('active');
 
     // Clear form inputs & reset upload state
@@ -232,6 +233,7 @@ const MindVaultApp = {
 
     this.renderFriendsGrid();
     this.populateDiaryFriendOptions();
+    this.updateFriendsCountBadge();
   },
 
   async saveNewDiary() {
@@ -240,7 +242,7 @@ const MindVaultApp = {
     const content = document.getElementById('add-diary-content')?.value.trim();
 
     if (!title || !content) {
-      alert('Please enter both a title and memory details.');
+      this.showToast('Please enter both a title and memory details.', 'warning');
       return;
     }
 
@@ -259,7 +261,7 @@ const MindVaultApp = {
     };
 
     await MindVaultSupabase.insertDiary(newDiary);
-    alert('📖 Memory log saved to Supabase successfully!');
+    this.showToast('Memory log saved successfully! 📖', 'success');
     document.getElementById('modal-add-diary')?.classList.remove('active');
 
     // Clear form inputs
@@ -284,26 +286,26 @@ const MindVaultApp = {
     const url = document.getElementById('setting-supabase-url')?.value;
     const key = document.getElementById('setting-supabase-key')?.value;
     if (!url || !key) {
-      alert('Please enter both Supabase URL and Anon Key.');
+      this.showToast('Please enter both Supabase URL and Anon Key.', 'warning');
       return;
     }
     const success = MindVaultSupabase.setCredentials(url, key);
     if (success) {
-      alert('🎉 Connected to Supabase successfully! Reloading data...');
+      this.showToast('Connected to Supabase successfully! Reloading data...', 'success');
       this.init();
     } else {
-      alert('❌ Could not connect to Supabase. Please verify your Project URL and Anon Key.');
+      this.showToast('Could not connect to Supabase. Please verify your credentials.', 'error');
     }
   },
 
   saveGeminiConfig() {
     const key = document.getElementById('setting-gemini-key')?.value;
     if (!key) {
-      alert('Please enter a valid API Key.');
+      this.showToast('Please enter a valid API Key.', 'warning');
       return;
     }
     localStorage.setItem('MINDVAULT_GEMINI_KEY', key.trim());
-    alert('✨ API Key saved successfully!');
+    this.showToast('API Key saved successfully! ✨', 'success');
   },
 
   updateSupabaseStatusUI() {
@@ -723,5 +725,43 @@ const MindVaultApp = {
         document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
       });
     });
+  },
+
+  showToast(message, type = 'info') {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'toast-container';
+      document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `toast-message toast-${type}`;
+
+    let iconHtml = '✨';
+    if (type === 'success') iconHtml = '🎉';
+    else if (type === 'error') iconHtml = '❌';
+    else if (type === 'warning') iconHtml = '⚠️';
+    else if (type === 'info') iconHtml = '💡';
+
+    toast.innerHTML = `
+      <div class="toast-icon">${iconHtml}</div>
+      <div class="toast-content">${message}</div>
+      <i class="fa-solid fa-xmark toast-close" onclick="this.parentElement.remove()"></i>
+    `;
+
+    container.appendChild(toast);
+
+    setTimeout(() => {
+      toast.classList.add('toast-exit');
+      setTimeout(() => toast.remove(), 300);
+    }, 3800);
+  },
+
+  updateFriendsCountBadge() {
+    const badge = document.getElementById('nav-friends-count');
+    if (!badge) return;
+    const count = MindVaultData.friends ? MindVaultData.friends.length : 0;
+    badge.innerText = count;
   }
 };
