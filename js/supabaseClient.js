@@ -60,18 +60,18 @@ const MindVaultSupabase = {
     return null;
   },
 
-  // Async query wrappers with seamless local fallback
+  // Async query wrappers (Pure Live Database Mode when Supabase is configured)
   async fetchFriends() {
     if (!this.isConfigured || !this.client) {
       return MindVaultData.friends;
     }
     try {
       const { data, error } = await this.client.from('friends').select('*').order('id', { ascending: true });
-      if (error || !data || data.length === 0) {
-        console.warn('Supabase fetchFriends error/empty, using local fallback:', error);
-        return MindVaultData.friends;
+      if (error) {
+        console.error('Supabase fetchFriends error:', error);
+        return [];
       }
-      return data.map(f => ({
+      return (data || []).map(f => ({
         id: f.id,
         name: f.name,
         relation: f.relation,
@@ -91,7 +91,7 @@ const MindVaultSupabase = {
       }));
     } catch (e) {
       console.error('Fetch friends exception:', e);
-      return MindVaultData.friends;
+      return [];
     }
   },
 
@@ -101,8 +101,11 @@ const MindVaultSupabase = {
     }
     try {
       const { data, error } = await this.client.from('diaries').select('*').order('date', { ascending: false });
-      if (error || !data || data.length === 0) return MindVaultData.diaries;
-      return data.map(d => ({
+      if (error) {
+        console.error('Supabase fetchDiaries error:', error);
+        return [];
+      }
+      return (data || []).map(d => ({
         id: d.id,
         friendId: d.friend_id,
         friendName: d.friend_name,
@@ -114,13 +117,12 @@ const MindVaultSupabase = {
         tags: d.tags || []
       }));
     } catch (e) {
-      return MindVaultData.diaries;
+      return [];
     }
   },
 
   async insertDiary(diaryObj) {
     if (!this.isConfigured || !this.client) {
-      // Local push fallback
       MindVaultData.diaries.unshift(diaryObj);
       return diaryObj;
     }
@@ -138,8 +140,7 @@ const MindVaultSupabase = {
       const { data, error } = await this.client.from('diaries').insert([payload]).select();
       if (error) {
         console.error('Failed inserting diary to Supabase:', error);
-        MindVaultData.diaries.unshift(diaryObj);
-        return diaryObj;
+        return null;
       }
       const inserted = data[0];
       const result = {
@@ -156,8 +157,8 @@ const MindVaultSupabase = {
       MindVaultData.diaries.unshift(result);
       return result;
     } catch (err) {
-      MindVaultData.diaries.unshift(diaryObj);
-      return diaryObj;
+      console.error('Insert diary exception:', err);
+      return null;
     }
   },
 
@@ -188,8 +189,7 @@ const MindVaultSupabase = {
       const { data, error } = await this.client.from('friends').insert([payload]).select();
       if (error) {
         console.error('Error inserting friend to Supabase:', error);
-        MindVaultData.friends.push(friendObj);
-        return friendObj;
+        return null;
       }
       const inserted = data[0];
       const result = {
@@ -213,8 +213,8 @@ const MindVaultSupabase = {
       MindVaultData.friends.push(result);
       return result;
     } catch (e) {
-      MindVaultData.friends.push(friendObj);
-      return friendObj;
+      console.error('Insert friend exception:', e);
+      return null;
     }
   },
 
@@ -222,8 +222,8 @@ const MindVaultSupabase = {
     if (!this.isConfigured || !this.client) return MindVaultData.reminders;
     try {
       const { data, error } = await this.client.from('reminders').select('*').order('date', { ascending: true });
-      if (error || !data || data.length === 0) return MindVaultData.reminders;
-      return data.map(r => ({
+      if (error) return [];
+      return (data || []).map(r => ({
         id: r.id,
         date: r.date,
         title: r.title,
@@ -231,7 +231,7 @@ const MindVaultSupabase = {
         type: r.type
       }));
     } catch (e) {
-      return MindVaultData.reminders;
+      return [];
     }
   },
 
@@ -239,30 +239,48 @@ const MindVaultSupabase = {
     if (!this.isConfigured || !this.client) return MindVaultData.todaysTopics;
     try {
       const { data, error } = await this.client.from('todays_topics').select('*');
-      if (error || !data || data.length === 0) return MindVaultData.todaysTopics;
-      return data.map(t => ({
+      if (error) return [];
+      return (data || []).map(t => ({
         id: t.id,
         text: t.text,
         friendId: t.friend_id,
         priority: t.priority
       }));
     } catch (e) {
-      return MindVaultData.todaysTopics;
+      return [];
     }
   },
 
   async fetchKnowledgeGraph() {
     if (!this.isConfigured || !this.client) return MindVaultData.knowledgeGraph;
     try {
-      const { data: nodes } = await this.client.from('knowledge_nodes').select('*');
-      const { data: edges } = await this.client.from('knowledge_edges').select('*');
-      if (!nodes || nodes.length === 0) return MindVaultData.knowledgeGraph;
+      const { data: nodes, error: err1 } = await this.client.from('knowledge_nodes').select('*');
+      const { data: edges, error: err2 } = await this.client.from('knowledge_edges').select('*');
+      if (err1 || !nodes) return { nodes: [], edges: [] };
       return {
         nodes: nodes.map(n => ({ id: n.id, label: n.label, type: n.type })),
         edges: (edges || []).map(e => ({ from: e.from_node, to: e.to_node, label: e.label }))
       };
     } catch (e) {
-      return MindVaultData.knowledgeGraph;
+      return { nodes: [], edges: [] };
+    }
+  },
+
+  async deleteFriend(friendId) {
+    if (!this.isConfigured || !this.client) {
+      MindVaultData.friends = MindVaultData.friends.filter(f => f.id !== friendId);
+      return true;
+    }
+    try {
+      const { error } = await this.client.from('friends').delete().eq('id', friendId);
+      if (error) {
+        console.error('Delete friend error:', error);
+        return false;
+      }
+      MindVaultData.friends = MindVaultData.friends.filter(f => f.id !== friendId);
+      return true;
+    } catch (e) {
+      return false;
     }
   }
 };
