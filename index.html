@@ -72,12 +72,15 @@
 
     <!-- Bottom User Card -->
     <div class="user-profile-card">
-      <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80" class="user-avatar" alt="Aria Chen">
+      <img id="sidebar-user-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80" class="user-avatar" alt="User">
       <div class="user-info">
-        <h4>Aria Chen</h4>
-        <p>Pro Member ✨</p>
+        <h4 id="sidebar-user-name">Aria Chen</h4>
+        <p id="sidebar-user-role">Pro Member ✨</p>
       </div>
-      <i class="fa-solid fa-gear" style="margin-left: auto; color: var(--text-muted); cursor: pointer;" onclick="MindVaultApp.switchView('settings')"></i>
+      <div style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
+        <i class="fa-solid fa-gear" style="color: var(--text-muted); cursor: pointer;" title="Settings" onclick="MindVaultApp.switchView('settings')"></i>
+        <i class="fa-solid fa-right-from-bracket" style="color: var(--accent-hover); cursor: pointer;" title="Logout" onclick="MindVaultApp.handleLogout()"></i>
+      </div>
     </div>
   </aside>
 
@@ -544,6 +547,56 @@
       <textarea class="form-control" placeholder="What did you talk about? Any preferences or updates mentioned?"></textarea>
     </div>
     <button class="btn btn-primary" style="width: 100%;" onclick="alert('Memory logged successfully!'); document.getElementById('modal-add-diary').classList.remove('active');">Save Memory Log</button>
+  </div>
+</div>
+
+<!-- AUTHENTICATION SCREEN OVERLAY -->
+<div id="auth-modal-screen" class="auth-overlay active">
+  <div class="auth-card">
+    <div class="auth-header">
+      <div class="auth-brand-icon">
+        <i class="fa-solid fa-brain"></i>
+      </div>
+      <h2>MindVault</h2>
+      <p>Relationship AI & Personal Second Brain</p>
+    </div>
+
+    <!-- Auth Tabs -->
+    <div class="auth-nav-tabs">
+      <button class="auth-tab-btn active" id="auth-tab-login" onclick="MindVaultApp.switchAuthTab('login')">Log In</button>
+      <button class="auth-tab-btn" id="auth-tab-register" onclick="MindVaultApp.switchAuthTab('register')">Sign Up</button>
+    </div>
+
+    <!-- Auth Form -->
+    <form id="auth-form" onsubmit="event.preventDefault(); MindVaultApp.handleAuthSubmit();">
+      <div id="auth-name-group" class="auth-input-wrapper" style="display: none;">
+        <i class="fa-solid fa-user auth-input-icon"></i>
+        <input type="text" id="auth-input-name" class="form-control auth-input" placeholder="Full Name">
+      </div>
+
+      <div class="auth-input-wrapper">
+        <i class="fa-solid fa-envelope auth-input-icon"></i>
+        <input type="email" id="auth-input-email" class="form-control auth-input" placeholder="Email Address" required>
+      </div>
+
+      <div class="auth-input-wrapper">
+        <i class="fa-solid fa-lock auth-input-icon"></i>
+        <input type="password" id="auth-input-password" class="form-control auth-input" placeholder="Password" required>
+      </div>
+
+      <button type="submit" id="auth-submit-btn" class="btn btn-primary auth-btn-submit">
+        <i class="fa-solid fa-right-to-bracket"></i> Log In to MindVault
+      </button>
+    </form>
+
+    <div class="auth-divider">
+      <span>OR</span>
+    </div>
+
+    <!-- Quick Demo Access -->
+    <button type="button" class="auth-demo-btn" onclick="MindVaultApp.demoLogin()">
+      <span>✨ Quick Demo Access (Aria Chen)</span>
+    </button>
   </div>
 </div>
 

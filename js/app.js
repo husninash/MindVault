@@ -7,6 +7,8 @@ const MindVaultApp = {
   activeView: 'dashboard',
   selectedFriendId: 1,
   graphEngine: null,
+  authMode: 'login',
+  currentUser: null,
 
   async init() {
     this.bindNavigation();
@@ -19,11 +21,140 @@ const MindVaultApp = {
       MindVaultData.diaries = await MindVaultSupabase.fetchDiaries();
     }
 
+    await this.checkAuthSession();
     this.renderDashboard();
     this.renderFriendsGrid();
     this.renderDiariesList();
     this.renderRemindersList();
     this.updateSupabaseStatusUI();
+  },
+
+  async checkAuthSession() {
+    const localSession = localStorage.getItem('MINDVAULT_AUTH_SESSION');
+    let supabaseUser = null;
+    if (typeof MindVaultSupabase !== 'undefined') {
+      supabaseUser = await MindVaultSupabase.getSessionUser();
+    }
+
+    if (supabaseUser) {
+      this.currentUser = {
+        name: supabaseUser.user_metadata?.full_name || supabaseUser.email.split('@')[0],
+        email: supabaseUser.email,
+        avatar: MindVaultData.user.avatar
+      };
+      this.hideAuthScreen();
+    } else if (localSession) {
+      try {
+        this.currentUser = JSON.parse(localSession);
+        this.hideAuthScreen();
+      } catch (e) {
+        this.showAuthScreen();
+      }
+    } else {
+      this.showAuthScreen();
+    }
+  },
+
+  showAuthScreen() {
+    const modal = document.getElementById('auth-modal-screen');
+    if (modal) modal.classList.add('active');
+  },
+
+  hideAuthScreen() {
+    const modal = document.getElementById('auth-modal-screen');
+    if (modal) modal.classList.remove('active');
+    this.updateUserSidebar();
+  },
+
+  updateUserSidebar() {
+    if (!this.currentUser) return;
+    const nameEl = document.getElementById('sidebar-user-name');
+    const roleEl = document.getElementById('sidebar-user-role');
+    const avatarEl = document.getElementById('sidebar-user-avatar');
+
+    if (nameEl) nameEl.innerText = this.currentUser.name;
+    if (roleEl) roleEl.innerText = this.currentUser.email || 'Pro Member ✨';
+    if (avatarEl && this.currentUser.avatar) avatarEl.src = this.currentUser.avatar;
+  },
+
+  switchAuthTab(tab) {
+    this.authMode = tab;
+    const loginBtn = document.getElementById('auth-tab-login');
+    const regBtn = document.getElementById('auth-tab-register');
+    const nameGroup = document.getElementById('auth-name-group');
+    const submitBtn = document.getElementById('auth-submit-btn');
+
+    if (tab === 'login') {
+      if (loginBtn) loginBtn.classList.add('active');
+      if (regBtn) regBtn.classList.remove('active');
+      if (nameGroup) nameGroup.style.display = 'none';
+      if (submitBtn) submitBtn.innerHTML = `<i class="fa-solid fa-right-to-bracket"></i> Log In to MindVault`;
+    } else {
+      if (regBtn) regBtn.classList.add('active');
+      if (loginBtn) loginBtn.classList.remove('active');
+      if (nameGroup) nameGroup.style.display = 'block';
+      if (submitBtn) submitBtn.innerHTML = `<i class="fa-solid fa-user-plus"></i> Create Account`;
+    }
+  },
+
+  async handleAuthSubmit() {
+    const email = document.getElementById('auth-input-email')?.value.trim();
+    const password = document.getElementById('auth-input-password')?.value.trim();
+    const name = document.getElementById('auth-input-name')?.value.trim();
+
+    if (!email || !password) {
+      alert('Please fill in your email and password.');
+      return;
+    }
+
+    if (this.authMode === 'register') {
+      if (typeof MindVaultSupabase !== 'undefined' && MindVaultSupabase.isConfigured) {
+        const { data, error } = await MindVaultSupabase.signUp(email, password, name || 'User');
+        if (error) {
+          alert('Sign Up Error: ' + error.message);
+          return;
+        }
+        alert('🎉 Account created! Check your email to confirm registration.');
+      }
+      this.currentUser = { name: name || email.split('@')[0], email: email, avatar: MindVaultData.user.avatar };
+    } else {
+      if (typeof MindVaultSupabase !== 'undefined' && MindVaultSupabase.isConfigured) {
+        const { data, error } = await MindVaultSupabase.signIn(email, password);
+        if (error) {
+          alert('Login Failed: ' + error.message);
+          return;
+        }
+        const user = data.user;
+        this.currentUser = { name: user.user_metadata?.full_name || email.split('@')[0], email: email, avatar: MindVaultData.user.avatar };
+      } else {
+        this.currentUser = { name: email.split('@')[0], email: email, avatar: MindVaultData.user.avatar };
+      }
+    }
+
+    localStorage.setItem('MINDVAULT_AUTH_SESSION', JSON.stringify(this.currentUser));
+    alert(`👋 Welcome back, ${this.currentUser.name}!`);
+    this.hideAuthScreen();
+  },
+
+  demoLogin() {
+    this.currentUser = {
+      name: MindVaultData.user.name,
+      email: MindVaultData.user.email,
+      avatar: MindVaultData.user.avatar
+    };
+    localStorage.setItem('MINDVAULT_AUTH_SESSION', JSON.stringify(this.currentUser));
+    this.hideAuthScreen();
+  },
+
+  async handleLogout() {
+    if (confirm('Are you sure you want to log out of MindVault?')) {
+      if (typeof MindVaultSupabase !== 'undefined') {
+        await MindVaultSupabase.signOut();
+      }
+      localStorage.removeItem('MINDVAULT_AUTH_SESSION');
+      this.currentUser = null;
+      this.showAuthScreen();
+    }
   },
 
   saveSupabaseConfig() {
@@ -40,6 +171,8 @@ const MindVaultApp = {
     } else {
       alert('❌ Could not connect to Supabase. Please verify your Project URL and Anon Key.');
     }
+  },
+
   saveGeminiConfig() {
     const key = document.getElementById('setting-gemini-key')?.value;
     if (!key) {

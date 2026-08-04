@@ -31,6 +31,35 @@ const MindVaultSupabase = {
     return this.isConfigured;
   },
 
+  // Supabase Auth Integration
+  async signUp(email, password, fullName) {
+    if (!this.isConfigured || !this.client) return { data: null, error: { message: "Supabase not configured." } };
+    return await this.client.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: fullName } }
+    });
+  },
+
+  async signIn(email, password) {
+    if (!this.isConfigured || !this.client) return { data: null, error: { message: "Supabase not configured." } };
+    return await this.client.auth.signInWithPassword({ email, password });
+  },
+
+  async signOut() {
+    if (this.isConfigured && this.client) {
+      await this.client.auth.signOut();
+    }
+  },
+
+  async getSessionUser() {
+    if (this.isConfigured && this.client) {
+      const { data } = await this.client.auth.getUser();
+      return data?.user || null;
+    }
+    return null;
+  },
+
   // Async query wrappers with seamless local fallback
   async fetchFriends() {
     if (!this.isConfigured || !this.client) {
