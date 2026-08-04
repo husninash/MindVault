@@ -593,15 +593,20 @@ const MindVaultApp = {
     log.innerHTML += `<div class="chat-bubble ai" id="${typingId}"><em>${friend.name} is typing... 💬</em></div>`;
     log.scrollTop = log.scrollHeight;
 
+    // Check if API key is set
+    if (!MindVaultGemini.getApiKey()) {
+      setTimeout(() => {
+        const typingEl = document.getElementById(typingId);
+        if (typingEl) typingEl.innerHTML = `⚠️ <em>Roleplay AI membutuhkan Gemini API Key. Masukkan Key di ⚙️ Settings -> Google Gemini AI Configuration agar ${friend.name} bisa membalas secara LIVE!</em>`;
+        log.scrollTop = log.scrollHeight;
+      }, 400);
+      return;
+    }
+
     // Call Gemini API roleplay or fallback
     let aiResponse = await MindVaultGemini.roleplayFriend(friend, msg);
     if (!aiResponse) {
-      const fallbackResponses = [
-        `Aww that's so sweet! Speaking of which, Mochi had her cat checkup yesterday and she did super well! 🐱`,
-        `Oh really? I've actually been thinking about our trip lately too! Let's definitely plan it! ✨`,
-        `Haha totally! By the way, how is your new MindVault project coming along?`
-      ];
-      aiResponse = fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
+      aiResponse = `I'm having trouble connecting to Gemini API right now. Please check your API key!`;
     }
 
     const typingEl = document.getElementById(typingId);
@@ -643,17 +648,22 @@ const MindVaultApp = {
     log.innerHTML += `<div class="chat-bubble ai" id="${typingId}"><em>Analyzing relationship memory with Gemini AI... ✨</em></div>`;
     log.scrollTop = log.scrollHeight;
 
+    // Check if API key is set
+    if (!MindVaultGemini.getApiKey()) {
+      setTimeout(() => {
+        const warningHtml = `⚠️ <strong>Gemini API Key Belum Diisi</strong><br><br>Agar AI Chatbot ini bisa merespons secara LIVE dengan Google Gemini AI, silakan isi API Key kamu di menu <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px; margin-top: 6px;" onclick="MindVaultApp.switchView('settings'); document.getElementById('ai-chat-drawer').classList.remove('active');">⚙️ Settings -> Gemini AI</button>`;
+        const typingEl = document.getElementById(typingId);
+        if (typingEl) typingEl.innerHTML = warningHtml;
+        log.scrollTop = log.scrollHeight;
+      }, 400);
+      return;
+    }
+
     // Call Gemini AI Assistant
     let response = await MindVaultGemini.chatWithAssistant(msg, MindVaultData.friends, MindVaultData.diaries);
     
     if (!response) {
-      if (msg.toLowerCase().includes('sophia')) {
-        response = "Sophia Martinez loves Iced Oat Lattes and photography. Remember to ask about her kitten Mochi!";
-      } else if (msg.toLowerCase().includes('liam')) {
-        response = "Liam Vance is training for a marathon and loves Cold Brew. Avoid bringing up past partnership friction.";
-      } else {
-        response = "I'm analyzing your relationship history! Sophia loves matcha & Kyoto, while Liam is focused on his Berlin Marathon prep.";
-      }
+      response = "I'm having trouble connecting to Gemini API right now. Please check your API key in Settings!";
     }
 
     const typingEl = document.getElementById(typingId);
