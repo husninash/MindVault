@@ -159,6 +159,111 @@ const MindVaultSupabase = {
       MindVaultData.diaries.unshift(diaryObj);
       return diaryObj;
     }
+  },
+
+  async insertFriend(friendObj) {
+    if (!this.isConfigured || !this.client) {
+      MindVaultData.friends.push(friendObj);
+      return friendObj;
+    }
+    try {
+      const payload = {
+        name: friendObj.name,
+        relation: friendObj.relation || 'Friend',
+        avatar: friendObj.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
+        tier: friendObj.tier || 'Close Circle',
+        birthday: friendObj.birthday || null,
+        score: friendObj.score || 85,
+        bio: friendObj.bio || '',
+        favorites: friendObj.favorites || {},
+        likes: friendObj.likes || [],
+        dislikes: friendObj.dislikes || [],
+        safe_topics: friendObj.safeTopics || [],
+        avoid_topics: friendObj.avoidTopics || [],
+        current_life: friendObj.currentLife || '',
+        ai_summary: friendObj.aiSummary || '',
+        gift_ideas: friendObj.giftIdeas || []
+      };
+
+      const { data, error } = await this.client.from('friends').insert([payload]).select();
+      if (error) {
+        console.error('Error inserting friend to Supabase:', error);
+        MindVaultData.friends.push(friendObj);
+        return friendObj;
+      }
+      const inserted = data[0];
+      const result = {
+        id: inserted.id,
+        name: inserted.name,
+        relation: inserted.relation,
+        avatar: inserted.avatar,
+        tier: inserted.tier,
+        birthday: inserted.birthday,
+        score: inserted.score,
+        bio: inserted.bio,
+        favorites: inserted.favorites || {},
+        likes: inserted.likes || [],
+        dislikes: inserted.dislikes || [],
+        safeTopics: inserted.safe_topics || [],
+        avoidTopics: inserted.avoid_topics || [],
+        currentLife: inserted.current_life || '',
+        aiSummary: inserted.ai_summary || '',
+        giftIdeas: inserted.gift_ideas || []
+      };
+      MindVaultData.friends.push(result);
+      return result;
+    } catch (e) {
+      MindVaultData.friends.push(friendObj);
+      return friendObj;
+    }
+  },
+
+  async fetchReminders() {
+    if (!this.isConfigured || !this.client) return MindVaultData.reminders;
+    try {
+      const { data, error } = await this.client.from('reminders').select('*').order('date', { ascending: true });
+      if (error || !data || data.length === 0) return MindVaultData.reminders;
+      return data.map(r => ({
+        id: r.id,
+        date: r.date,
+        title: r.title,
+        friendId: r.friend_id,
+        type: r.type
+      }));
+    } catch (e) {
+      return MindVaultData.reminders;
+    }
+  },
+
+  async fetchTopics() {
+    if (!this.isConfigured || !this.client) return MindVaultData.todaysTopics;
+    try {
+      const { data, error } = await this.client.from('todays_topics').select('*');
+      if (error || !data || data.length === 0) return MindVaultData.todaysTopics;
+      return data.map(t => ({
+        id: t.id,
+        text: t.text,
+        friendId: t.friend_id,
+        priority: t.priority
+      }));
+    } catch (e) {
+      return MindVaultData.todaysTopics;
+    }
+  },
+
+  async fetchKnowledgeGraph() {
+    if (!this.isConfigured || !this.client) return MindVaultData.knowledgeGraph;
+    try {
+      const { data: nodes } = await this.client.from('knowledge_nodes').select('*');
+      const { data: edges } = await this.client.from('knowledge_edges').select('*');
+      if (!nodes || nodes.length === 0) return MindVaultData.knowledgeGraph;
+      return {
+        nodes: nodes.map(n => ({ id: n.id, label: n.label, type: n.type })),
+        edges: (edges || []).map(e => ({ from: e.from_node, to: e.to_node, label: e.label }))
+      };
+    } catch (e) {
+      return MindVaultData.knowledgeGraph;
+    }
   }
 };
 

@@ -508,17 +508,17 @@
     </div>
     <div class="form-group">
       <label>Full Name</label>
-      <input type="text" class="form-control" placeholder="e.g. Chloe Bennett">
+      <input type="text" id="add-friend-name" class="form-control" placeholder="e.g. Chloe Bennett">
     </div>
     <div class="form-group">
       <label>Relationship / Tier</label>
-      <input type="text" class="form-control" placeholder="e.g. Close Friend, Inner Circle">
+      <input type="text" id="add-friend-relation" class="form-control" placeholder="e.g. Close Friend, Inner Circle">
     </div>
     <div class="form-group">
       <label>Current Life Update</label>
-      <textarea class="form-control" placeholder="What is happening in their life right now?"></textarea>
+      <textarea id="add-friend-life" class="form-control" placeholder="What is happening in their life right now?"></textarea>
     </div>
-    <button class="btn btn-primary" style="width: 100%;" onclick="alert('Friend added to MindVault!'); document.getElementById('modal-add-friend').classList.remove('active');">Create Friend Profile</button>
+    <button class="btn btn-primary" style="width: 100%;" onclick="MindVaultApp.saveNewFriend()">Create Friend Profile</button>
   </div>
 </div>
 
@@ -531,11 +531,11 @@
     </div>
     <div class="form-group">
       <label>Title</label>
-      <input type="text" class="form-control" placeholder="e.g. Dinner & Catchup at Bistro">
+      <input type="text" id="add-diary-title" class="form-control" placeholder="e.g. Dinner & Catchup at Bistro">
     </div>
     <div class="form-group">
       <label>Friend</label>
-      <select class="form-control">
+      <select id="add-diary-friend" class="form-control">
         <option>Sophia Martinez</option>
         <option>Liam Vance</option>
         <option>Maya Lin</option>
@@ -544,9 +544,9 @@
     </div>
     <div class="form-group">
       <label>Memory Details</label>
-      <textarea class="form-control" placeholder="What did you talk about? Any preferences or updates mentioned?"></textarea>
+      <textarea id="add-diary-content" class="form-control" placeholder="What did you talk about? Any preferences or updates mentioned?"></textarea>
     </div>
-    <button class="btn btn-primary" style="width: 100%;" onclick="alert('Memory logged successfully!'); document.getElementById('modal-add-diary').classList.remove('active');">Save Memory Log</button>
+    <button class="btn btn-primary" style="width: 100%;" onclick="MindVaultApp.saveNewDiary()">Save Memory Log</button>
   </div>
 </div>
 

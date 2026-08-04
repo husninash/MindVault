@@ -19,6 +19,9 @@ const MindVaultApp = {
     if (typeof MindVaultSupabase !== 'undefined') {
       MindVaultData.friends = await MindVaultSupabase.fetchFriends();
       MindVaultData.diaries = await MindVaultSupabase.fetchDiaries();
+      MindVaultData.reminders = await MindVaultSupabase.fetchReminders();
+      MindVaultData.todaysTopics = await MindVaultSupabase.fetchTopics();
+      MindVaultData.knowledgeGraph = await MindVaultSupabase.fetchKnowledgeGraph();
     }
 
     await this.checkAuthSession();
@@ -26,6 +29,7 @@ const MindVaultApp = {
     this.renderFriendsGrid();
     this.renderDiariesList();
     this.renderRemindersList();
+    this.populateDiaryFriendOptions();
     this.updateSupabaseStatusUI();
   },
 
@@ -155,6 +159,87 @@ const MindVaultApp = {
       this.currentUser = null;
       this.showAuthScreen();
     }
+  },
+
+  async saveNewFriend() {
+    const name = document.getElementById('add-friend-name')?.value.trim();
+    const relation = document.getElementById('add-friend-relation')?.value.trim();
+    const currentLife = document.getElementById('add-friend-life')?.value.trim();
+
+    if (!name) {
+      alert('Please enter a friend name.');
+      return;
+    }
+
+    const newFriend = {
+      name: name,
+      relation: relation || 'Friend',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
+      tier: 'Close Circle',
+      score: 85,
+      currentLife: currentLife || 'Recently added to MindVault.',
+      safeTopics: ['Recent life updates', 'Hobbies & interests'],
+      avoidTopics: [],
+      likes: ['Coffee', 'Travel'],
+      dislikes: [],
+      aiSummary: `${name} is a valued connection in your network.`,
+      favorites: {},
+      giftIdeas: []
+    };
+
+    await MindVaultSupabase.insertFriend(newFriend);
+    alert(`🎉 ${name} has been added to your Supabase database!`);
+    document.getElementById('modal-add-friend')?.classList.remove('active');
+
+    // Clear form inputs
+    if (document.getElementById('add-friend-name')) document.getElementById('add-friend-name').value = '';
+    if (document.getElementById('add-friend-relation')) document.getElementById('add-friend-relation').value = '';
+    if (document.getElementById('add-friend-life')) document.getElementById('add-friend-life').value = '';
+
+    this.renderFriendsGrid();
+    this.populateDiaryFriendOptions();
+  },
+
+  async saveNewDiary() {
+    const title = document.getElementById('add-diary-title')?.value.trim();
+    const friendName = document.getElementById('add-diary-friend')?.value;
+    const content = document.getElementById('add-diary-content')?.value.trim();
+
+    if (!title || !content) {
+      alert('Please enter both a title and memory details.');
+      return;
+    }
+
+    const matchedFriend = MindVaultData.friends.find(f => f.name === friendName) || MindVaultData.friends[0];
+    const today = new Date().toISOString().split('T')[0];
+
+    const newDiary = {
+      friendId: matchedFriend ? matchedFriend.id : 1,
+      friendName: friendName || 'Sophia Martinez',
+      date: today,
+      title: title,
+      location: 'Personal Log',
+      mood: '😊 Energetic & Inspired',
+      content: content,
+      tags: ['Memory', 'Log']
+    };
+
+    await MindVaultSupabase.insertDiary(newDiary);
+    alert('📖 Memory log saved to Supabase successfully!');
+    document.getElementById('modal-add-diary')?.classList.remove('active');
+
+    // Clear form inputs
+    if (document.getElementById('add-diary-title')) document.getElementById('add-diary-title').value = '';
+    if (document.getElementById('add-diary-content')) document.getElementById('add-diary-content').value = '';
+
+    this.renderDiariesList();
+    this.renderDashboard();
+  },
+
+  populateDiaryFriendOptions() {
+    const select = document.getElementById('add-diary-friend');
+    if (!select || !MindVaultData.friends) return;
+    select.innerHTML = MindVaultData.friends.map(f => `<option value="${f.name}">${f.name}</option>`).join('');
   },
 
   saveSupabaseConfig() {
