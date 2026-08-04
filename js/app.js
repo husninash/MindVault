@@ -249,7 +249,7 @@ const MindVaultApp = {
 
     const newDiary = {
       friendId: matchedFriend ? matchedFriend.id : 1,
-      friendName: friendName || 'Sophia Martinez',
+      friendName: friendName || 'Friend',
       date: today,
       title: title,
       location: 'Personal Log',
@@ -272,7 +272,11 @@ const MindVaultApp = {
 
   populateDiaryFriendOptions() {
     const select = document.getElementById('add-diary-friend');
-    if (!select || !MindVaultData.friends) return;
+    if (!select) return;
+    if (!MindVaultData.friends || MindVaultData.friends.length === 0) {
+      select.innerHTML = '<option value="">Belum ada teman</option>';
+      return;
+    }
     select.innerHTML = MindVaultData.friends.map(f => `<option value="${f.name}">${f.name}</option>`).join('');
   },
 
@@ -295,11 +299,11 @@ const MindVaultApp = {
   saveGeminiConfig() {
     const key = document.getElementById('setting-gemini-key')?.value;
     if (!key) {
-      alert('Please enter a valid Gemini API Key.');
+      alert('Please enter a valid API Key.');
       return;
     }
     localStorage.setItem('MINDVAULT_GEMINI_KEY', key.trim());
-    alert('✨ Google Gemini API Key saved successfully!');
+    alert('✨ API Key saved successfully!');
   },
 
   updateSupabaseStatusUI() {
@@ -362,29 +366,37 @@ const MindVaultApp = {
     // Today's topics list
     const topicsContainer = document.getElementById('dash-topics-list');
     if (topicsContainer) {
-      topicsContainer.innerHTML = MindVaultData.todaysTopics.map(topic => `
-        <div style="padding: 12px 14px; background: rgba(255,255,255,0.7); border-radius: 12px; margin-bottom: 8px; border: 1px solid rgba(248,187,217,0.3); display: flex; align-items: center; justify-content: space-between;">
-          <span style="font-size: 13px; font-weight: 600;">✨ ${topic.text}</span>
-          <span style="font-size: 10px; font-weight: 700; background: var(--secondary); color: var(--accent-hover); padding: 4px 10px; border-radius: 10px;">${topic.priority}</span>
-        </div>
-      `).join('');
+      if (!MindVaultData.todaysTopics || MindVaultData.todaysTopics.length === 0) {
+        topicsContainer.innerHTML = '<p style="font-size: 13px; color: var(--text-muted); padding: 8px;">Belum ada topik hari ini.</p>';
+      } else {
+        topicsContainer.innerHTML = MindVaultData.todaysTopics.map(topic => `
+          <div style="padding: 12px 14px; background: rgba(255,255,255,0.7); border-radius: 12px; margin-bottom: 8px; border: 1px solid rgba(248,187,217,0.3); display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 13px; font-weight: 600;">✨ ${topic.text}</span>
+            <span style="font-size: 10px; font-weight: 700; background: var(--secondary); color: var(--accent-hover); padding: 4px 10px; border-radius: 10px;">${topic.priority}</span>
+          </div>
+        `).join('');
+      }
     }
 
     // Recent Diary Logs
     const dashDiaryContainer = document.getElementById('dash-recent-diaries');
     if (dashDiaryContainer) {
-      dashDiaryContainer.innerHTML = MindVaultData.diaries.slice(0, 2).map(diary => `
-        <div style="background: white; border-radius: 16px; padding: 16px; margin-bottom: 12px; border: 1px solid var(--card-border); box-shadow: 0 4px 12px rgba(248,187,217,0.1);">
-          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-            <strong style="font-size: 14px; color: var(--text-dark);">${diary.title}</strong>
-            <span style="font-size: 11px; color: var(--text-muted);">${diary.date}</span>
+      if (!MindVaultData.diaries || MindVaultData.diaries.length === 0) {
+        dashDiaryContainer.innerHTML = '<p style="font-size: 13px; color: var(--text-muted); padding: 8px;">Belum ada jurnal percakapan.</p>';
+      } else {
+        dashDiaryContainer.innerHTML = MindVaultData.diaries.slice(0, 2).map(diary => `
+          <div style="background: white; border-radius: 16px; padding: 16px; margin-bottom: 12px; border: 1px solid var(--card-border); box-shadow: 0 4px 12px rgba(248,187,217,0.1);">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+              <strong style="font-size: 14px; color: var(--text-dark);">${diary.title}</strong>
+              <span style="font-size: 11px; color: var(--text-muted);">${diary.date}</span>
+            </div>
+            <p style="font-size: 12px; color: var(--text-medium); margin-bottom: 10px;">${diary.content}</p>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+              ${(diary.tags || []).map(t => `<span class="tag-chip">#${t}</span>`).join('')}
+            </div>
           </div>
-          <p style="font-size: 12px; color: var(--text-medium); margin-bottom: 10px;">${diary.content}</p>
-          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-            ${diary.tags.map(t => `<span class="tag-chip">#${t}</span>`).join('')}
-          </div>
-        </div>
-      `).join('');
+        `).join('');
+      }
     }
   },
 
@@ -393,21 +405,29 @@ const MindVaultApp = {
     const grid = document.getElementById('friends-grid-container');
     if (!grid) return;
 
+    if (!MindVaultData.friends || MindVaultData.friends.length === 0) {
+      grid.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 40px; background: white; border-radius: 20px; border: 1px dashed var(--card-border);">
+          <p style="color: var(--text-muted); font-size: 14px;">Belum ada teman yang ditambahkan. Silakan tambah teman baru!</p>
+        </div>`;
+      return;
+    }
+
     grid.innerHTML = MindVaultData.friends.map(friend => `
       <div class="friend-card">
         <div class="friend-card-avatar-wrapper">
-          <img src="${friend.avatar}" class="friend-card-avatar" alt="${friend.name}">
-          <span class="tier-badge">${friend.tier}</span>
+          <img src="${friend.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80'}" class="friend-card-avatar" alt="${friend.name}">
+          <span class="tier-badge">${friend.tier || 'Friend'}</span>
         </div>
         <h4>${friend.name}</h4>
-        <p class="relation-type">${friend.relation}</p>
+        <p class="relation-type">${friend.relation || ''}</p>
         
         <div class="friend-card-tags">
-          ${friend.likes.slice(0, 3).map(l => `<span class="tag-chip">❤️ ${l}</span>`).join('')}
+          ${(friend.likes || []).slice(0, 3).map(l => `<span class="tag-chip">❤️ ${l}</span>`).join('')}
         </div>
 
         <div style="width: 100%; padding: 10px; background: var(--bg-main); border-radius: 12px; font-size: 11px; color: var(--text-medium); margin-bottom: 14px; text-align: left;">
-          <strong>💡 AI Brief:</strong> ${friend.currentLife.substring(0, 65)}...
+          <strong>💡 AI Brief:</strong> ${(friend.currentLife || 'Belum ada info.').substring(0, 65)}...
         </div>
 
         <div class="friend-card-actions">
@@ -502,6 +522,14 @@ const MindVaultApp = {
     const container = document.getElementById('diaries-full-list');
     if (!container) return;
 
+    if (!MindVaultData.diaries || MindVaultData.diaries.length === 0) {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 40px; background: white; border-radius: 20px; border: 1px dashed var(--card-border);">
+          <p style="color: var(--text-muted); font-size: 14px;">Belum ada catatan jurnal.</p>
+        </div>`;
+      return;
+    }
+
     container.innerHTML = MindVaultData.diaries.map(diary => `
       <div class="glass-card" style="margin-bottom: 16px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
@@ -517,9 +545,9 @@ const MindVaultApp = {
         <p style="font-size: 13px; color: var(--text-medium); line-height: 1.6; margin-bottom: 12px;">${diary.content}</p>
         <div style="display: flex; align-items: center; justify-content: space-between;">
           <div style="display: flex; gap: 6px;">
-            ${diary.tags.map(t => `<span class="tag-chip">#${t}</span>`).join('')}
+            ${(diary.tags || []).map(t => `<span class="tag-chip">#${t}</span>`).join('')}
           </div>
-          <span style="font-size: 12px; font-weight: 600; color: var(--text-dark);">${diary.mood}</span>
+          <span style="font-size: 12px; font-weight: 600; color: var(--text-dark);">${diary.mood || ''}</span>
         </div>
       </div>
     `).join('');
@@ -529,6 +557,14 @@ const MindVaultApp = {
   renderRemindersList() {
     const container = document.getElementById('reminders-list-container');
     if (!container) return;
+
+    if (!MindVaultData.reminders || MindVaultData.reminders.length === 0) {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 40px; background: white; border-radius: 20px; border: 1px dashed var(--card-border);">
+          <p style="color: var(--text-muted); font-size: 14px;">Belum ada pengingat.</p>
+        </div>`;
+      return;
+    }
 
     container.innerHTML = MindVaultData.reminders.map(rem => `
       <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: white; border-radius: 16px; border: 1px solid var(--card-border); margin-bottom: 12px; box-shadow: var(--shadow-soft);">
@@ -597,7 +633,7 @@ const MindVaultApp = {
     if (!MindVaultGemini.getApiKey()) {
       setTimeout(() => {
         const typingEl = document.getElementById(typingId);
-        if (typingEl) typingEl.innerHTML = `⚠️ <em>Roleplay AI membutuhkan Gemini API Key. Masukkan Key di ⚙️ Settings -> Google Gemini AI Configuration agar ${friend.name} bisa membalas secara LIVE!</em>`;
+        if (typingEl) typingEl.innerHTML = `⚠️ <em>Roleplay AI membutuhkan API Key. Masukkan Key di ⚙️ Settings -> AI Configuration agar ${friend.name} bisa membalas secara LIVE!</em>`;
         log.scrollTop = log.scrollHeight;
       }, 400);
       return;
@@ -609,7 +645,7 @@ const MindVaultApp = {
 
     if (aiResponse && aiResponse.error) {
       if (typingEl) {
-        typingEl.innerHTML = `❌ <strong>Gemini API Error:</strong> ${aiResponse.message}`;
+        typingEl.innerHTML = `❌ <strong>AI Error:</strong> ${aiResponse.message}`;
       }
       log.scrollTop = log.scrollHeight;
       return;
@@ -650,13 +686,13 @@ const MindVaultApp = {
 
     // Show typing indicator
     const typingId = 'ai-typing-' + Date.now();
-    log.innerHTML += `<div class="chat-bubble ai" id="${typingId}"><em>Analyzing relationship memory with Gemini AI... ✨</em></div>`;
+    log.innerHTML += `<div class="chat-bubble ai" id="${typingId}"><em>Analyzing relationship memory... ✨</em></div>`;
     log.scrollTop = log.scrollHeight;
 
     // Check if API key is set
     if (!MindVaultGemini.getApiKey()) {
       setTimeout(() => {
-        const warningHtml = `⚠️ <strong>Gemini API Key Belum Diisi</strong><br><br>Agar AI Chatbot ini bisa merespons secara LIVE dengan Google Gemini AI, silakan isi API Key kamu di menu <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px; margin-top: 6px;" onclick="MindVaultApp.switchView('settings'); document.getElementById('ai-chat-drawer').classList.remove('active');">⚙️ Settings -> Gemini AI</button>`;
+        const warningHtml = `⚠️ <strong>API Key Belum Diisi</strong><br><br>Agar AI Chatbot ini bisa merespons secara LIVE, silakan isi API Key kamu di menu <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px; margin-top: 6px;" onclick="MindVaultApp.switchView('settings'); document.getElementById('ai-chat-drawer').classList.remove('active');">⚙️ Settings -> AI Configuration</button>`;
         const typingEl = document.getElementById(typingId);
         if (typingEl) typingEl.innerHTML = warningHtml;
         log.scrollTop = log.scrollHeight;
@@ -671,7 +707,7 @@ const MindVaultApp = {
 
     if (response && response.error) {
       if (typingEl) {
-        typingEl.innerHTML = `❌ <strong>Google Gemini API Error:</strong><br>${response.message}<br><br><small><em>Tips: Dapatkan Gemini API Key resmi gratis dari <a href="https://aistudio.google.com" target="_blank" style="color: var(--accent); font-weight: 700;">aistudio.google.com</a> dan simpan di menu ⚙️ Settings -> Gemini AI.</em></small>`;
+        typingEl.innerHTML = `❌ <strong>AI API Error:</strong><br>${response.message}<br><br><small><em>Tips: Dapatkan API Key resmi dari <a href="https://aistudio.google.com" target="_blank" style="color: var(--accent); font-weight: 700;">aistudio.google.com</a> dan simpan di menu ⚙️ Settings -> AI Configuration.</em></small>`;
       }
       log.scrollTop = log.scrollHeight;
       return;
