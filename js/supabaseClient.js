@@ -60,18 +60,30 @@ const MindVaultSupabase = {
     return null;
   },
 
-  // Async query wrappers (Pure Live Database Mode when Supabase is configured)
+  // Async query wrappers (Pure Live Database Mode when Supabase is configured, LocalStorage Fallback when offline)
   async fetchFriends() {
     if (!this.isConfigured || !this.client) {
-      return MindVaultData.friends;
+      const local = localStorage.getItem('MINDVAULT_LOCAL_FRIENDS');
+      if (local) {
+        try {
+          const parsed = JSON.parse(local);
+          if (Array.isArray(parsed)) {
+            MindVaultData.friends = parsed;
+            return parsed;
+          }
+        } catch (e) {
+          console.warn('Error parsing local friends:', e);
+        }
+      }
+      return MindVaultData.friends || [];
     }
     try {
       const { data, error } = await this.client.from('friends').select('*').order('id', { ascending: true });
       if (error) {
         console.error('Supabase fetchFriends error:', error);
-        return [];
+        return MindVaultData.friends || [];
       }
-      return (data || []).map(f => ({
+      const friends = (data || []).map(f => ({
         id: f.id,
         name: f.name,
         relation: f.relation,
@@ -89,23 +101,33 @@ const MindVaultSupabase = {
         aiSummary: f.ai_summary || '',
         giftIdeas: f.gift_ideas || []
       }));
+      MindVaultData.friends = friends;
+      localStorage.setItem('MINDVAULT_LOCAL_FRIENDS', JSON.stringify(friends));
+      return friends;
     } catch (e) {
       console.error('Fetch friends exception:', e);
-      return [];
+      return MindVaultData.friends || [];
     }
   },
 
   async fetchDiaries() {
     if (!this.isConfigured || !this.client) {
-      return MindVaultData.diaries;
+      const local = localStorage.getItem('MINDVAULT_LOCAL_DIARIES');
+      if (local) {
+        try {
+          const parsed = JSON.parse(local);
+          if (Array.isArray(parsed)) {
+            MindVaultData.diaries = parsed;
+            return parsed;
+          }
+        } catch (e) {}
+      }
+      return MindVaultData.diaries || [];
     }
     try {
       const { data, error } = await this.client.from('diaries').select('*').order('date', { ascending: false });
-      if (error) {
-        console.error('Supabase fetchDiaries error:', error);
-        return [];
-      }
-      return (data || []).map(d => ({
+      if (error) return MindVaultData.diaries || [];
+      const diaries = (data || []).map(d => ({
         id: d.id,
         friendId: d.friend_id,
         friendName: d.friend_name,
@@ -116,150 +138,121 @@ const MindVaultSupabase = {
         content: d.content,
         tags: d.tags || []
       }));
+      MindVaultData.diaries = diaries;
+      localStorage.setItem('MINDVAULT_LOCAL_DIARIES', JSON.stringify(diaries));
+      return diaries;
     } catch (e) {
-      return [];
+      return MindVaultData.diaries || [];
     }
   },
 
   async insertDiary(diaryObj) {
-    if (!this.isConfigured || !this.client) {
-      MindVaultData.diaries.unshift(diaryObj);
-      return diaryObj;
-    }
-    try {
-      const payload = {
-        friend_id: diaryObj.friendId,
-        friend_name: diaryObj.friendName,
-        date: diaryObj.date,
-        title: diaryObj.title,
-        location: diaryObj.location,
-        mood: diaryObj.mood,
-        content: diaryObj.content,
-        tags: diaryObj.tags
-      };
-      const { data, error } = await this.client.from('diaries').insert([payload]).select();
-      if (error) {
-        console.error('Failed inserting diary to Supabase:', error);
-        return null;
+    if (!diaryObj.id) diaryObj.id = Date.now();
+    MindVaultData.diaries.unshift(diaryObj);
+    localStorage.setItem('MINDVAULT_LOCAL_DIARIES', JSON.stringify(MindVaultData.diaries));
+
+    if (this.isConfigured && this.client) {
+      try {
+        const payload = {
+          friend_id: diaryObj.friendId,
+          friend_name: diaryObj.friendName,
+          date: diaryObj.date,
+          title: diaryObj.title,
+          location: diaryObj.location,
+          mood: diaryObj.mood,
+          content: diaryObj.content,
+          tags: diaryObj.tags
+        };
+        const { data, error } = await this.client.from('diaries').insert([payload]).select();
+        if (error) console.error('Failed inserting diary to Supabase:', error);
+      } catch (err) {
+        console.error('Insert diary exception:', err);
       }
-      const inserted = data[0];
-      const result = {
-        id: inserted.id,
-        friendId: inserted.friend_id,
-        friendName: inserted.friend_name,
-        date: inserted.date,
-        title: inserted.title,
-        location: inserted.location,
-        mood: inserted.mood,
-        content: inserted.content,
-        tags: inserted.tags || []
-      };
-      MindVaultData.diaries.unshift(result);
-      return result;
-    } catch (err) {
-      console.error('Insert diary exception:', err);
-      return null;
     }
+    return diaryObj;
   },
 
   async insertFriend(friendObj) {
-    if (!this.isConfigured || !this.client) {
-      MindVaultData.friends.push(friendObj);
-      return friendObj;
-    }
-    try {
-      const payload = {
-        name: friendObj.name,
-        relation: friendObj.relation || 'Friend',
-        avatar: friendObj.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
-        tier: friendObj.tier || 'Close Circle',
-        birthday: friendObj.birthday || null,
-        score: friendObj.score || 85,
-        bio: friendObj.bio || '',
-        favorites: friendObj.favorites || {},
-        likes: friendObj.likes || [],
-        dislikes: friendObj.dislikes || [],
-        safe_topics: friendObj.safeTopics || [],
-        avoid_topics: friendObj.avoidTopics || [],
-        current_life: friendObj.currentLife || '',
-        ai_summary: friendObj.aiSummary || '',
-        gift_ideas: friendObj.giftIdeas || []
-      };
+    if (!friendObj.id) friendObj.id = Date.now();
+    MindVaultData.friends.push(friendObj);
+    localStorage.setItem('MINDVAULT_LOCAL_FRIENDS', JSON.stringify(MindVaultData.friends));
 
-      const { data, error } = await this.client.from('friends').insert([payload]).select();
-      if (error) {
-        console.error('Error inserting friend to Supabase:', error);
-        return null;
+    if (this.isConfigured && this.client) {
+      try {
+        const payload = {
+          name: friendObj.name,
+          relation: friendObj.relation || 'Friend',
+          avatar: friendObj.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
+          tier: friendObj.tier || 'Close Circle',
+          birthday: friendObj.birthday || null,
+          score: friendObj.score || 85,
+          bio: friendObj.bio || '',
+          favorites: friendObj.favorites || {},
+          likes: friendObj.likes || [],
+          dislikes: friendObj.dislikes || [],
+          safe_topics: friendObj.safeTopics || [],
+          avoid_topics: friendObj.avoidTopics || [],
+          current_life: friendObj.currentLife || '',
+          ai_summary: friendObj.aiSummary || '',
+          gift_ideas: friendObj.giftIdeas || []
+        };
+
+        const { error } = await this.client.from('friends').insert([payload]);
+        if (error) console.error('Error inserting friend to Supabase:', error);
+      } catch (e) {
+        console.error('Insert friend exception:', e);
       }
-      const inserted = data[0];
-      const result = {
-        id: inserted.id,
-        name: inserted.name,
-        relation: inserted.relation,
-        avatar: inserted.avatar,
-        tier: inserted.tier,
-        birthday: inserted.birthday,
-        score: inserted.score,
-        bio: inserted.bio,
-        favorites: inserted.favorites || {},
-        likes: inserted.likes || [],
-        dislikes: inserted.dislikes || [],
-        safeTopics: inserted.safe_topics || [],
-        avoidTopics: inserted.avoid_topics || [],
-        currentLife: inserted.current_life || '',
-        aiSummary: inserted.ai_summary || '',
-        giftIdeas: inserted.gift_ideas || []
-      };
-      MindVaultData.friends.push(result);
-      return result;
-    } catch (e) {
-      console.error('Insert friend exception:', e);
-      return null;
     }
+    return friendObj;
   },
 
   async updateFriend(friendObj) {
-    if (!this.isConfigured || !this.client) {
-      const idx = MindVaultData.friends.findIndex(f => f.id === friendObj.id);
-      if (idx !== -1) {
-        MindVaultData.friends[idx] = { ...MindVaultData.friends[idx], ...friendObj };
-      }
-      return friendObj;
+    const idx = MindVaultData.friends.findIndex(f => f.id === friendObj.id);
+    if (idx !== -1) {
+      MindVaultData.friends[idx] = { ...MindVaultData.friends[idx], ...friendObj };
+    } else {
+      MindVaultData.friends.push(friendObj);
     }
-    try {
-      const payload = {
-        name: friendObj.name,
-        relation: friendObj.relation || 'Friend',
-        avatar: friendObj.avatar,
-        tier: friendObj.tier || 'Close Circle',
-        birthday: friendObj.birthday || null,
-        bio: friendObj.bio || '',
-        favorites: friendObj.favorites || {},
-        likes: friendObj.likes || [],
-        dislikes: friendObj.dislikes || [],
-        safe_topics: friendObj.safeTopics || [],
-        avoid_topics: friendObj.avoidTopics || [],
-        current_life: friendObj.currentLife || '',
-        gift_ideas: friendObj.giftIdeas || []
-      };
+    localStorage.setItem('MINDVAULT_LOCAL_FRIENDS', JSON.stringify(MindVaultData.friends));
 
-      const { error } = await this.client.from('friends').update(payload).eq('id', friendObj.id);
-      if (error) {
-        console.error('Error updating friend in Supabase:', error);
+    if (this.isConfigured && this.client) {
+      try {
+        const payload = {
+          name: friendObj.name,
+          relation: friendObj.relation || 'Friend',
+          avatar: friendObj.avatar,
+          tier: friendObj.tier || 'Close Circle',
+          birthday: friendObj.birthday || null,
+          bio: friendObj.bio || '',
+          favorites: friendObj.favorites || {},
+          likes: friendObj.likes || [],
+          dislikes: friendObj.dislikes || [],
+          safe_topics: friendObj.safeTopics || [],
+          avoid_topics: friendObj.avoidTopics || [],
+          current_life: friendObj.currentLife || '',
+          gift_ideas: friendObj.giftIdeas || []
+        };
+
+        const { error } = await this.client.from('friends').update(payload).eq('id', friendObj.id);
+        if (error) console.error('Error updating friend in Supabase:', error);
+      } catch (e) {
+        console.error('Update friend exception:', e);
       }
-      const idx = MindVaultData.friends.findIndex(f => f.id === friendObj.id);
-      if (idx !== -1) {
-        MindVaultData.friends[idx] = { ...MindVaultData.friends[idx], ...friendObj };
-      }
-      return friendObj;
-    } catch (e) {
-      console.error('Update friend exception:', e);
-      return null;
     }
+    return friendObj;
   },
 
   async fetchReminders() {
-    if (!this.isConfigured || !this.client) return MindVaultData.reminders;
+    if (!this.isConfigured || !this.client) {
+      const local = localStorage.getItem('MINDVAULT_LOCAL_REMINDERS');
+      if (local) {
+        try {
+          const parsed = JSON.parse(local);
+          if (Array.isArray(parsed)) return parsed;
+        } catch (e) {}
+      }
+      return MindVaultData.reminders || [];
+    }
     try {
       const { data, error } = await this.client.from('reminders').select('*').order('date', { ascending: true });
       if (error) return [];
@@ -307,21 +300,16 @@ const MindVaultSupabase = {
   },
 
   async deleteFriend(friendId) {
-    if (!this.isConfigured || !this.client) {
-      MindVaultData.friends = MindVaultData.friends.filter(f => f.id !== friendId);
-      return true;
+    MindVaultData.friends = MindVaultData.friends.filter(f => f.id !== friendId);
+    localStorage.setItem('MINDVAULT_LOCAL_FRIENDS', JSON.stringify(MindVaultData.friends));
+
+    if (this.isConfigured && this.client) {
+      try {
+        const { error } = await this.client.from('friends').delete().eq('id', friendId);
+        if (error) console.error('Delete friend error:', error);
+      } catch (e) {}
     }
-    try {
-      const { error } = await this.client.from('friends').delete().eq('id', friendId);
-      if (error) {
-        console.error('Delete friend error:', error);
-        return false;
-      }
-      MindVaultData.friends = MindVaultData.friends.filter(f => f.id !== friendId);
-      return true;
-    } catch (e) {
-      return false;
-    }
+    return true;
   }
 };
 
