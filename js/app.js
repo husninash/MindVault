@@ -164,6 +164,7 @@ const MindVaultApp = {
   async saveNewFriend() {
     const name = document.getElementById('add-friend-name')?.value.trim();
     const relation = document.getElementById('add-friend-relation')?.value.trim();
+    const avatarInput = document.getElementById('add-friend-avatar')?.value.trim();
     const currentLife = document.getElementById('add-friend-life')?.value.trim();
 
     if (!name) {
@@ -171,10 +172,14 @@ const MindVaultApp = {
       return;
     }
 
+    // Use custom avatar URL if provided, otherwise generate a clean initial avatar with UI Avatars API
+    const initialAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=F8BBD9&color=2D1A29&bold=true&size=250`;
+    const avatar = avatarInput || initialAvatar;
+
     const newFriend = {
       name: name,
       relation: relation || 'Friend',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
+      avatar: avatar,
       tier: 'Close Circle',
       score: 85,
       currentLife: currentLife || 'Recently added to MindVault.',
@@ -194,6 +199,7 @@ const MindVaultApp = {
     // Clear form inputs
     if (document.getElementById('add-friend-name')) document.getElementById('add-friend-name').value = '';
     if (document.getElementById('add-friend-relation')) document.getElementById('add-friend-relation').value = '';
+    if (document.getElementById('add-friend-avatar')) document.getElementById('add-friend-avatar').value = '';
     if (document.getElementById('add-friend-life')) document.getElementById('add-friend-life').value = '';
 
     this.renderFriendsGrid();
