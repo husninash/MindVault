@@ -10,6 +10,7 @@ const MindVaultData = {
   
   friends: [],
   diaries: [],
+  dailyJournals: [],
   todaysTopics: [],
   todaysThoughts: [],
   reminders: [],

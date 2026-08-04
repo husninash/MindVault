@@ -34,6 +34,37 @@ const MindVaultApp = {
     this.updateFriendsCountBadge();
   },
 
+  toggleMobileSidebar(forceState) {
+    const sidebar = document.getElementById('main-sidebar');
+    const backdrop = document.getElementById('sidebar-backdrop');
+    if (!sidebar || !backdrop) return;
+
+    const isOpen = typeof forceState === 'boolean' ? forceState : !sidebar.classList.contains('mobile-open');
+    sidebar.classList.toggle('mobile-open', isOpen);
+    backdrop.classList.toggle('active', isOpen);
+  },
+
+  switchDiaryTab(tabName) {
+    const memoriesBtn = document.getElementById('tab-btn-memories');
+    const dailyBtn = document.getElementById('tab-btn-daily');
+    const memoriesContent = document.getElementById('diary-tab-memories-content');
+    const dailyContent = document.getElementById('diary-tab-daily-content');
+
+    if (tabName === 'daily') {
+      if (memoriesBtn) memoriesBtn.classList.remove('active');
+      if (dailyBtn) dailyBtn.classList.add('active');
+      if (memoriesContent) memoriesContent.style.display = 'none';
+      if (dailyContent) dailyContent.style.display = 'block';
+      this.renderDailyJournalsList();
+    } else {
+      if (dailyBtn) dailyBtn.classList.remove('active');
+      if (memoriesBtn) memoriesBtn.classList.add('active');
+      if (dailyContent) dailyContent.style.display = 'none';
+      if (memoriesContent) memoriesContent.style.display = 'block';
+      this.renderDiariesList();
+    }
+  },
+
   async checkAuthSession() {
     const localSession = localStorage.getItem('MINDVAULT_AUTH_SESSION');
     let supabaseUser = null;
@@ -447,6 +478,7 @@ const MindVaultApp = {
 
   switchView(viewName) {
     this.activeView = viewName;
+    this.toggleMobileSidebar(false);
     
     // Update nav active styles
     document.querySelectorAll('.nav-item button').forEach(btn => {
@@ -477,9 +509,29 @@ const MindVaultApp = {
 
   // Render Dashboard Widgets
   renderDashboard() {
-    // Health score gauge animation
+    const friendsCount = MindVaultData.friends ? MindVaultData.friends.length : 0;
+    const conversationDiariesCount = MindVaultData.diaries ? MindVaultData.diaries.length : 0;
+    const dailyJournalsCount = MindVaultData.dailyJournals ? MindVaultData.dailyJournals.length : 0;
+    const totalDiaries = conversationDiariesCount + dailyJournalsCount;
+
+    // Health Score calculation
+    let healthScore = 0;
+    if (friendsCount > 0) {
+      const totalScore = MindVaultData.friends.reduce((sum, f) => sum + (f.score || 85), 0);
+      healthScore = Math.round(totalScore / friendsCount);
+    }
+
     const scoreVal = document.getElementById('dash-health-score');
-    if (scoreVal) scoreVal.innerText = `${MindVaultData.user.healthScore}%`;
+    if (scoreVal) scoreVal.innerText = `${healthScore}%`;
+
+    const friendsVal = document.getElementById('dash-active-friends');
+    if (friendsVal) friendsVal.innerText = friendsCount;
+
+    const diariesVal = document.getElementById('dash-diaried-memories');
+    if (diariesVal) diariesVal.innerText = totalDiaries;
+
+    const insightsVal = document.getElementById('dash-ai-insights');
+    if (insightsVal) insightsVal.innerText = friendsCount > 0 ? (friendsCount * 2 + totalDiaries) : 0;
 
     // Today's topics list
     const topicsContainer = document.getElementById('dash-topics-list');
@@ -925,14 +977,97 @@ const MindVaultApp = {
       localStorage.removeItem('MINDVAULT_LOCAL_FRIENDS');
       localStorage.removeItem('MINDVAULT_LOCAL_DIARIES');
       localStorage.removeItem('MINDVAULT_LOCAL_REMINDERS');
+      localStorage.removeItem('MINDVAULT_LOCAL_DAILY_JOURNALS');
       MindVaultData.friends = [];
       MindVaultData.diaries = [];
+      MindVaultData.dailyJournals = [];
       MindVaultData.reminders = [];
       this.renderFriendsGrid();
       this.renderDiariesList();
+      this.renderDailyJournalsList();
       this.renderRemindersList();
       this.updateFriendsCountBadge();
       this.showToast('Local offline data cleared successfully.', 'info');
     }
+  },
+
+  renderDailyJournalsList() {
+    const container = document.getElementById('daily-journals-list');
+    if (!container) return;
+
+    const local = localStorage.getItem('MINDVAULT_LOCAL_DAILY_JOURNALS');
+    if (local) {
+      try {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed)) MindVaultData.dailyJournals = parsed;
+      } catch (e) {}
+    }
+
+    const journals = MindVaultData.dailyJournals || [];
+    if (journals.length === 0) {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 40px; background: white; border-radius: 20px; border: 1px dashed var(--card-border);">
+          <p style="color: var(--text-muted); font-size: 14px;">Belum ada jurnal harian. Klik <strong>Refleksi Harian</strong> untuk menulis jurnal pertama Anda hari ini!</p>
+        </div>`;
+      return;
+    }
+
+    container.innerHTML = journals.map(j => `
+      <div class="glass-card" style="margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 22px;">📝</span>
+            <div>
+              <h4 style="font-size: 16px; font-weight: 700;">${j.title}</h4>
+              <span style="font-size: 12px; color: var(--text-muted);">${j.date} • Mood: <strong>${j.mood || 'Reflective'}</strong></span>
+            </div>
+          </div>
+          <span style="font-size: 11px; font-weight: 700; background: #ECFDF5; color: #059669; padding: 4px 12px; border-radius: 14px;">Refleksi Diri</span>
+        </div>
+        <p style="font-size: 13.5px; color: var(--text-dark); line-height: 1.6; margin-bottom: 12px;">${j.content}</p>
+        ${j.gratitude ? `
+          <div style="padding: 10px 14px; background: rgba(248, 187, 217, 0.15); border-radius: 12px; font-size: 12.5px; color: var(--accent-hover);">
+            🙏 <strong>Hal yang Disyukuri:</strong> ${j.gratitude}
+          </div>
+        ` : ''}
+      </div>
+    `).join('');
+  },
+
+  async saveNewDailyJournal() {
+    const title = document.getElementById('add-daily-title')?.value.trim();
+    const date = document.getElementById('add-daily-date')?.value || new Date().toISOString().split('T')[0];
+    const mood = document.getElementById('add-daily-mood')?.value;
+    const content = document.getElementById('add-daily-content')?.value.trim();
+    const gratitude = document.getElementById('add-daily-gratitude')?.value.trim();
+
+    if (!title || !content) {
+      this.showToast('Mohon isi Judul dan Isi Jurnal Harian.', 'warning');
+      return;
+    }
+
+    const newJournal = {
+      id: Date.now(),
+      title,
+      date,
+      mood,
+      content,
+      gratitude
+    };
+
+    if (!MindVaultData.dailyJournals) MindVaultData.dailyJournals = [];
+    MindVaultData.dailyJournals.unshift(newJournal);
+    localStorage.setItem('MINDVAULT_LOCAL_DAILY_JOURNALS', JSON.stringify(MindVaultData.dailyJournals));
+
+    this.showToast('Jurnal Harian berhasil disimpan! 📝✨', 'success');
+    document.getElementById('modal-add-daily-journal')?.classList.remove('active');
+
+    // Clear form inputs
+    if (document.getElementById('add-daily-title')) document.getElementById('add-daily-title').value = '';
+    if (document.getElementById('add-daily-content')) document.getElementById('add-daily-content').value = '';
+    if (document.getElementById('add-daily-gratitude')) document.getElementById('add-daily-gratitude').value = '';
+
+    this.switchDiaryTab('daily');
+    this.renderDashboard();
   }
 };

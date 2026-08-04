@@ -13,8 +13,21 @@
 
 <div id="app-container">
   
+  <!-- Mobile Top Header Bar -->
+  <div class="mobile-top-bar">
+    <div class="mobile-brand">
+      <i class="fa-solid fa-brain" style="color: var(--accent-hover);"></i>
+      <span>MindVault</span>
+    </div>
+    <button class="mobile-menu-btn" onclick="MindVaultApp.toggleMobileSidebar()">
+      <i class="fa-solid fa-bars"></i>
+    </button>
+  </div>
+
+  <div id="sidebar-backdrop" class="sidebar-backdrop" onclick="MindVaultApp.toggleMobileSidebar(false)"></div>
+
   <!-- Glass Sidebar -->
-  <aside class="sidebar">
+  <aside class="sidebar" id="main-sidebar">
     <div class="brand">
       <div class="brand-icon">
         <i class="fa-solid fa-brain"></i>
@@ -140,7 +153,7 @@
             <i class="fa-solid fa-heart-pulse"></i>
           </div>
           <div class="stat-info">
-            <h3 id="dash-health-score">88%</h3>
+            <h3 id="dash-health-score">0%</h3>
             <p>Relationship Health</p>
           </div>
         </div>
@@ -150,7 +163,7 @@
             <i class="fa-solid fa-users"></i>
           </div>
           <div class="stat-info">
-            <h3>4</h3>
+            <h3 id="dash-active-friends">0</h3>
             <p>Active Friends</p>
           </div>
         </div>
@@ -160,7 +173,7 @@
             <i class="fa-solid fa-book-open"></i>
           </div>
           <div class="stat-info">
-            <h3>12</h3>
+            <h3 id="dash-diaried-memories">0</h3>
             <p>Diaried Memories</p>
           </div>
         </div>
@@ -170,7 +183,7 @@
             <i class="fa-solid fa-lightbulb"></i>
           </div>
           <div class="stat-info">
-            <h3>8</h3>
+            <h3 id="dash-ai-insights">0</h3>
             <p>AI Insights</p>
           </div>
         </div>
@@ -341,18 +354,40 @@
 
     <!-- PAGE VIEW 4: DIARY -->
     <section id="view-diaries" class="page-view">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
         <div>
-          <h2 style="font-size: 24px; font-weight: 800;">Conversation Diary</h2>
-          <p style="font-size: 14px; color: var(--text-muted);">Log conversation history, location notes, and mood tags.</p>
+          <h2 style="font-size: 24px; font-weight: 800;">Journal & Reflection</h2>
+          <p style="font-size: 14px; color: var(--text-muted);">Catat momen percakapan dan refleksi jurnal harian pribadi.</p>
         </div>
-        <button class="btn btn-primary" onclick="document.getElementById('modal-add-diary').classList.add('active')">
-          <i class="fa-solid fa-pen"></i>
-          <span>Log New Memory</span>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn btn-secondary" onclick="document.getElementById('modal-add-daily-journal').classList.add('active')">
+            <i class="fa-solid fa-book-bookmark"></i>
+            <span>Refleksi Harian</span>
+          </button>
+          <button class="btn btn-primary" onclick="document.getElementById('modal-add-diary').classList.add('active')">
+            <i class="fa-solid fa-pen"></i>
+            <span>Log Memory Teman</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab Switcher -->
+      <div class="diary-tab-container">
+        <button class="diary-tab-btn active" id="tab-btn-memories" onclick="MindVaultApp.switchDiaryTab('memories')">
+          💬 Conversation Memories
+        </button>
+        <button class="diary-tab-btn" id="tab-btn-daily" onclick="MindVaultApp.switchDiaryTab('daily')">
+          📝 Jurnal Harian (Daily Reflections)
         </button>
       </div>
 
-      <div id="diaries-full-list"></div>
+      <div id="diary-tab-memories-content">
+        <div id="diaries-full-list"></div>
+      </div>
+
+      <div id="diary-tab-daily-content" style="display: none;">
+        <div id="daily-journals-list"></div>
+      </div>
     </section>
 
     <!-- PAGE VIEW 5: KNOWLEDGE GRAPH -->
@@ -698,6 +733,45 @@
       <textarea id="add-diary-content" class="form-control" placeholder="What did you talk about? Any preferences or updates mentioned?"></textarea>
     </div>
     <button class="btn btn-primary" style="width: 100%;" onclick="MindVaultApp.saveNewDiary()">Save Memory Log</button>
+  </div>
+</div>
+
+<!-- MODAL: ADD DAILY JOURNAL -->
+<div id="modal-add-daily-journal" class="modal-overlay">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>📝 Jurnal Harian & Refleksi Diri</h3>
+      <button class="modal-close-btn">&times;</button>
+    </div>
+    <div class="form-group">
+      <label>Judul Jurnal / Refleksi <span style="color: red;">*</span></label>
+      <input type="text" id="add-daily-title" class="form-control" placeholder="e.g. Catatan Refleksi Sore Ini">
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+      <div class="form-group">
+        <label>Tanggal</label>
+        <input type="date" id="add-daily-date" class="form-control">
+      </div>
+      <div class="form-group">
+        <label>Mood Hari Ini</label>
+        <select id="add-daily-mood" class="form-control">
+          <option value="🌟 Grateful & Happy">🌟 Grateful & Happy</option>
+          <option value="⚡ Motivated & Productive">⚡ Motivated & Productive</option>
+          <option value="☕ Calm & Peaceful">☕ Calm & Peaceful</option>
+          <option value="💭 Reflective">💭 Reflective</option>
+          <option value="🌧️ Tired & Resting">🌧️ Tired & Resting</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Isi Jurnal Hari Ini <span style="color: red;">*</span></label>
+      <textarea id="add-daily-content" class="form-control" placeholder="Apa saja cerita, perasaan, atau kejadian menarik hari ini?"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Hal yang Disyukuri Hari Ini (Gratitude)</label>
+      <input type="text" id="add-daily-gratitude" class="form-control" placeholder="e.g. Cuaca cerah, secangkir kopi hangat, kabar dari teman">
+    </div>
+    <button class="btn btn-primary" style="width: 100%; padding: 14px;" onclick="MindVaultApp.saveNewDailyJournal()">Simpan Jurnal Harian</button>
   </div>
 </div>
 
