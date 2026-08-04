@@ -900,5 +900,39 @@ const MindVaultApp = {
     if (!badge) return;
     const count = MindVaultData.friends ? MindVaultData.friends.length : 0;
     badge.innerText = count;
+  },
+
+  saveUserProfileSettings() {
+    const name = document.getElementById('user-setting-name')?.value.trim();
+    const email = document.getElementById('user-setting-email')?.value.trim();
+    const quote = document.getElementById('user-setting-quote')?.value.trim();
+
+    if (name) {
+      MindVaultData.user.name = name;
+      if (this.currentUser) this.currentUser.name = name;
+      const nameEl = document.getElementById('sidebar-user-name');
+      if (nameEl) nameEl.innerText = name;
+    }
+    if (email) MindVaultData.user.email = email;
+    if (quote) MindVaultData.user.quote = quote;
+
+    localStorage.setItem('MINDVAULT_USER_PROFILE', JSON.stringify(MindVaultData.user));
+    this.showToast('User profile settings updated! ✨', 'success');
+  },
+
+  clearLocalCache() {
+    if (confirm('Apakah Anda yakin ingin menghapus seluruh data offline lokal? (Data di Supabase tidak akan terhapus)')) {
+      localStorage.removeItem('MINDVAULT_LOCAL_FRIENDS');
+      localStorage.removeItem('MINDVAULT_LOCAL_DIARIES');
+      localStorage.removeItem('MINDVAULT_LOCAL_REMINDERS');
+      MindVaultData.friends = [];
+      MindVaultData.diaries = [];
+      MindVaultData.reminders = [];
+      this.renderFriendsGrid();
+      this.renderDiariesList();
+      this.renderRemindersList();
+      this.updateFriendsCountBadge();
+      this.showToast('Local offline data cleared successfully.', 'info');
+    }
   }
 };
