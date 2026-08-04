@@ -161,6 +161,30 @@ const MindVaultApp = {
     }
   },
 
+  uploadedAvatarData: null,
+
+  handleImageUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size too large. Please select an image under 5MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      this.uploadedAvatarData = e.target.result;
+      const container = document.getElementById('add-friend-preview-container');
+      const img = document.getElementById('add-friend-preview-img');
+      if (container && img) {
+        img.src = this.uploadedAvatarData;
+        container.style.display = 'block';
+      }
+    };
+    reader.readAsDataURL(file);
+  },
+
   async saveNewFriend() {
     const name = document.getElementById('add-friend-name')?.value.trim();
     const relation = document.getElementById('add-friend-relation')?.value.trim();
@@ -172,9 +196,9 @@ const MindVaultApp = {
       return;
     }
 
-    // Use custom avatar URL if provided, otherwise generate a clean initial avatar with UI Avatars API
+    // Prioritize uploaded device photo Data URL -> pasted web URL -> personalized initial avatar
     const initialAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=F8BBD9&color=2D1A29&bold=true&size=250`;
-    const avatar = avatarInput || initialAvatar;
+    const avatar = this.uploadedAvatarData || avatarInput || initialAvatar;
 
     const newFriend = {
       name: name,
@@ -196,11 +220,15 @@ const MindVaultApp = {
     alert(`🎉 ${name} has been added to your Supabase database!`);
     document.getElementById('modal-add-friend')?.classList.remove('active');
 
-    // Clear form inputs
+    // Clear form inputs & reset upload state
+    this.uploadedAvatarData = null;
+    if (document.getElementById('add-friend-file')) document.getElementById('add-friend-file').value = '';
     if (document.getElementById('add-friend-name')) document.getElementById('add-friend-name').value = '';
     if (document.getElementById('add-friend-relation')) document.getElementById('add-friend-relation').value = '';
     if (document.getElementById('add-friend-avatar')) document.getElementById('add-friend-avatar').value = '';
     if (document.getElementById('add-friend-life')) document.getElementById('add-friend-life').value = '';
+    const container = document.getElementById('add-friend-preview-container');
+    if (container) container.style.display = 'none';
 
     this.renderFriendsGrid();
     this.populateDiaryFriendOptions();

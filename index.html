@@ -515,8 +515,19 @@
       <input type="text" id="add-friend-relation" class="form-control" placeholder="e.g. Close Friend, Inner Circle">
     </div>
     <div class="form-group">
-      <label>Avatar Photo URL (Optional)</label>
-      <input type="text" id="add-friend-avatar" class="form-control" placeholder="https://images.unsplash.com/... (Leave empty for initial avatar)">
+      <label>Avatar Photo</label>
+      <input type="file" id="add-friend-file" accept="image/*" style="display: none;" onchange="MindVaultApp.handleImageUpload(event)">
+      <button type="button" class="btn btn-secondary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;" onclick="document.getElementById('add-friend-file').click()">
+        <i class="fa-solid fa-cloud-arrow-up" style="color: var(--accent-hover);"></i> Choose Photo from Device
+      </button>
+      
+      <div id="add-friend-preview-container" style="display: none; margin-top: 10px; text-align: center;">
+        <img id="add-friend-preview-img" src="" style="width: 68px; height: 68px; border-radius: 50%; object-fit: cover; border: 2px solid var(--accent); box-shadow: var(--shadow-soft);" alt="Preview">
+        <p style="font-size: 11px; color: #059669; margin-top: 4px;">✔ Photo attached ready to save</p>
+      </div>
+
+      <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px; text-align: center;">- OR paste web image URL -</div>
+      <input type="text" id="add-friend-avatar" class="form-control" style="margin-top: 4px;" placeholder="https://images.unsplash.com/... (Optional URL)">
     </div>
     <div class="form-group">
       <label>Current Life Update</label>
