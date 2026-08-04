@@ -40,6 +40,14 @@ const MindVaultApp = {
     } else {
       alert('❌ Could not connect to Supabase. Please verify your Project URL and Anon Key.');
     }
+  saveGeminiConfig() {
+    const key = document.getElementById('setting-gemini-key')?.value;
+    if (!key) {
+      alert('Please enter a valid Gemini API Key.');
+      return;
+    }
+    localStorage.setItem('MINDVAULT_GEMINI_KEY', key.trim());
+    alert('✨ Google Gemini API Key saved successfully!');
   },
 
   updateSupabaseStatusUI() {
@@ -316,7 +324,7 @@ const MindVaultApp = {
     modal.classList.add('active');
   },
 
-  sendSimMessage() {
+  async sendSimMessage() {
     const input = document.getElementById('sim-chat-input');
     const msg = input.value.trim();
     if (!msg) return;
@@ -324,18 +332,29 @@ const MindVaultApp = {
     const log = document.getElementById('sim-chat-log');
     log.innerHTML += `<div class="chat-bubble user">${msg}</div>`;
     input.value = '';
+    log.scrollTop = log.scrollHeight;
 
-    // Simulated AI Friend response
-    setTimeout(() => {
-      const responses = [
-        "Aww that's so sweet! Speaking of which, Mochi had her cat checkup yesterday and she did super well!",
-        "Oh really? I've actually been thinking about that Kyoto trip lately too! Should we book the tickets?",
-        "Haha totally! By the way, how is your new MindVault project coming along?"
+    const friend = MindVaultData.friends.find(f => f.id === this.selectedFriendId) || MindVaultData.friends[0];
+
+    // Show typing indicator
+    const typingId = 'typing-' + Date.now();
+    log.innerHTML += `<div class="chat-bubble ai" id="${typingId}"><em>${friend.name} is typing... 💬</em></div>`;
+    log.scrollTop = log.scrollHeight;
+
+    // Call Gemini API roleplay or fallback
+    let aiResponse = await MindVaultGemini.roleplayFriend(friend, msg);
+    if (!aiResponse) {
+      const fallbackResponses = [
+        `Aww that's so sweet! Speaking of which, Mochi had her cat checkup yesterday and she did super well! 🐱`,
+        `Oh really? I've actually been thinking about our trip lately too! Let's definitely plan it! ✨`,
+        `Haha totally! By the way, how is your new MindVault project coming along?`
       ];
-      const randomResp = responses[Math.floor(Math.random() * responses.length)];
-      log.innerHTML += `<div class="chat-bubble ai">${randomResp}</div>`;
-      log.scrollTop = log.scrollHeight;
-    }, 800);
+      aiResponse = fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
+    }
+
+    const typingEl = document.getElementById(typingId);
+    if (typingEl) typingEl.innerText = aiResponse;
+    log.scrollTop = log.scrollHeight;
   },
 
   // Floating AI Chat Assistant Drawer
@@ -357,7 +376,7 @@ const MindVaultApp = {
     }
   },
 
-  sendAIChatMessage() {
+  async sendAIChatMessage() {
     const input = document.getElementById('ai-chat-input');
     const msg = input.value.trim();
     if (!msg) return;
@@ -367,20 +386,27 @@ const MindVaultApp = {
     input.value = '';
     log.scrollTop = log.scrollHeight;
 
-    // AI Assistant intelligence logic
-    setTimeout(() => {
-      let response = "I'm analyzing your relationship history! Sophia loves matcha & Kyoto, while Liam is focused on his Berlin Marathon prep.";
+    // Show typing indicator
+    const typingId = 'ai-typing-' + Date.now();
+    log.innerHTML += `<div class="chat-bubble ai" id="${typingId}"><em>Analyzing relationship memory with Gemini AI... ✨</em></div>`;
+    log.scrollTop = log.scrollHeight;
+
+    // Call Gemini AI Assistant
+    let response = await MindVaultGemini.chatWithAssistant(msg, MindVaultData.friends, MindVaultData.diaries);
+    
+    if (!response) {
       if (msg.toLowerCase().includes('sophia')) {
         response = "Sophia Martinez loves Iced Oat Lattes and photography. Remember to ask about her kitten Mochi!";
       } else if (msg.toLowerCase().includes('liam')) {
-        response = "Liam Vance is training for a marathon and loves Cold Brew. Avoid bringing up his past partnership.";
-      } else if (msg.toLowerCase().includes('gift')) {
-        response = "For Sophia, a Fujifilm Instax or Handmade Matcha bowl would be perfect (~$45-$199).";
+        response = "Liam Vance is training for a marathon and loves Cold Brew. Avoid bringing up past partnership friction.";
+      } else {
+        response = "I'm analyzing your relationship history! Sophia loves matcha & Kyoto, while Liam is focused on his Berlin Marathon prep.";
       }
+    }
 
-      log.innerHTML += `<div class="chat-bubble ai">${response}</div>`;
-      log.scrollTop = log.scrollHeight;
-    }, 600);
+    const typingEl = document.getElementById(typingId);
+    if (typingEl) typingEl.innerText = response;
+    log.scrollTop = log.scrollHeight;
   },
 
   bindModals() {
