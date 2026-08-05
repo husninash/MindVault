@@ -572,7 +572,8 @@ const MindVaultApp = {
   },
 
   openEditDiaryModal(diaryId) {
-    const diary = (MindVaultData.diaries || []).find(d => String(d.id) === String(diaryId));
+    const diaries = this.getLiveDiariesContext();
+    const diary = diaries.find(d => String(d.id) === String(diaryId) || d.title === diaryId);
     if (!diary) {
       this.showToast('Memory log not found.', 'warning');
       return;
@@ -1402,30 +1403,41 @@ const MindVaultApp = {
   },
 
   openAddTopicModal() {
-    if (document.getElementById('add-topic-content')) document.getElementById('add-topic-content').value = '';
-    document.getElementById('modal-add-topic')?.classList.add('active');
+    const textarea = document.getElementById('add-topic-content');
+    if (textarea) textarea.value = '';
+    const modal = document.getElementById('modal-add-topic');
+    if (modal) {
+      modal.classList.add('active');
+    }
   },
 
   saveTopicFromModal() {
-    const type = document.getElementById('add-topic-type')?.value;
-    const content = document.getElementById('add-topic-content')?.value.trim();
+    const type = document.getElementById('add-topic-type')?.value || 'starter';
+    const content = document.getElementById('add-topic-content')?.value?.trim();
     if (!content) {
       this.showToast('Mohon isi konten topik / renungan.', 'warning');
       return;
     }
 
-    const { starters, reflections } = this.getLiveTopicsContext();
+    let { starters, reflections } = this.getLiveTopicsContext();
+
     if (type === 'starter') {
       starters.unshift(content);
       localStorage.setItem('MINDVAULT_LOCAL_TOPIC_STARTERS', JSON.stringify(starters));
+      MindVaultData.todaysTopics = starters;
       this.showToast('Pemantik obrolan baru tersimpan ke RAG Database! 💡✨', 'success');
     } else {
       reflections.unshift(content);
       localStorage.setItem('MINDVAULT_LOCAL_TOPIC_REFLECTIONS', JSON.stringify(reflections));
+      MindVaultData.todaysThoughts = reflections;
       this.showToast('Renungan hubungan baru tersimpan ke RAG Database! 📝🧠', 'success');
     }
 
-    document.getElementById('modal-add-topic')?.classList.remove('active');
+    const modal = document.getElementById('modal-add-topic');
+    if (modal) modal.classList.remove('active');
+    const textarea = document.getElementById('add-topic-content');
+    if (textarea) textarea.value = '';
+
     this.renderTopicsPage();
   },
 
@@ -1898,3 +1910,12 @@ const MindVaultApp = {
     `).join('');
   }
 };
+
+// Global Window Aliases
+window.MindVaultApp = MindVaultApp;
+window.openAddTopicModal = () => MindVaultApp.openAddTopicModal();
+window.saveTopicFromModal = () => MindVaultApp.saveTopicFromModal();
+window.openAddDiaryModal = () => MindVaultApp.openAddDiaryModal();
+window.saveDiaryFromModal = () => MindVaultApp.saveDiaryFromModal();
+window.openAddDreamModal = () => MindVaultApp.openAddDreamModal();
+window.saveDreamFromModal = () => MindVaultApp.saveDreamFromModal();
