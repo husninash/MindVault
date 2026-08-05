@@ -13,7 +13,7 @@ const MindVaultGemini = {
       return null;
     }
     
-    // Primary model: gemini-2.5-flash, Fallback model: gemini-2.0-flash
+    // Primary model: gemini-2.5-flash
     let endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
     const requestBody = {
@@ -47,7 +47,7 @@ const MindVaultGemini = {
 
       const data = await response.json();
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      return text || "Maaf, saya tidak dapat memproses tanggapan tersebut. Silakan coba lagi!";
+      return text || null;
     } catch (err) {
       console.warn('Gemini fetch failed:', err);
       return { error: true, message: err.message || "Gagal menghubungi endpoint Gemini API." };
@@ -55,9 +55,9 @@ const MindVaultGemini = {
   },
 
   // Deep Relationship Intelligence Assistant Prompt
-  async chatWithAssistant(userQuery, friendsData, diariesData, dailyJournalsData) {
+  async chatWithAssistant(userQuery, friendsData, diariesData, dailyJournalsData, activeFriendId) {
     const friendsContext = (friendsData || []).map(f => `
-- Friend: ${f.name} (${f.relation || 'Friend'})
+- Friend Name: ${f.name} (ID: ${f.id}, Relation: ${f.relation || 'Friend'})
   Intimacy Score: ${f.score || 85}%
   Bio: ${f.bio || '-'}
   Current Life Status: ${f.currentLife || '-'}
@@ -68,10 +68,10 @@ const MindVaultGemini = {
 `).join('\n');
 
     const diariesContext = (diariesData || []).map(d => `
-- [Memory Date: ${d.date}] With ${d.friendName || 'Friend'}: "${d.title}"
+- [Log Date: ${d.date}] Friend: "${d.friendName}" | Title: "${d.title}"
   Mood: ${d.mood || 'Reflective'}
   Location: ${d.location || 'Log'}
-  Content: "${d.content}"
+  Exact Logged Content: "${d.content}"
   Tags: ${(d.tags || []).join(', ')}
 `).join('\n');
 
@@ -81,30 +81,45 @@ const MindVaultGemini = {
   Gratitude: "${j.gratitude || 'N/A'}"
 `).join('\n');
 
-    const systemInstruction = `You are MindVault AI, a compassionate, highly perceptive, and expert Relationship Intelligence Assistant.
+    const activeFriend = (friendsData || []).find(f => f.id === activeFriendId) || (friendsData || [])[0];
 
-Here is the user's LIVE relationship memory database:
+    const systemInstruction = `YOU ARE MINDVAULT AI, A COMPASSIONATE, HIGHLY PERCEPTIVE, AND EXPERT RELATIONSHIP INTELLIGENCE ASSISTANT FOR THE USER.
+
+CRITICAL MANDATORY INSTRUCTIONS:
+1. ALWAYS RESPOND IN WARM, NATURAL, AND EMPATHETIC INDONESIAN LANGUAGE. NEVER RESPOND IN ENGLISH.
+2. PRONOUN & INTENT RESOLUTION:
+   - When the user says "dia", "ia", "beliau", "nya", "conversation ku dengan dia", "hubungan kami", or asks for analysis, map "dia" to:
+     a) The friend in the most recent conversation diary log (e.g. ${diariesData && diariesData[0] ? diariesData[0].friendName : 'Ethan'}), OR
+     b) The active friend (${activeFriend ? activeFriend.name : 'Ethan'}).
+3. DIRECT CONFLICT & PERTIKAIAN ANALYSIS:
+   - Carefully read the "Exact Logged Content" in the conversation memories.
+   - IF A DIARY LOG DESCRIBES AN ARGUMENT, CONFLICT, PERTIKAIAN, CLOSURE, RELATIONSHIP GETTING WORSE ("memburuk", "benci", "pertikaian", "closure", "tengkar"):
+     YOU MUST DIRECTLY ACKNOWLEDGE AND ANALYZE THAT SPECIFIC CONFLICT AND PERTIKAIAN!
+     DO NOT GIVE GENERIC CHEERFUL "SAY HI / RECONNECT" ADVICE!
+     Instead:
+     - Acknowledge the conflict and tension logged in the diary (e.g., "Closure dengan Ethan").
+     - Explain the emotional dynamic behind the argument/closure.
+     - Offer 3 realistic, empathetic steps to handle the situation or navigate the tension.
+
+HERE IS THE USER'S LIVE RELATIONSHIP DATABASE:
 
 ### FRIEND PROFILES:
 ${friendsContext || 'No friends added yet.'}
 
-### LOGGED CONVERSATION MEMORIES (VERY IMPORTANT - ANALYZE THESE DIRECTLY):
+### LOGGED CONVERSATION MEMORIES (MUST READ AND ANALYZE THESE):
 ${diariesContext || 'No conversation memories logged yet.'}
 
 ### PERSONAL DAILY REFLECTIONS:
 ${dailyContext || 'No daily reflections logged yet.'}
 
-CRITICAL INSTRUCTIONS FOR RESPONDING:
-1. When the user asks to analyze, evaluate, or give advice (e.g. "analisa", "coba analisa", "bagaimana", "saran", or names a friend like Ethan), DO NOT ask generic clarifying questions back! IMMEDIATELY analyze the actual logged conversation memories and friend details provided above.
-2. Reference specific diary entry titles, dates, contents, and emotional moods (for example: if there is a log with Ethan titled "Closure" about a minor conflict, directly summarize that event, analyze the emotional dynamic, and offer 3 practical empathetic next steps).
-3. Always respond in warm, clear, empathetic Indonesian. Use clean markdown formatting (bold headers, bullet points, emojis).`;
+Respond in clean, well-formatted Indonesian markdown using bold headers, bullet points, and emojis.`;
 
     const result = await this.askGemini(userQuery, systemInstruction);
-    if (result && !result.error) {
+    if (result && !result.error && typeof result === 'string' && result.length > 20) {
       return result;
     }
 
-    // Local Smart Analysis Fallback if Gemini key is missing or offline
+    // Local Smart Analysis Fallback
     return this.localSmartAnalysisFallback(userQuery, friendsData, diariesData, dailyJournalsData);
   },
 
@@ -120,14 +135,36 @@ CRITICAL INSTRUCTIONS FOR RESPONDING:
       matchedDiary = diariesData.find(d => d.friendId === matchedFriend.id || d.friendName.toLowerCase().includes(matchedFriend.name.toLowerCase()));
     } else if (diariesData.length > 0) {
       matchedDiary = diariesData[0];
-      matchedFriend = friendsData.find(f => f.name === matchedDiary.friendName || f.id === matchedDiary.friendId) || { name: matchedDiary.friendName || 'Teman' };
+      matchedFriend = friendsData.find(f => f.name === matchedDiary.friendName || f.id === matchedDiary.friendId) || { name: matchedDiary.friendName || 'Ethan' };
     }
 
     if (matchedDiary) {
-      const friendName = matchedFriend ? matchedFriend.name : (matchedDiary.friendName || 'Teman');
+      const friendName = matchedFriend ? matchedFriend.name : (matchedDiary.friendName || 'Ethan');
       const safeTopicsStr = (matchedFriend && matchedFriend.safeTopics && matchedFriend.safeTopics.length > 0) 
         ? matchedFriend.safeTopics.join(', ') 
-        : 'hobi & kabar terbaru';
+        : 'hobi & topik ringan';
+
+      const isConflict = /pertikaian|memburuk|benci|tengkar|closure|kecewa|sedih|berpisah/i.test(matchedDiary.content + ' ' + matchedDiary.title);
+
+      if (isConflict) {
+        return `📊 **Analisis Memori Percakapan & Konflik (${friendName})**
+
+Berdasarkan catatan jurnal percakapan kamu dengan **${friendName}** (*"${matchedDiary.title}"* pada ${matchedDiary.date}):
+
+* **📝 Catatan Percakapan:** "${matchedDiary.content}"
+* **⚡ Status Emosional:** Terjadi pertikaian kecil & ketegangan hubungan pasca-pembahasan *closure* / penegasan posisi.
+
+---
+
+💡 **Insight Psikologis AI:**
+1. **Dinamika Pertikaian:** Percakapan berat seperti menegaskan sudah *move on* atau batasan baru sering memicu gesekan emosional karena adanya harapan atau perasaan yang belum selaras.
+2. **Kondisi Hubungan:** Perasaan bahwa hubungan "memburuk" adalah reaksi wajar saat salah satu pihak masih memproses emosi atau rasa kecewa.
+
+🌱 **Saran & Langkah Selanjutnya:**
+* 🛑 **Beri Ruang Emosional (Space):** Jangan terburu-buru menghubungi untuk meminta maaf atau meluruskan saat emosi masih hangat.
+* 🧘 **Fokus pada Ketenangan Diri:** Terima bahwa pertikaian ini terjadi sebagai bagian dari proses pendewasaan hubungan.
+* 💬 **Langkah Saat Suasana Mendingin:** Jika nanti ingin menyapa kembali, mulailah dengan topik netral seperti **${safeTopicsStr}** tanpa mengungkit pertikaian lalu.`;
+      }
 
       return `📊 **Analisis Hubungan & Catatan Memori (${friendName})**
 
@@ -139,22 +176,19 @@ Berdasarkan jurnal percakapan terbaru kamu dengan **${friendName}** (*"${matched
 ---
 
 💡 **Insight Hubungan dari AI:**
-1. **Dinamika Emosional:** Percakapan ini menyentuh topik sensitif. Ketegangan atau pertikaian kecil pasca-percakapan jujur adalah hal wajar ketika ada penyesuaian ekspektasi atau batasan personal.
-2. **Kualitas Hubungan:** Adanya keterbukaan untuk menyampaikan isi hati menunjukkan hubungan kalian memiliki fondasi kejujuran yang kuat.
+1. **Kualitas Interaksi:** Catatan percakapan ini menunjukkan dinamika komunikasi yang aktif antara kamu dan ${friendName}.
+2. **Potensi Hubungan:** Menjaga ritme komunikasi dan mendengarkan akan semakin mempererat persahabatan kalian.
 
 🌱 **Rekomendasi Langkah Selanjutnya:**
-* ⏳ **Beri Waktu Sejenak:** Biarkan suasana mendingin selama 1-2 hari agar emosi mereda.
-* 💬 **Pesan Ringan & Netral:** Sapa kembali dengan topik santai tanpa membahas konflik lalu.
-* 🎯 **Topik Aman yang Disukai ${friendName}:** ${safeTopicsStr}.`;
+* 💬 **Bicara Topik Disukai:** Bawakan topik aman favorit ${friendName} yaitu **${safeTopicsStr}**.`;
     }
 
-    // General Summary Fallback if no diaries exist
     return `✨ **MindVault AI Relationship Overview**
 
 Saat ini kamu memiliki **${friendsData.length} teman** di direktori dan **${diariesData.length} catatan memori**. 
 
 💡 **Saran AI:**
-* Tambahkan catatan percakapan baru di menu **Conversation Diary** agar saya dapat memberikan analisis mendalam tentang dinamika hubunganmu secara otomatis!`;
+* Catat percakapan di menu **Conversation Diary** agar saya dapat menganalisis dinamika hubunganmu secara otomatis!`;
   },
 
   // Simulator Roleplay Prompt for a specific friend
@@ -166,12 +200,11 @@ Things you like/love: ${(friend.likes || []).join(', ')}
 Safe topics you enjoy: ${(friend.safeTopics || []).join(', ')}
 Topics to avoid/dislike: ${(friend.avoidTopics || []).join(', ')}
 
-Respond in character as ${friend.name} talking casually to your close friend. Be natural, warm, conversational, and stay true to your personality and current life updates. Keep responses under 3 sentences.`;
+Respond in character as ${friend.name} talking casually to your close friend in INDONESIAN. Be natural, warm, conversational, and stay true to your personality. Keep responses under 3 sentences.`;
 
     const result = await this.askGemini(userMessage, systemInstruction);
-    if (result && !result.error) return result;
+    if (result && !result.error && typeof result === 'string') return result;
 
-    // Fallback roleplay
     return `Hey! Senang banget bisa ngobrol lagi. Soal kabar terbaruku, ${friend.currentLife || 'lagi sibuk kegiatan sehari-hari nih'}. Gimana kabarmu?`;
   }
 };

@@ -1308,7 +1308,8 @@ const MindVaultApp = {
       msg, 
       MindVaultData.friends, 
       MindVaultData.diaries,
-      MindVaultData.dailyJournals
+      MindVaultData.dailyJournals,
+      this.selectedFriendId
     );
     
     const typingEl = document.getElementById(typingId);
