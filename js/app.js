@@ -657,28 +657,39 @@ const MindVaultApp = {
       return;
     }
 
-    const index = (MindVaultData.diaries || []).findIndex(d => String(d.id) === String(diaryId));
-    if (index === -1) {
-      this.showToast('Diary log not found.', 'error');
-      return;
-    }
+    let diaries = this.getLiveDiariesContext();
+    let index = diaries.findIndex(d => String(d.id) === String(diaryId) || d.title === title);
 
-    const existing = MindVaultData.diaries[index];
-    const matchedFriend = MindVaultData.friends.find(f => f.name === friendName) || { id: existing.friendId, name: friendName };
+    const matchedFriend = MindVaultData.friends.find(f => f.name === friendName) || { id: 1, name: friendName || 'Friend' };
 
-    const updatedDiary = {
-      ...existing,
-      id: existing.id,
-      title,
+    let updatedDiary = {
+      id: diaryId || Date.now(),
       friendId: matchedFriend.id,
-      friendName: friendName || existing.friendName,
-      date,
-      mood,
-      content
+      friendName: friendName || 'Friend',
+      date: date,
+      title: title,
+      location: 'Personal Log',
+      mood: mood,
+      content: content,
+      tags: ['Memory', 'Log']
     };
 
-    MindVaultData.diaries[index] = updatedDiary;
-    await MindVaultSupabase.updateDiary(updatedDiary);
+    if (index !== -1) {
+      diaries[index] = updatedDiary;
+    } else {
+      diaries.unshift(updatedDiary);
+    }
+
+    MindVaultData.diaries = diaries;
+    localStorage.setItem('MINDVAULT_LOCAL_DIARIES', JSON.stringify(diaries));
+
+    try {
+      if (typeof MindVaultSupabase !== 'undefined' && MindVaultSupabase.updateDiary) {
+        await MindVaultSupabase.updateDiary(updatedDiary);
+      }
+    } catch (e) {
+      console.warn('Supabase update exception handled:', e);
+    }
 
     this.showToast(`Catatan memory "${title}" berhasil diperbarui! ✏️✨`, 'success');
     document.getElementById('modal-add-diary')?.classList.remove('active');
