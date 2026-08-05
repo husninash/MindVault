@@ -841,28 +841,50 @@
   </div>
 </div>
 
-<!-- MODAL: ADD DIARY -->
+<!-- MODAL: ADD / EDIT DIARY -->
 <div id="modal-add-diary" class="modal-overlay">
   <div class="modal-card">
     <div class="modal-header">
-      <h3>📖 Log New Memory / Conversation</h3>
+      <h3 id="modal-add-diary-header-title">📖 Log New Memory / Conversation</h3>
       <button class="modal-close-btn">&times;</button>
     </div>
+    <input type="hidden" id="edit-diary-id" value="">
+    
     <div class="form-group">
-      <label>Title</label>
-      <input type="text" id="add-diary-title" class="form-control" placeholder="e.g. Dinner & Catchup at Bistro">
+      <label>Judul Catatan / Momen <span style="color: red;">*</span></label>
+      <input type="text" id="add-diary-title" class="form-control" placeholder="e.g. Catchup Kopi & Diskusi Proyek">
     </div>
+    
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+      <div class="form-group">
+        <label>Pilih Teman</label>
+        <select id="add-diary-friend" class="form-control">
+          <option value="">Pilih Teman...</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Tanggal / Hari Percakapan <span style="color: red;">*</span></label>
+        <input type="date" id="add-diary-date" class="form-control">
+      </div>
+    </div>
+
     <div class="form-group">
-      <label>Friend</label>
-      <select id="add-diary-friend" class="form-control">
-        <option value="">Pilih Teman...</option>
+      <label>Mood Percakapan</label>
+      <select id="add-diary-mood" class="form-control">
+        <option value="😊 Energetic & Inspired">😊 Energetic & Inspired</option>
+        <option value="⚡ Motivated & Focused">⚡ Motivated & Focused</option>
+        <option value="🎨 Creative & Warm">🎨 Creative & Warm</option>
+        <option value="💭 Serious & Emotional">💭 Serious & Emotional</option>
+        <option value="☕ Chill & Relaxed">☕ Chill & Relaxed</option>
       </select>
     </div>
+
     <div class="form-group">
-      <label>Memory Details</label>
-      <textarea id="add-diary-content" class="form-control" placeholder="What did you talk about? Any preferences or updates mentioned?"></textarea>
+      <label>Detail Memory & Hasil Percakapan <span style="color: red;">*</span></label>
+      <textarea id="add-diary-content" class="form-control" placeholder="Apa saja hal menarik atau kabar penting yang dibicarakan?"></textarea>
     </div>
-    <button class="btn btn-primary" style="width: 100%;" onclick="MindVaultApp.saveNewDiary()">Save Memory Log</button>
+
+    <button id="btn-save-diary" class="btn btn-primary" style="width: 100%; padding: 14px; margin-top: 10px;" onclick="MindVaultApp.saveDiaryFromModal()">Save Memory Log</button>
   </div>
 </div>
 

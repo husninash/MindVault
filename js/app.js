@@ -547,26 +547,90 @@ const MindVaultApp = {
     this.updateFriendsCountBadge();
   },
 
+  openAddDiaryModal() {
+    const titleEl = document.getElementById('modal-add-diary-header-title');
+    if (titleEl) titleEl.innerText = '📖 Log New Memory / Conversation';
+    const editIdEl = document.getElementById('edit-diary-id');
+    if (editIdEl) editIdEl.value = '';
+    const btnEl = document.getElementById('btn-save-diary');
+    if (btnEl) btnEl.innerText = 'Save Memory Log';
+
+    const titleInput = document.getElementById('add-diary-title');
+    const contentInput = document.getElementById('add-diary-content');
+    const dateInput = document.getElementById('add-diary-date');
+    const moodInput = document.getElementById('add-diary-mood');
+
+    if (titleInput) titleInput.value = '';
+    if (contentInput) contentInput.value = '';
+    if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+    if (moodInput) moodInput.selectedIndex = 0;
+
+    this.populateDiaryFriendOptions();
+    document.getElementById('modal-add-diary')?.classList.add('active');
+  },
+
+  openEditDiaryModal(diaryId) {
+    const diary = (MindVaultData.diaries || []).find(d => String(d.id) === String(diaryId));
+    if (!diary) {
+      this.showToast('Memory log not found.', 'warning');
+      return;
+    }
+
+    const titleEl = document.getElementById('modal-add-diary-header-title');
+    if (titleEl) titleEl.innerText = `✏️ Edit Memory Log: ${diary.title}`;
+    const editIdEl = document.getElementById('edit-diary-id');
+    if (editIdEl) editIdEl.value = diary.id;
+    const btnEl = document.getElementById('btn-save-diary');
+    if (btnEl) btnEl.innerText = 'Update Memory Log';
+
+    this.populateDiaryFriendOptions();
+
+    const titleInput = document.getElementById('add-diary-title');
+    const friendSelect = document.getElementById('add-diary-friend');
+    const dateInput = document.getElementById('add-diary-date');
+    const moodInput = document.getElementById('add-diary-mood');
+    const contentInput = document.getElementById('add-diary-content');
+
+    if (titleInput) titleInput.value = diary.title || '';
+    if (friendSelect) friendSelect.value = diary.friendName || '';
+    if (dateInput) dateInput.value = diary.date || new Date().toISOString().split('T')[0];
+    if (moodInput && diary.mood) moodInput.value = diary.mood;
+    if (contentInput) contentInput.value = diary.content || '';
+
+    document.getElementById('modal-add-diary')?.classList.add('active');
+  },
+
+  saveDiaryFromModal() {
+    const editId = document.getElementById('edit-diary-id')?.value;
+    if (editId) {
+      this.saveEditedDiary(editId);
+    } else {
+      this.saveNewDiary();
+    }
+  },
+
   async saveNewDiary() {
     const title = document.getElementById('add-diary-title')?.value.trim();
     const friendName = document.getElementById('add-diary-friend')?.value;
+    const date = document.getElementById('add-diary-date')?.value || new Date().toISOString().split('T')[0];
+    const mood = document.getElementById('add-diary-mood')?.value || '😊 Energetic & Inspired';
     const content = document.getElementById('add-diary-content')?.value.trim();
 
     if (!title || !content) {
-      this.showToast('Please enter both a title and memory details.', 'warning');
+      this.showToast('Mohon isi Judul dan Detail Percakapan.', 'warning');
       return;
     }
 
     const matchedFriend = MindVaultData.friends.find(f => f.name === friendName) || MindVaultData.friends[0];
-    const today = new Date().toISOString().split('T')[0];
 
     const newDiary = {
+      id: Date.now(),
       friendId: matchedFriend ? matchedFriend.id : 1,
-      friendName: friendName || 'Friend',
-      date: today,
+      friendName: friendName || (matchedFriend ? matchedFriend.name : 'Friend'),
+      date: date,
       title: title,
       location: 'Personal Log',
-      mood: '😊 Energetic & Inspired',
+      mood: mood,
       content: content,
       tags: ['Memory', 'Log']
     };
@@ -575,10 +639,59 @@ const MindVaultApp = {
     this.showToast('Memory log saved successfully! 📖', 'success');
     document.getElementById('modal-add-diary')?.classList.remove('active');
 
-    // Clear form inputs
-    if (document.getElementById('add-diary-title')) document.getElementById('add-diary-title').value = '';
-    if (document.getElementById('add-diary-content')) document.getElementById('add-diary-content').value = '';
+    this.renderDiariesList();
+    this.renderDashboard();
+  },
 
+  async saveEditedDiary(diaryId) {
+    const title = document.getElementById('add-diary-title')?.value.trim();
+    const friendName = document.getElementById('add-diary-friend')?.value;
+    const date = document.getElementById('add-diary-date')?.value || new Date().toISOString().split('T')[0];
+    const mood = document.getElementById('add-diary-mood')?.value || '😊 Energetic & Inspired';
+    const content = document.getElementById('add-diary-content')?.value.trim();
+
+    if (!title || !content) {
+      this.showToast('Mohon isi Judul dan Detail Percakapan.', 'warning');
+      return;
+    }
+
+    const index = (MindVaultData.diaries || []).findIndex(d => String(d.id) === String(diaryId));
+    if (index === -1) {
+      this.showToast('Diary log not found.', 'error');
+      return;
+    }
+
+    const existing = MindVaultData.diaries[index];
+    const matchedFriend = MindVaultData.friends.find(f => f.name === friendName) || { id: existing.friendId, name: friendName };
+
+    const updatedDiary = {
+      ...existing,
+      id: existing.id,
+      title,
+      friendId: matchedFriend.id,
+      friendName: friendName || existing.friendName,
+      date,
+      mood,
+      content
+    };
+
+    MindVaultData.diaries[index] = updatedDiary;
+    await MindVaultSupabase.updateDiary(updatedDiary);
+
+    this.showToast(`Catatan memory "${title}" berhasil diperbarui! ✏️✨`, 'success');
+    document.getElementById('modal-add-diary')?.classList.remove('active');
+
+    this.renderDiariesList();
+    this.renderDashboard();
+  },
+
+  async deleteDiary(diaryId) {
+    if (!confirm('Apakah Anda yakin ingin menghapus catatan percakapan ini?')) return;
+
+    MindVaultData.diaries = (MindVaultData.diaries || []).filter(d => String(d.id) !== String(diaryId));
+    await MindVaultSupabase.deleteDiary(diaryId);
+
+    this.showToast('Catatan percakapan berhasil dihapus! 🗑️', 'info');
     this.renderDiariesList();
     this.renderDashboard();
   },
@@ -1025,15 +1138,23 @@ const MindVaultApp = {
 
     container.innerHTML = MindVaultData.diaries.map(diary => `
       <div class="glass-card" style="margin-bottom: 16px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
           <div style="display: flex; align-items: center; gap: 10px;">
             <span style="font-size: 20px;">📖</span>
             <div>
               <h4 style="font-size: 16px; font-weight: 700;">${diary.title}</h4>
-              <span style="font-size: 12px; color: var(--text-muted);">With <strong>${diary.friendName}</strong> • ${diary.location}</span>
+              <span style="font-size: 12px; color: var(--text-muted);">With <strong>${diary.friendName}</strong> • ${diary.location || 'Personal Log'}</span>
             </div>
           </div>
-          <span style="font-size: 12px; font-weight: 700; background: var(--primary-light); color: var(--accent-hover); padding: 4px 12px; border-radius: 14px;">${diary.date}</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 12px; font-weight: 700; background: var(--primary-light); color: var(--accent-hover); padding: 4px 12px; border-radius: 14px;">📅 ${diary.date}</span>
+            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="MindVaultApp.openEditDiaryModal('${diary.id}')">
+              <i class="fa-solid fa-pen-to-square" style="color: var(--accent-hover);"></i> Edit
+            </button>
+            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px; color: #DC2626; border-color: rgba(220,38,38,0.2);" onclick="MindVaultApp.deleteDiary('${diary.id}')">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
         </div>
         <p style="font-size: 13px; color: var(--text-medium); line-height: 1.6; margin-bottom: 12px;">${diary.content}</p>
         <div style="display: flex; align-items: center; justify-content: space-between;">
