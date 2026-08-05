@@ -63,6 +63,7 @@ const MindVaultGemini = {
   Current Life Status: ${f.currentLife || '-'}
   Safe Topics: ${(f.safeTopics || []).join(', ')}
   Topics to Avoid: ${(f.avoidTopics || []).join(', ')}
+  Gift Ideas: ${JSON.stringify(f.giftIdeas || [])}
   AI Memory Summary: ${f.aiSummary || '-'}
 `).join('\n');
 
@@ -84,50 +85,49 @@ const MindVaultGemini = {
     const targetFriendName = (diariesData && diariesData[0] && diariesData[0].friendName) ? diariesData[0].friendName : (activeFriend ? activeFriend.name : 'Ethan');
     
     const latestDiary = (diariesData && diariesData.length > 0) ? diariesData[0] : null;
-    const latestTitle = latestDiary ? latestDiary.title : 'Closure';
-    const latestContent = latestDiary ? latestDiary.content : 'Saya akhirnya bilang saya sudah move on, dan ada pertikaian kecil karena saya benci banget... Intinya ya hubungan jadi agak memburuk sih kurasa';
 
-    const systemInstruction = `YOU ARE MINDVAULT AI, AN EXPERT RELATIONSHIP INTELLIGENCE ASSISTANT FOR THE USER.
+    const systemInstruction = `YOU ARE MINDVAULT AI, A SMART & EMPATHETIC RELATIONSHIP INTELLIGENCE ASSISTANT FOR THE USER.
 
-CRITICAL MANDATORY INSTRUCTIONS:
-1. ALWAYS RESPOND IN WARM, NATURAL, AND EMPATHETIC INDONESIAN LANGUAGE. NEVER RESPOND IN ENGLISH.
-2. PRONOUN RESOLUTION:
-   - The user refers to "${targetFriendName}" using words like "dia", "ia", "beliau", "nya", "dia tuh", or "ngomong ama dia".
-3. DO NOT ASK THE USER TO SHARE THE LOG OR PASTE THE JOURNAL!
-   - THE LOGGED JOURNAL MEMORY IS ALREADY PROVIDED IN THIS PROMPT UNDER "LOGGED CONVERSATION MEMORIES"!
-4. DIRECT CONFLICT & PERTIKAIAN ANALYSIS:
-   - READ THE LOGGED CONTENT DIRECTLY AND PROVIDE A DEEP ANALYSIS OF THE CONFLICT/PERTIKAIAN WITH ${targetFriendName}!
-   - DO NOT give generic "please share your log" or polite conversational replies.
-   - Address the argument, closure, hurt feelings, and relationship deteriorating ("memburuk") described in the log.
-   - Provide 3 realistic, empathetic steps on how the user should navigate this tension.
+MANDATORY BEHAVIOR RULES:
+1. ALWAYS RESPOND IN WARM, EMPATHETIC INDONESIAN LANGUAGE.
+2. ADAPT TO USER INTENT NATURALLY:
+   - If the user asks general questions (e.g. gift ideas, friend bios, general catchup, how the app works), answer that specific question directly and helpfully.
+   - If the user asks about relationships, conversation memories, conflicts, logs, pronouns ("dia"), or asks for evaluation/analysis (e.g. "baca log", "bagaimana hubunganku", "coba analisa", "ngomong ama dia", "pertikaian"):
+     Inspect the "LOGGED CONVERSATION MEMORIES" below. Read the actual content of the logged diaries (e.g. "${latestDiary ? latestDiary.title : 'Closure'}") and provide a deep, thoughtful relationship analysis addressing any conflict or tension.
+3. PRONOUN RESOLUTION: Words like "dia", "beliau", "nya", "dia tuh", "ngomong ama dia" refer to "${targetFriendName}" or the friend in the conversation memory.
 
-HERE IS THE USER'S LIVE RELATIONSHIP DATABASE:
+DATABASE CONTEXT:
 
 ### FRIEND PROFILES:
 ${friendsContext || 'No friends added yet.'}
 
-### LOGGED CONVERSATION MEMORIES (MUST READ AND ANALYZE THESE EXACT CONTENTS DIRECTLY):
+### LOGGED CONVERSATION MEMORIES:
 ${diariesContext || 'No conversation memories logged yet.'}
 
 ### PERSONAL DAILY REFLECTIONS:
 ${dailyContext || 'No daily reflections logged yet.'}
 
-Format your response cleanly in Indonesian using bold headers, bullet points, and emojis.`;
+Respond in clean Indonesian markdown using bold headers, bullet points, and emojis.`;
 
-    const enrichedUserPrompt = `PESAN USER: "${userQuery}"
+    // Smart Intent Classifier
+    const isLogOrRelationshipQuery = /log|jurnal|journal|analis|analiz|evaluas|hubung|ingat|ingatan|rekam|tengkar|bertikai|closure|move on|benci|kecewa|memburuk|dia|beliau|ia|percakapan|obrolan|kemarin|momen|njim|masukkan/i.test(userQuery);
 
-INSTRUKSI KHUSUS UNTUK PERTANYAAN INI:
-User sedang meminta analisis atau tanggapan mengenai percakapan/jurnalnya dengan ${targetFriendName}.
-Jurnal percakapan yang tercatat di database adalah: "${latestTitle}" dengan isi: "${latestContent}".
+    let enrichedUserPrompt = userQuery;
 
-TUGAS UTAMA:
-1. Bacalah isi jurnal tersebut secara cermat (terutama mengenai pertikaian, closure, rasa kecewa, dan hubungan yang memburuk).
-2. BERIKAN ANALISIS LENGKAP & EMPATIS DALAM BAHASA INDONESIA mengenai dinamika hubungan dan pertikaian tersebut.
-3. BERIKAN 3 REKOMENDASI LANGKAH SOLUTIF.
-4. JANGAN PERNAH meminta user mengirimkan log jurnal lagi atau membalas salam ramah biasa!`;
+    if (isLogOrRelationshipQuery && latestDiary) {
+      enrichedUserPrompt = `PESAN USER: "${userQuery}"
+
+CATATAN JURNAL TERKAIT DALAM DATABASE:
+- Teman: ${latestDiary.friendName || targetFriendName}
+- Judul Log: "${latestDiary.title}"
+- Isi Catatan Percakapan: "${latestDiary.content}"
+
+PETUNJUK PENANGANAN:
+User merujuk pada jurnal/percakapan di atas. Bacalah isi catatan jurnal tersebut dengan cermat dan berikan analisis emosional & saran hubungan yang relevan dalam Bahasa Indonesia.`;
+    }
 
     const result = await this.askGemini(enrichedUserPrompt, systemInstruction);
-    if (result && !result.error && typeof result === 'string' && result.length > 20) {
+    if (result && !result.error && typeof result === 'string' && result.length > 15) {
       return result;
     }
 
