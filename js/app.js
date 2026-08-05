@@ -97,12 +97,18 @@ const MindVaultApp = {
 
   showAuthScreen() {
     const modal = document.getElementById('auth-modal-screen');
-    if (modal) modal.classList.add('active');
+    if (modal) {
+      modal.style.display = 'flex';
+      modal.classList.add('active');
+    }
   },
 
   hideAuthScreen() {
     const modal = document.getElementById('auth-modal-screen');
-    if (modal) modal.classList.remove('active');
+    if (modal) {
+      modal.classList.remove('active');
+      modal.style.display = 'none';
+    }
     this.updateUserSidebar();
     this.applyRolePermissions();
   },
@@ -941,6 +947,12 @@ const MindVaultApp = {
       }, 100);
     } else if (viewName === 'profile') {
       this.renderFriendProfile(this.selectedFriendId);
+    } else if (viewName === 'topics') {
+      this.renderTopicsPage();
+    } else if (viewName === 'diaries') {
+      this.renderDiariesList();
+    } else if (viewName === 'friends') {
+      this.renderFriendsGrid();
     }
   },
 
