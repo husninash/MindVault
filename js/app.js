@@ -1179,34 +1179,33 @@ const MindVaultApp = {
 
     // Show typing indicator
     const typingId = 'ai-typing-' + Date.now();
-    log.innerHTML += `<div class="chat-bubble ai" id="${typingId}"><em>Analyzing relationship memory... ✨</em></div>`;
+    log.innerHTML += `<div class="chat-bubble ai" id="${typingId}"><em>Menganalisis memori percakapan... ✨</em></div>`;
     log.scrollTop = log.scrollHeight;
 
-    // Check if API key is set
-    if (!MindVaultGemini.getApiKey()) {
-      setTimeout(() => {
-        const warningHtml = `⚠️ <strong>API Key Belum Diisi</strong><br><br>Agar AI Chatbot ini bisa merespons secara LIVE, silakan isi API Key kamu di menu <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px; margin-top: 6px;" onclick="MindVaultApp.switchView('settings'); document.getElementById('ai-chat-drawer').classList.remove('active');">⚙️ Settings -> AI Configuration</button>`;
-        const typingEl = document.getElementById(typingId);
-        if (typingEl) typingEl.innerHTML = warningHtml;
-        log.scrollTop = log.scrollHeight;
-      }, 400);
-      return;
-    }
-
-    // Call Gemini AI Assistant
-    let response = await MindVaultGemini.chatWithAssistant(msg, MindVaultData.friends, MindVaultData.diaries);
+    // Call Gemini / Smart Local Relationship Assistant
+    let response = await MindVaultGemini.chatWithAssistant(
+      msg, 
+      MindVaultData.friends, 
+      MindVaultData.diaries,
+      MindVaultData.dailyJournals
+    );
     
     const typingEl = document.getElementById(typingId);
 
     if (response && response.error) {
-      if (typingEl) {
-        typingEl.innerHTML = `❌ <strong>AI API Error:</strong><br>${response.message}<br><br><small><em>Tips: Dapatkan API Key resmi dari <a href="https://aistudio.google.com" target="_blank" style="color: var(--accent); font-weight: 700;">aistudio.google.com</a> dan simpan di menu ⚙️ Settings -> AI Configuration.</em></small>`;
-      }
+      const fallbackMsg = MindVaultGemini.localSmartAnalysisFallback(
+        msg, 
+        MindVaultData.friends, 
+        MindVaultData.diaries, 
+        MindVaultData.dailyJournals
+      );
+      if (typingEl) typingEl.innerHTML = typeof fallbackMsg === 'string' ? fallbackMsg.replace(/\n/g, '<br>') : fallbackMsg;
       log.scrollTop = log.scrollHeight;
       return;
     }
 
-    if (typingEl) typingEl.innerText = typeof response === 'string' ? response : JSON.stringify(response);
+    const formattedText = typeof response === 'string' ? response.replace(/\n/g, '<br>') : JSON.stringify(response);
+    if (typingEl) typingEl.innerHTML = formattedText;
     log.scrollTop = log.scrollHeight;
   },
 

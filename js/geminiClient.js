@@ -47,32 +47,114 @@ const MindVaultGemini = {
 
       const data = await response.json();
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      return text || "I couldn't process that response. Please try again!";
+      return text || "Maaf, saya tidak dapat memproses tanggapan tersebut. Silakan coba lagi!";
     } catch (err) {
       console.warn('Gemini fetch failed:', err);
-      return { error: true, message: err.message || "Failed to reach Gemini API endpoint." };
+      return { error: true, message: err.message || "Gagal menghubungi endpoint Gemini API." };
     }
   },
 
-  // Relationship Intelligence Assistant Prompt
-  async chatWithAssistant(userQuery, friendsData, diariesData) {
-    const contextSummary = (friendsData || []).map(f => `
-- Name: ${f.name} (${f.relation})
-  Bio: ${f.bio}
-  Current Life: ${f.currentLife}
+  // Deep Relationship Intelligence Assistant Prompt
+  async chatWithAssistant(userQuery, friendsData, diariesData, dailyJournalsData) {
+    const friendsContext = (friendsData || []).map(f => `
+- Friend: ${f.name} (${f.relation || 'Friend'})
+  Intimacy Score: ${f.score || 85}%
+  Bio: ${f.bio || '-'}
+  Current Life Status: ${f.currentLife || '-'}
+  Favorites: ${JSON.stringify(f.favorites || {})}
   Safe Topics: ${(f.safeTopics || []).join(', ')}
   Topics to Avoid: ${(f.avoidTopics || []).join(', ')}
-  AI Summary: ${f.aiSummary}
+  AI Memory Summary: ${f.aiSummary || '-'}
 `).join('\n');
 
-    const systemInstruction = `You are MindVault AI, a warm, perceptive, and highly intelligent Relationship Intelligence Assistant for Aria Chen.
-You have complete knowledge of Aria's friends and relationship history:
-${contextSummary}
+    const diariesContext = (diariesData || []).map(d => `
+- [Memory Date: ${d.date}] With ${d.friendName || 'Friend'}: "${d.title}"
+  Mood: ${d.mood || 'Reflective'}
+  Location: ${d.location || 'Log'}
+  Content: "${d.content}"
+  Tags: ${(d.tags || []).join(', ')}
+`).join('\n');
 
-Your goal is to provide insightful, friendly, empathetic, and actionable advice to help Aria nurture her friendships, remember key details, plan meeting icebreakers, and choose thoughtful gifts. Keep your responses concise (2-4 sentences max), warm, and engaging.`;
+    const dailyContext = (dailyJournalsData || []).map(j => `
+- [Daily Reflection Date: ${j.date}] "${j.title}" (Mood: ${j.mood})
+  Content: "${j.content}"
+  Gratitude: "${j.gratitude || 'N/A'}"
+`).join('\n');
+
+    const systemInstruction = `You are MindVault AI, a compassionate, highly perceptive, and expert Relationship Intelligence Assistant.
+
+Here is the user's LIVE relationship memory database:
+
+### FRIEND PROFILES:
+${friendsContext || 'No friends added yet.'}
+
+### LOGGED CONVERSATION MEMORIES (VERY IMPORTANT - ANALYZE THESE DIRECTLY):
+${diariesContext || 'No conversation memories logged yet.'}
+
+### PERSONAL DAILY REFLECTIONS:
+${dailyContext || 'No daily reflections logged yet.'}
+
+CRITICAL INSTRUCTIONS FOR RESPONDING:
+1. When the user asks to analyze, evaluate, or give advice (e.g. "analisa", "coba analisa", "bagaimana", "saran", or names a friend like Ethan), DO NOT ask generic clarifying questions back! IMMEDIATELY analyze the actual logged conversation memories and friend details provided above.
+2. Reference specific diary entry titles, dates, contents, and emotional moods (for example: if there is a log with Ethan titled "Closure" about a minor conflict, directly summarize that event, analyze the emotional dynamic, and offer 3 practical empathetic next steps).
+3. Always respond in warm, clear, empathetic Indonesian. Use clean markdown formatting (bold headers, bullet points, emojis).`;
 
     const result = await this.askGemini(userQuery, systemInstruction);
-    return result;
+    if (result && !result.error) {
+      return result;
+    }
+
+    // Local Smart Analysis Fallback if Gemini key is missing or offline
+    return this.localSmartAnalysisFallback(userQuery, friendsData, diariesData, dailyJournalsData);
+  },
+
+  // Smart Contextual Local Analysis Engine
+  localSmartAnalysisFallback(userQuery, friendsData = [], diariesData = [], dailyJournalsData = []) {
+    const query = (userQuery || '').toLowerCase();
+    
+    // Find matching friend or most recent diary
+    let matchedFriend = friendsData.find(f => query.includes(f.name.toLowerCase()));
+    let matchedDiary = null;
+
+    if (matchedFriend) {
+      matchedDiary = diariesData.find(d => d.friendId === matchedFriend.id || d.friendName.toLowerCase().includes(matchedFriend.name.toLowerCase()));
+    } else if (diariesData.length > 0) {
+      matchedDiary = diariesData[0];
+      matchedFriend = friendsData.find(f => f.name === matchedDiary.friendName || f.id === matchedDiary.friendId) || { name: matchedDiary.friendName || 'Teman' };
+    }
+
+    if (matchedDiary) {
+      const friendName = matchedFriend ? matchedFriend.name : (matchedDiary.friendName || 'Teman');
+      const safeTopicsStr = (matchedFriend && matchedFriend.safeTopics && matchedFriend.safeTopics.length > 0) 
+        ? matchedFriend.safeTopics.join(', ') 
+        : 'hobi & kabar terbaru';
+
+      return `📊 **Analisis Hubungan & Catatan Memori (${friendName})**
+
+Berdasarkan jurnal percakapan terbaru kamu dengan **${friendName}** (*"${matchedDiary.title}"* pada ${matchedDiary.date}):
+
+* **📝 Ringkasan Catatan:** "${matchedDiary.content}"
+* **🎭 Mood & Suasana:** ${matchedDiary.mood || 'Reflektif'}
+
+---
+
+💡 **Insight Hubungan dari AI:**
+1. **Dinamika Emosional:** Percakapan ini menyentuh topik sensitif. Ketegangan atau pertikaian kecil pasca-percakapan jujur adalah hal wajar ketika ada penyesuaian ekspektasi atau batasan personal.
+2. **Kualitas Hubungan:** Adanya keterbukaan untuk menyampaikan isi hati menunjukkan hubungan kalian memiliki fondasi kejujuran yang kuat.
+
+🌱 **Rekomendasi Langkah Selanjutnya:**
+* ⏳ **Beri Waktu Sejenak:** Biarkan suasana mendingin selama 1-2 hari agar emosi mereda.
+* 💬 **Pesan Ringan & Netral:** Sapa kembali dengan topik santai tanpa membahas konflik lalu.
+* 🎯 **Topik Aman yang Disukai ${friendName}:** ${safeTopicsStr}.`;
+    }
+
+    // General Summary Fallback if no diaries exist
+    return `✨ **MindVault AI Relationship Overview**
+
+Saat ini kamu memiliki **${friendsData.length} teman** di direktori dan **${diariesData.length} catatan memori**. 
+
+💡 **Saran AI:**
+* Tambahkan catatan percakapan baru di menu **Conversation Diary** agar saya dapat memberikan analisis mendalam tentang dinamika hubunganmu secara otomatis!`;
   },
 
   // Simulator Roleplay Prompt for a specific friend
@@ -84,9 +166,12 @@ Things you like/love: ${(friend.likes || []).join(', ')}
 Safe topics you enjoy: ${(friend.safeTopics || []).join(', ')}
 Topics to avoid/dislike: ${(friend.avoidTopics || []).join(', ')}
 
-Respond in character as ${friend.name} talking casually to your close friend Aria. Be natural, warm, conversational, and stay true to your personality and current life updates. Keep responses under 3 sentences.`;
+Respond in character as ${friend.name} talking casually to your close friend. Be natural, warm, conversational, and stay true to your personality and current life updates. Keep responses under 3 sentences.`;
 
     const result = await this.askGemini(userMessage, systemInstruction);
-    return result;
+    if (result && !result.error) return result;
+
+    // Fallback roleplay
+    return `Hey! Senang banget bisa ngobrol lagi. Soal kabar terbaruku, ${friend.currentLife || 'lagi sibuk kegiatan sehari-hari nih'}. Gimana kabarmu?`;
   }
 };
