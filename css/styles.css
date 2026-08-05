@@ -1421,3 +1421,86 @@ textarea.form-control {
   }
 }
 
+/* Admin Console & Role Badge Styling */
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.role-badge-admin {
+  background: rgba(147, 51, 234, 0.15);
+  color: #7E22CE;
+  border: 1px solid rgba(147, 51, 234, 0.3);
+}
+
+.role-badge-user {
+  background: rgba(234, 141, 182, 0.15);
+  color: var(--accent-hover);
+  border: 1px solid rgba(234, 141, 182, 0.3);
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.admin-table th {
+  background: var(--bg-main);
+  color: var(--text-medium);
+  font-weight: 700;
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 2px solid var(--card-border);
+}
+
+.admin-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--card-border);
+  color: var(--text-dark);
+}
+
+.admin-table tr:hover {
+  background: rgba(248, 187, 217, 0.08);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-dot-active {
+  background: #10B981;
+  box-shadow: 0 0 8px #10B981;
+}
+
+.status-dot-warning {
+  background: #F59E0B;
+  box-shadow: 0 0 8px #F59E0B;
+}
+
+.status-dot-error {
+  background: #EF4444;
+  box-shadow: 0 0 8px #EF4444;
+}
+
+.access-denied-box {
+  background: rgba(254, 242, 242, 0.9);
+  border: 1px solid #FCA5A5;
+  border-radius: var(--radius-lg);
+  padding: 40px 24px;
+  text-align: center;
+  margin: 40px auto;
+  max-width: 540px;
+  box-shadow: var(--shadow-soft);
+}

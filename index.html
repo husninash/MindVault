@@ -81,10 +81,11 @@
           <span>Reminders</span>
         </button>
       </li>
-      <li class="nav-item">
+      <li class="nav-item" id="nav-item-admin">
         <button data-view="admin">
           <i class="fa-solid fa-shield-halved nav-icon" style="color: var(--accent-hover);"></i>
           <span>Admin Console</span>
+          <span class="nav-badge" style="background: #9333EA;">Admin</span>
         </button>
       </li>
     </ul>
@@ -94,7 +95,7 @@
       <img id="sidebar-user-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80" class="user-avatar" alt="User">
       <div class="user-info">
         <h4 id="sidebar-user-name">Aria Chen</h4>
-        <p id="sidebar-user-role">Pro Member ✨</p>
+        <span id="sidebar-user-role-badge" class="role-badge role-badge-user">User</span>
       </div>
       <div style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
         <i class="fa-solid fa-gear" style="color: var(--text-muted); cursor: pointer;" title="Settings" onclick="MindVaultApp.switchView('settings')"></i>
@@ -134,7 +135,7 @@
       <!-- Hero Banner -->
       <div class="hero-banner">
         <div class="hero-content">
-          <h2>Good morning, Aria! 🌸</h2>
+          <h2 id="dash-greeting-heading">Good morning! 🌸</h2>
           <p>Your relationships are thriving. Track and cultivate your personal connections effortlessly.</p>
           <div class="quote-pill">
             <i class="fa-solid fa-quote-left"></i>
@@ -434,7 +435,7 @@
     <!-- PAGE VIEW 8: USER SETTINGS -->
     <section id="view-settings" class="page-view">
       <h2 style="font-size: 24px; font-weight: 800; margin-bottom: 20px;">User Settings</h2>
-      <div style="display: flex; flex-direction: column; gap: 20px; max-width: 620px;">
+      <div style="display: flex; flex-direction: column; gap: 20px; max-width: 640px;">
         
         <div class="glass-card">
           <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 14px;"><i class="fa-solid fa-user-gear"></i> Personal Profile</h3>
@@ -464,25 +465,35 @@
             </select>
           </div>
           <div class="form-group">
-            <label>AI Assistant Tone</label>
+            <label>AI Assistant Persona</label>
             <select class="form-control" id="user-setting-tone">
               <option value="warm">Friendly & Warm 😊</option>
               <option value="concise">Concise & Professional 🎯</option>
               <option value="empathic">Empathic & Empathetic 💖</option>
             </select>
           </div>
-          <button class="btn btn-secondary" onclick="MindVaultApp.showToast('Preferences saved successfully! ✨', 'success')">Save Preferences</button>
+          <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; margin-top: 14px;">
+            <div>
+              <strong style="font-size: 13px;">Daily Reminder Notifications</strong>
+              <p style="font-size: 11px; color: var(--text-muted);">Receive daily notifications for upcoming friend birthdays & topics.</p>
+            </div>
+            <input type="checkbox" checked style="accent-color: var(--accent); width: 18px; height: 18px;">
+          </div>
+          <button class="btn btn-secondary" style="margin-top: 14px;" onclick="MindVaultApp.showToast('Preferences saved successfully! ✨', 'success')">Save Preferences</button>
         </div>
 
-        <!-- Admin Access Banner -->
-        <div class="glass-card" style="background: rgba(248, 187, 217, 0.12); border: 1px dashed var(--accent);">
+        <!-- Account Role & Admin Switcher -->
+        <div class="glass-card" style="background: rgba(255, 255, 255, 0.9);">
           <div style="display: flex; justify-content: space-between; align-items: center; gap: 14px;">
             <div>
-              <strong style="font-size: 14px; color: var(--text-dark);"><i class="fa-solid fa-shield-halved" style="color: var(--accent-hover);"></i> Admin & Developer Panel</strong>
-              <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Konfigurasi khusus Admin: Supabase Cloud Database URL, API Keys & System Data Reset.</p>
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                <strong style="font-size: 14px; color: var(--text-dark);">Account Role:</strong>
+                <span id="settings-role-badge" class="role-badge role-badge-user">User</span>
+              </div>
+              <p style="font-size: 12px; color: var(--text-muted);">Regular User Mode. System API keys and cloud settings are managed by Administrators in Admin Console.</p>
             </div>
-            <button class="btn btn-secondary" style="white-space: nowrap; flex-shrink: 0;" onclick="MindVaultApp.switchView('admin')">
-              Open Admin Console &rarr;
+            <button id="settings-admin-switch-btn" class="btn btn-secondary" style="white-space: nowrap; flex-shrink: 0;" onclick="MindVaultApp.toggleUserAdminRole()">
+              <i class="fa-solid fa-shield-halved" style="color: var(--accent-hover);"></i> Switch to Admin Mode
             </button>
           </div>
         </div>
@@ -492,55 +503,174 @@
 
     <!-- PAGE VIEW 9: ADMIN CONSOLE -->
     <section id="view-admin" class="page-view">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      
+      <!-- Admin Header -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
         <div>
-          <h2 style="font-size: 24px; font-weight: 800;">🛡️ Admin & Developer Console</h2>
-          <p style="font-size: 14px; color: var(--text-muted);">Internal system configurations, API credentials, and database diagnostics.</p>
+          <h2 style="font-size: 24px; font-weight: 800; display: flex; align-items: center; gap: 10px;">
+            🛡️ Admin & System Console
+          </h2>
+          <p style="font-size: 14px; color: var(--text-muted);">Pusat konfigurasi API Key, pengelola database Supabase, dan manajemen user sistem.</p>
         </div>
-        <span style="background: var(--lavender-light); color: var(--accent-hover); font-weight: 700; padding: 6px 14px; border-radius: 12px; font-size: 12px;">
-          <i class="fa-solid fa-user-shield"></i> Admin Access Mode
-        </span>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <span class="role-badge role-badge-admin" style="font-size: 12px; padding: 6px 14px;">
+            <i class="fa-solid fa-shield-halved"></i> Administrator Mode Active
+          </span>
+          <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="MindVaultApp.switchRole('user')">
+            Exit Admin Mode
+          </button>
+        </div>
       </div>
 
-      <div style="display: flex; flex-direction: column; gap: 20px; max-width: 640px;">
+      <!-- Access Denied Banner (For non-admin) -->
+      <div id="admin-access-denied" class="access-denied-box" style="display: none;">
+        <i class="fa-solid fa-lock" style="font-size: 48px; color: #EF4444; margin-bottom: 16px;"></i>
+        <h3 style="font-size: 20px; font-weight: 800; color: #991B1B; margin-bottom: 8px;">Akses Terbatas — Khusus Admin</h3>
+        <p style="font-size: 13px; color: #7F1D1D; margin-bottom: 20px; line-height: 1.5;">
+          Halaman Admin Console ini hanya dapat diakses oleh user dengan role <strong>Administrator</strong> untuk menjaga keamanan API Keys dan Cloud Database.
+        </p>
+        <button class="btn btn-primary" onclick="MindVaultApp.switchRole('admin')">
+          <i class="fa-solid fa-key"></i> Switch to Admin Role (Demo)
+        </button>
+      </div>
+
+      <!-- Admin Content (For admin only) -->
+      <div id="admin-content-wrapper" style="display: flex; flex-direction: column; gap: 24px; max-width: 800px;">
         
+        <!-- Status Diagnostics Grid -->
+        <div class="grid-3">
+          <div class="glass-card stat-widget" style="padding: 16px;">
+            <div class="stat-icon-wrapper lavender-theme" style="width: 44px; height: 44px; font-size: 18px;">
+              <i class="fa-solid fa-database"></i>
+            </div>
+            <div class="stat-info">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span id="admin-db-dot" class="status-dot status-dot-active"></span>
+                <strong style="font-size: 14px;" id="admin-db-status-title">Supabase Live</strong>
+              </div>
+              <p style="font-size: 11px;">Database Sync Status</p>
+            </div>
+          </div>
+
+          <div class="glass-card stat-widget" style="padding: 16px;">
+            <div class="stat-icon-wrapper pink-theme" style="width: 44px; height: 44px; font-size: 18px;">
+              <i class="fa-solid fa-brain"></i>
+            </div>
+            <div class="stat-info">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span id="admin-ai-dot" class="status-dot status-dot-active"></span>
+                <strong style="font-size: 14px;" id="admin-ai-status-title">Gemini AI Ready</strong>
+              </div>
+              <p style="font-size: 11px;">AI Intelligence Engine</p>
+            </div>
+          </div>
+
+          <div class="glass-card stat-widget" style="padding: 16px;">
+            <div class="stat-icon-wrapper mint-theme" style="width: 44px; height: 44px; font-size: 18px;">
+              <i class="fa-solid fa-users"></i>
+            </div>
+            <div class="stat-info">
+              <h3 style="font-size: 20px;" id="admin-users-count">2 Registered</h3>
+              <p style="font-size: 11px;">Total Active Accounts</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 1: API Keys & Cloud Database Sync -->
         <div class="glass-card">
-          <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 14px;"><i class="fa-solid fa-database" style="color: var(--accent-hover);"></i> Supabase Cloud Database Connection</h3>
-          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">Connect live Supabase cloud database parameters.</p>
-          
+          <div class="card-title-row">
+            <h3><i class="fa-solid fa-plug" style="color: var(--accent-hover);"></i> API Credentials & Database Synchronization</h3>
+            <span class="role-badge role-badge-admin">Admin Sync Hub</span>
+          </div>
+          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
+            Atur kredensial Supabase Cloud dan API Key Gemini AI di sini. Data ini akan disinkronkan secara otomatis untuk seluruh aplikasi.
+          </p>
+
           <div class="form-group">
             <label>Supabase Project URL</label>
             <input type="text" id="setting-supabase-url" class="form-control" placeholder="https://xyzcompany.supabase.co">
           </div>
+          
           <div class="form-group">
             <label>Supabase Anon Key</label>
             <input type="password" id="setting-supabase-key" class="form-control" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6...">
           </div>
-          <button class="btn btn-primary" onclick="MindVaultApp.saveSupabaseConfig()">
-            <i class="fa-solid fa-plug"></i> Connect Supabase Database
-          </button>
-          <div id="supabase-status-badge" style="margin-top: 12px; font-size: 13px; font-weight: 600;"></div>
-        </div>
 
-        <div class="glass-card">
-          <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 14px;"><i class="fa-solid fa-sparkles" style="color: #9333EA;"></i> AI Intelligence Configuration</h3>
-          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">Configure internal API key for AI assistant features.</p>
+          <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <button class="btn btn-primary" onclick="MindVaultApp.saveSupabaseConfig()">
+              <i class="fa-solid fa-plug"></i> Connect & Sync Supabase
+            </button>
+            <button class="btn btn-secondary" onclick="MindVaultApp.testDatabaseConnection()">
+              <i class="fa-solid fa-circle-check"></i> Test Connection
+            </button>
+          </div>
           
+          <div id="supabase-status-badge" style="margin-bottom: 18px; font-size: 13px; font-weight: 600;"></div>
+
+          <hr style="border: none; border-top: 1px dashed var(--card-border); margin: 20px 0;">
+
           <div class="form-group">
-            <label>AI API Key</label>
+            <label>Gemini AI API Key</label>
             <input type="password" id="setting-gemini-key" class="form-control" placeholder="AIzaSy...">
           </div>
-          <button class="btn btn-primary" onclick="MindVaultApp.saveGeminiConfig()">
-            <i class="fa-solid fa-key"></i> Save API Key
-          </button>
+
+          <div style="display: flex; gap: 10px;">
+            <button class="btn btn-primary" onclick="MindVaultApp.saveGeminiConfig()">
+              <i class="fa-solid fa-key"></i> Save AI Key
+            </button>
+            <button class="btn btn-secondary" onclick="MindVaultApp.testAIKeyConnection()">
+              <i class="fa-solid fa-bolt"></i> Test AI Key
+            </button>
+          </div>
         </div>
 
+        <!-- Section 2: User Role Management Table -->
         <div class="glass-card">
-          <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 14px;"><i class="fa-solid fa-trash-can" style="color: #DC2626;"></i> System Reset & Data Maintenance</h3>
-          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">Reset local offline browser data cache when needed.</p>
-          <button class="btn btn-secondary" style="color: #DC2626; border-color: rgba(220, 38, 38, 0.3);" onclick="MindVaultApp.clearLocalCache()">
-            <i class="fa-solid fa-trash-can"></i> Clear Local Offline Data
-          </button>
+          <div class="card-title-row">
+            <h3><i class="fa-solid fa-user-shield" style="color: #9333EA;"></i> System Users & Role Management</h3>
+            <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="MindVaultApp.renderAdminUsersTable()">
+              <i class="fa-solid fa-rotate"></i> Refresh
+            </button>
+          </div>
+          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+            Kelola daftar user terdaftar dan ubah role akses (User / Admin).
+          </p>
+
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Email</th>
+                  <th>Password Credential</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="admin-users-table-body">
+                <!-- Dynamically rendered -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Section 3: Data Reset & System Logs -->
+        <div class="glass-card">
+          <div class="card-title-row">
+            <h3><i class="fa-solid fa-triangle-exclamation" style="color: #DC2626;"></i> System Maintenance & Reset</h3>
+          </div>
+          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+            Gunakan opsi ini jika ingin mereset cache lokal browser atau mengembalikan data sampel awal.
+          </p>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <button class="btn btn-secondary" style="color: #DC2626; border-color: rgba(220, 38, 38, 0.3);" onclick="MindVaultApp.clearLocalCache()">
+              <i class="fa-solid fa-trash-can"></i> Clear Local Cache
+            </button>
+            <button class="btn btn-secondary" onclick="MindVaultApp.resetSampleData()">
+              <i class="fa-solid fa-rotate-left"></i> Restore Seed Data
+            </button>
+          </div>
         </div>
 
       </div>
@@ -800,8 +930,8 @@
       </div>
 
       <div class="auth-input-wrapper">
-        <i class="fa-solid fa-envelope auth-input-icon"></i>
-        <input type="email" id="auth-input-email" class="form-control auth-input" placeholder="Email Address" required>
+        <i class="fa-solid fa-user auth-input-icon"></i>
+        <input type="text" id="auth-input-email" class="form-control auth-input" placeholder="Username or Email Address" required>
       </div>
 
       <div class="auth-input-wrapper">
@@ -813,15 +943,6 @@
         <i class="fa-solid fa-right-to-bracket"></i> Log In to MindVault
       </button>
     </form>
-
-    <div class="auth-divider">
-      <span>OR</span>
-    </div>
-
-    <!-- Quick Demo Access -->
-    <button type="button" class="auth-demo-btn" onclick="MindVaultApp.demoLogin()">
-      <span>✨ Quick Demo Access (Aria Chen)</span>
-    </button>
   </div>
 </div>
 
