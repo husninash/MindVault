@@ -1288,6 +1288,53 @@ const MindVaultApp = {
     }
   },
 
+  getLiveDiariesContext() {
+    let diaries = Array.isArray(MindVaultData.diaries) ? [...MindVaultData.diaries] : [];
+
+    // Merge from LocalStorage
+    try {
+      const local = localStorage.getItem('MINDVAULT_LOCAL_DIARIES');
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed)) {
+          parsed.forEach(p => {
+            if (!diaries.some(d => String(d.id) === String(p.id) || d.title === p.title)) {
+              diaries.unshift(p);
+            }
+          });
+        }
+      }
+    } catch (e) {}
+
+    // Extract directly from rendered DOM cards in #diaries-full-list if any card is visible!
+    const domCards = document.querySelectorAll('#diaries-full-list .glass-card');
+    domCards.forEach(card => {
+      const title = card.querySelector('h4')?.innerText.trim();
+      const content = card.querySelector('p')?.innerText.trim();
+      const friendSpan = card.querySelector('span')?.innerText;
+      let friendName = 'Ethan';
+      if (friendSpan && friendSpan.includes('With')) {
+        const match = friendSpan.match(/With\s+<strong>(.*?)<\/strong>|With\s+([^\s•]+)/);
+        if (match) friendName = match[1] || match[2];
+      }
+
+      if (title && content) {
+        if (!diaries.some(d => d.title === title || d.content === content)) {
+          diaries.unshift({
+            id: Date.now() + Math.random(),
+            title: title,
+            friendName: friendName,
+            content: content,
+            date: new Date().toISOString().split('T')[0],
+            mood: '💭 Serious & Emotional'
+          });
+        }
+      }
+    });
+
+    return diaries;
+  },
+
   async sendAIChatMessage() {
     const input = document.getElementById('ai-chat-input');
     const msg = input.value.trim();
@@ -1303,11 +1350,13 @@ const MindVaultApp = {
     log.innerHTML += `<div class="chat-bubble ai" id="${typingId}"><em>Menganalisis memori percakapan... ✨</em></div>`;
     log.scrollTop = log.scrollHeight;
 
+    const liveDiaries = this.getLiveDiariesContext();
+
     // Call Gemini / Smart Local Relationship Assistant
     let response = await MindVaultGemini.chatWithAssistant(
       msg, 
       MindVaultData.friends, 
-      MindVaultData.diaries,
+      liveDiaries,
       MindVaultData.dailyJournals,
       this.selectedFriendId
     );
@@ -1318,7 +1367,7 @@ const MindVaultApp = {
       const fallbackMsg = MindVaultGemini.localSmartAnalysisFallback(
         msg, 
         MindVaultData.friends, 
-        MindVaultData.diaries, 
+        liveDiaries, 
         MindVaultData.dailyJournals
       );
       if (typingEl) typingEl.innerHTML = typeof fallbackMsg === 'string' ? fallbackMsg.replace(/\n/g, '<br>') : fallbackMsg;
