@@ -30,6 +30,7 @@ const MindVaultApp = {
     this.renderFriendsGrid();
     this.renderDiariesList();
     this.renderRemindersList();
+    this.renderTopicsPage();
     this.populateDiaryFriendOptions();
     this.updateSupabaseStatusUI();
     this.updateFriendsCountBadge();
@@ -1336,6 +1337,101 @@ const MindVaultApp = {
     return diaries;
   },
 
+  getLiveTopicsContext() {
+    let starters = [
+      "Ask Sophia about Mochi's Friday vet checkup",
+      "Congratulate Liam on his 45km marathon training run"
+    ];
+    let reflections = [
+      "Great relationships aren't built on grand gestures, but on remembering the small details that matter."
+    ];
+
+    try {
+      const storedS = localStorage.getItem('MINDVAULT_LOCAL_TOPIC_STARTERS');
+      if (storedS) {
+        const parsed = JSON.parse(storedS);
+        if (Array.isArray(parsed) && parsed.length > 0) starters = parsed;
+      }
+      const storedR = localStorage.getItem('MINDVAULT_LOCAL_TOPIC_REFLECTIONS');
+      if (storedR) {
+        const parsed = JSON.parse(storedR);
+        if (Array.isArray(parsed) && parsed.length > 0) reflections = parsed;
+      }
+    } catch (e) {}
+
+    return { starters, reflections };
+  },
+
+  renderTopicsPage() {
+    const startersList = document.getElementById('topics-starters-list');
+    const reflectionsList = document.getElementById('topics-reflections-list');
+    const { starters, reflections } = this.getLiveTopicsContext();
+
+    if (startersList) {
+      startersList.innerHTML = starters.map((s, idx) => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px; background: white; border-radius: 14px; margin-bottom: 10px; border: 1px solid var(--card-border);">
+          <span style="font-size: 13px; font-weight: 600; color: var(--text-dark);">"${s}"</span>
+          <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px; color: #DC2626;" onclick="MindVaultApp.deleteTopicStarter(${idx})">
+            <i class="fa-solid fa-trash-can"></i>
+          </button>
+        </div>
+      `).join('');
+    }
+
+    if (reflectionsList) {
+      reflectionsList.innerHTML = reflections.map((r, idx) => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px; background: var(--bg-main); border-radius: 14px; font-style: italic; font-size: 13px; margin-bottom: 10px; border-left: 3px solid #8B5CF6;">
+          <span style="color: var(--text-dark);">"${r}"</span>
+          <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px; color: #DC2626;" onclick="MindVaultApp.deleteTopicReflection(${idx})">
+            <i class="fa-solid fa-trash-can"></i>
+          </button>
+        </div>
+      `).join('');
+    }
+  },
+
+  openAddTopicModal() {
+    if (document.getElementById('add-topic-content')) document.getElementById('add-topic-content').value = '';
+    document.getElementById('modal-add-topic')?.classList.add('active');
+  },
+
+  saveTopicFromModal() {
+    const type = document.getElementById('add-topic-type')?.value;
+    const content = document.getElementById('add-topic-content')?.value.trim();
+    if (!content) {
+      this.showToast('Mohon isi konten topik / renungan.', 'warning');
+      return;
+    }
+
+    const { starters, reflections } = this.getLiveTopicsContext();
+    if (type === 'starter') {
+      starters.unshift(content);
+      localStorage.setItem('MINDVAULT_LOCAL_TOPIC_STARTERS', JSON.stringify(starters));
+      this.showToast('Pemantik obrolan baru tersimpan ke RAG Database! 💡✨', 'success');
+    } else {
+      reflections.unshift(content);
+      localStorage.setItem('MINDVAULT_LOCAL_TOPIC_REFLECTIONS', JSON.stringify(reflections));
+      this.showToast('Renungan hubungan baru tersimpan ke RAG Database! 📝🧠', 'success');
+    }
+
+    document.getElementById('modal-add-topic')?.classList.remove('active');
+    this.renderTopicsPage();
+  },
+
+  deleteTopicStarter(idx) {
+    const { starters } = this.getLiveTopicsContext();
+    starters.splice(idx, 1);
+    localStorage.setItem('MINDVAULT_LOCAL_TOPIC_STARTERS', JSON.stringify(starters));
+    this.renderTopicsPage();
+  },
+
+  deleteTopicReflection(idx) {
+    const { reflections } = this.getLiveTopicsContext();
+    reflections.splice(idx, 1);
+    localStorage.setItem('MINDVAULT_LOCAL_TOPIC_REFLECTIONS', JSON.stringify(reflections));
+    this.renderTopicsPage();
+  },
+
   async sendAIChatMessage() {
     const input = document.getElementById('ai-chat-input');
     const msg = input.value.trim();
@@ -1348,18 +1444,20 @@ const MindVaultApp = {
 
     // Show typing indicator
     const typingId = 'ai-typing-' + Date.now();
-    log.innerHTML += `<div class="chat-bubble ai" id="${typingId}"><em>Menganalisis memori percakapan... ✨</em></div>`;
+    log.innerHTML += `<div class="chat-bubble ai" id="${typingId}"><em>Menganalisis memori percakapan & RAG database... ✨</em></div>`;
     log.scrollTop = log.scrollHeight;
 
     const liveDiaries = this.getLiveDiariesContext();
+    const liveTopics = this.getLiveTopicsContext();
 
-    // Call Gemini / Smart Local Relationship Assistant
+    // Call Gemini / Smart Local Relationship Assistant with Full RAG Engine
     let response = await MindVaultGemini.chatWithAssistant(
       msg, 
       MindVaultData.friends, 
       liveDiaries,
       MindVaultData.dailyJournals,
-      this.selectedFriendId
+      this.selectedFriendId,
+      liveTopics
     );
     
     const typingEl = document.getElementById(typingId);
@@ -1369,7 +1467,8 @@ const MindVaultApp = {
         msg, 
         MindVaultData.friends, 
         liveDiaries, 
-        MindVaultData.dailyJournals
+        MindVaultData.dailyJournals,
+        liveTopics
       );
       if (typingEl) typingEl.innerHTML = typeof fallbackMsg === 'string' ? fallbackMsg.replace(/\n/g, '<br>') : fallbackMsg;
       log.scrollTop = log.scrollHeight;

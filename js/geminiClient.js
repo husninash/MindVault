@@ -54,8 +54,8 @@ const MindVaultGemini = {
     }
   },
 
-  // Deep Relationship Intelligence Assistant Prompt
-  async chatWithAssistant(userQuery, friendsData, diariesData, dailyJournalsData, activeFriendId) {
+  // Deep Relationship Intelligence Assistant Prompt with Full RAG Database
+  async chatWithAssistant(userQuery, friendsData, diariesData, dailyJournalsData, activeFriendId, liveTopicsData) {
     const friendsContext = (friendsData || []).map(f => `
 - Friend Name: ${f.name} (ID: ${f.id}, Relation: ${f.relation || 'Friend'})
   Intimacy Score: ${f.score || 85}%
@@ -81,48 +81,70 @@ const MindVaultGemini = {
   Gratitude: "${j.gratitude || 'N/A'}"
 `).join('\n');
 
+    const startersContext = ((liveTopicsData && liveTopicsData.starters) || []).map(s => `- [AI Suggested Starter] "${s}"`).join('\n');
+    const reflectionsContext = ((liveTopicsData && liveTopicsData.reflections) || []).map(r => `- [Personal Relationship Reflection] "${r}"`).join('\n');
+
     const activeFriend = (friendsData || []).find(f => f.id === activeFriendId) || (friendsData || [])[0];
     const targetFriendName = (diariesData && diariesData[0] && diariesData[0].friendName) ? diariesData[0].friendName : (activeFriend ? activeFriend.name : 'Ethan');
     
     const latestDiary = (diariesData && diariesData.length > 0) ? diariesData[0] : null;
 
-    const systemInstruction = `YOU ARE MINDVAULT AI, A SMART & EMPATHETIC RELATIONSHIP INTELLIGENCE ASSISTANT FOR THE USER.
+    const systemInstruction = `YOU ARE MINDVAULT AI, A COMPREHENSIVE RAG-POWERED RELATIONSHIP INTELLIGENCE ASSISTANT.
 
-MANDATORY BEHAVIOR RULES:
+MANDATORY RAG & BEHAVIOR RULES:
 1. ALWAYS RESPOND IN WARM, EMPATHETIC INDONESIAN LANGUAGE.
-2. ADAPT TO USER INTENT NATURALLY:
-   - If the user asks general questions (e.g. gift ideas, friend bios, general catchup, how the app works), answer that specific question directly and helpfully.
-   - If the user asks about relationships, conversation memories, conflicts, logs, pronouns ("dia"), or asks for evaluation/analysis (e.g. "baca log", "bagaimana hubunganku", "coba analisa", "ngomong ama dia", "pertikaian"):
-     Inspect the "LOGGED CONVERSATION MEMORIES" below. Read the actual content of the logged diaries (e.g. "${latestDiary ? latestDiary.title : 'Closure'}") and provide a deep, thoughtful relationship analysis addressing any conflict or tension.
-3. PRONOUN RESOLUTION: Words like "dia", "beliau", "nya", "dia tuh", "ngomong ama dia" refer to "${targetFriendName}" or the friend in the conversation memory.
+2. YOU HAVE COMPLETE ACCESS TO THE USER'S RAG DATABASE (FRIEND PROFILES, CONVERSATION MEMORIES, TODAY'S TOPICS & STARTERS, AND PERSONAL REFLECTIONS).
+3. ADAPT TO USER INTENT NATURALLY:
+   - If the user asks about "topik hari ini", "starters", "pemantik", "renungan", "ide obrolan", use the "TODAY'S TOPICS & AI SUGGESTED STARTERS" and "PERSONAL REFLECTIONS" below.
+   - If the user asks about relationships, conversation memories, conflicts, logs, pronouns ("dia"), or asks for evaluation/analysis:
+     Inspect the "LOGGED CONVERSATION MEMORIES" below (e.g. "${latestDiary ? latestDiary.title : 'Closure'}") and provide a deep, thoughtful relationship analysis addressing any conflict or tension.
+   - If the user asks general questions (gifts, bios, catchup), answer naturally.
 
-DATABASE CONTEXT:
+LIVE RAG DATABASE CONTEXT:
 
-### FRIEND PROFILES:
+### TODAY'S TOPICS & AI SUGGESTED STARTERS (RAG):
+${startersContext || 'No starters active today.'}
+
+### PERSONAL RELATIONSHIP THOUGHTS & REFLECTIONS (RAG):
+${reflectionsContext || 'No personal reflections active today.'}
+
+### FRIEND PROFILES (RAG):
 ${friendsContext || 'No friends added yet.'}
 
-### LOGGED CONVERSATION MEMORIES:
+### LOGGED CONVERSATION MEMORIES (RAG):
 ${diariesContext || 'No conversation memories logged yet.'}
 
-### PERSONAL DAILY REFLECTIONS:
+### PERSONAL DAILY REFLECTIONS (RAG):
 ${dailyContext || 'No daily reflections logged yet.'}
 
 Respond in clean Indonesian markdown using bold headers, bullet points, and emojis.`;
 
     // Smart Intent Classifier
     const isLogOrRelationshipQuery = /log|jurnal|journal|analis|analiz|evaluas|hubung|ingat|ingatan|rekam|tengkar|bertikai|closure|move on|benci|kecewa|memburuk|dia|beliau|ia|percakapan|obrolan|kemarin|momen|njim|masukkan/i.test(userQuery);
+    const isTopicQuery = /topik|topic|starter|pemantik|renungan|thought|ide obrolan|bicara|ngobrol/i.test(userQuery);
 
     let enrichedUserPrompt = userQuery;
 
-    if (isLogOrRelationshipQuery && latestDiary) {
+    if (isTopicQuery) {
       enrichedUserPrompt = `PESAN USER: "${userQuery}"
 
-CATATAN JURNAL TERKAIT DALAM DATABASE:
+DATABASE RAG TOPIC & RENUNGAN HARI INI:
+- Pemantik Obrolan:
+${startersContext || '- Tidak ada pemantik.'}
+- Renungan Hubungan:
+${reflectionsContext || '- Tidak ada renungan.'}
+
+PETUNJUK:
+Jawab pertanyaan user menggunakan data RAG Topik & Renungan Hari Ini di atas dalam Bahasa Indonesia.`;
+    } else if (isLogOrRelationshipQuery && latestDiary) {
+      enrichedUserPrompt = `PESAN USER: "${userQuery}"
+
+CATATAN JURNAL TERKAIT DALAM DATABASE RAG:
 - Teman: ${latestDiary.friendName || targetFriendName}
 - Judul Log: "${latestDiary.title}"
 - Isi Catatan Percakapan: "${latestDiary.content}"
 
-PETUNJUK PENANGANAN:
+PETUNJUK:
 User merujuk pada jurnal/percakapan di atas. Bacalah isi catatan jurnal tersebut dengan cermat dan berikan analisis emosional & saran hubungan yang relevan dalam Bahasa Indonesia.`;
     }
 
@@ -132,13 +154,32 @@ User merujuk pada jurnal/percakapan di atas. Bacalah isi catatan jurnal tersebut
     }
 
     // Local Smart Analysis Fallback
-    return this.localSmartAnalysisFallback(userQuery, friendsData, diariesData, dailyJournalsData);
+    return this.localSmartAnalysisFallback(userQuery, friendsData, diariesData, dailyJournalsData, liveTopicsData);
   },
 
   // Smart Contextual Local Analysis Engine
-  localSmartAnalysisFallback(userQuery, friendsData = [], diariesData = [], dailyJournalsData = []) {
+  localSmartAnalysisFallback(userQuery, friendsData = [], diariesData = [], dailyJournalsData = [], liveTopicsData = {}) {
     const query = (userQuery || '').toLowerCase();
     
+    // Check if user is asking about topics
+    if (/topik|topic|starter|pemantik|renungan|thought|ide obrolan/i.test(query)) {
+      const starters = (liveTopicsData && liveTopicsData.starters) ? liveTopicsData.starters : ["Ask Sophia about Mochi's Friday vet checkup", "Congratulate Liam on his 45km marathon training run"];
+      const reflections = (liveTopicsData && liveTopicsData.reflections) ? liveTopicsData.reflections : ["Great relationships aren't built on grand gestures, but on remembering the small details that matter."];
+
+      return `💡 **Today's Topics & RAG Insights**
+
+Berikut adalah topik & ide pemantik obrolan yang tersimpan di RAG Database kamu:
+
+* **💡 AI Suggested Starters:**
+${starters.map(s => `  * "${s}"`).join('\n')}
+
+* **📝 Relationship Reflections:**
+${reflections.map(r => `  * "${r}"`).join('\n')}
+
+---
+🌱 **Saran AI:** Gunakan ide pemantik di atas untuk mencairkan suasana saat mengobrol dengan teman-temanmu hari ini!`;
+    }
+
     // Find matching friend or most recent diary
     let matchedFriend = friendsData.find(f => query.includes(f.name.toLowerCase()));
     let matchedDiary = null;

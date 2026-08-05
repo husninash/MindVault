@@ -416,22 +416,35 @@
 
     <!-- PAGE VIEW 6: TOPICS & THOUGHTS -->
     <section id="view-topics" class="page-view">
-      <h2 style="font-size: 24px; font-weight: 800; margin-bottom: 20px;">Today's Topics & Personal Thoughts</h2>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+        <div>
+          <h2 style="font-size: 24px; font-weight: 800;">Today's Topics & Personal Thoughts</h2>
+          <p style="font-size: 14px; color: var(--text-muted);">Ide pemantik obrolan dan renungan hubungan pribadi yang tersambung ke AI (RAG Engine).</p>
+        </div>
+        <button class="btn btn-primary" onclick="MindVaultApp.openAddTopicModal()">
+          <i class="fa-solid fa-lightbulb"></i>
+          <span>Tambah Topik / Renungan 💡</span>
+        </button>
+      </div>
+
       <div class="grid-2">
         <div class="glass-card">
-          <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 16px;">💡 AI Suggested Starters</h3>
-          <div style="padding: 14px; background: white; border-radius: 14px; margin-bottom: 10px; border: 1px solid var(--card-border);">
-            "Ask Sophia about Mochi's Friday vet checkup"
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="font-size: 18px; font-weight: 700;">💡 AI Suggested Starters</h3>
+            <span class="tag-chip" style="background: rgba(248,187,217,0.3); color: var(--accent-hover);">RAG Active 🤖</span>
           </div>
-          <div style="padding: 14px; background: white; border-radius: 14px; margin-bottom: 10px; border: 1px solid var(--card-border);">
-            "Congratulate Liam on his 45km marathon training run"
+          <div id="topics-starters-list">
+            <!-- Dynamically rendered starters -->
           </div>
         </div>
 
         <div class="glass-card">
-          <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 16px;">📝 My Relationship Reflections</h3>
-          <div style="padding: 14px; background: var(--bg-main); border-radius: 14px; font-style: italic; font-size: 13px; margin-bottom: 10px;">
-            "Great relationships aren't built on grand gestures, but on remembering the small details that matter."
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="font-size: 18px; font-weight: 700;">📝 My Relationship Reflections</h3>
+            <span class="tag-chip" style="background: rgba(233,213,255,0.4); color: #6D28D9;">RAG Active 🧠</span>
+          </div>
+          <div id="topics-reflections-list">
+            <!-- Dynamically rendered reflections -->
           </div>
         </div>
       </div>
@@ -983,6 +996,28 @@
     </div>
 
     <button id="btn-save-dream" class="btn btn-primary" style="width: 100%; padding: 14px; margin-top: 10px; background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%); border: none;" onclick="MindVaultApp.saveDreamFromModal()">Save Dream Log 🌙</button>
+  </div>
+</div>
+
+<!-- MODAL: ADD TODAY'S TOPIC / REFLECTION -->
+<div id="modal-add-topic" class="modal-overlay">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>💡 Tambah Topik / Renungan Hubungan</h3>
+      <button class="modal-close-btn">&times;</button>
+    </div>
+    <div class="form-group">
+      <label>Kategori Input</label>
+      <select id="add-topic-type" class="form-control">
+        <option value="starter">💡 AI Suggested Starter (Pemantik Obrolan)</option>
+        <option value="reflection">📝 Relationship Reflection (Renungan Hubungan)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Isi Topik / Pemantik / Renungan <span style="color: red;">*</span></label>
+      <textarea id="add-topic-content" class="form-control" style="min-height: 90px;" placeholder="e.g. Tanya Sophia tentang kucingnya Mochi, atau Tanyakan kabar Ethan tentang proyek barunya..."></textarea>
+    </div>
+    <button class="btn btn-primary" style="width: 100%; padding: 14px;" onclick="MindVaultApp.saveTopicFromModal()">Simpan ke RAG Database 🚀</button>
   </div>
 </div>
 
