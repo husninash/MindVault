@@ -82,6 +82,10 @@ const MindVaultGemini = {
 
     const activeFriend = (friendsData || []).find(f => f.id === activeFriendId) || (friendsData || [])[0];
     const targetFriendName = (diariesData && diariesData[0] && diariesData[0].friendName) ? diariesData[0].friendName : (activeFriend ? activeFriend.name : 'Ethan');
+    
+    const latestDiary = (diariesData && diariesData.length > 0) ? diariesData[0] : null;
+    const latestTitle = latestDiary ? latestDiary.title : 'Closure';
+    const latestContent = latestDiary ? latestDiary.content : 'Saya akhirnya bilang saya sudah move on, dan ada pertikaian kecil karena saya benci banget... Intinya ya hubungan jadi agak memburuk sih kurasa';
 
     const systemInstruction = `YOU ARE MINDVAULT AI, AN EXPERT RELATIONSHIP INTELLIGENCE ASSISTANT FOR THE USER.
 
@@ -91,10 +95,9 @@ CRITICAL MANDATORY INSTRUCTIONS:
    - The user refers to "${targetFriendName}" using words like "dia", "ia", "beliau", "nya", "dia tuh", or "ngomong ama dia".
 3. DO NOT ASK THE USER TO SHARE THE LOG OR PASTE THE JOURNAL!
    - THE LOGGED JOURNAL MEMORY IS ALREADY PROVIDED IN THIS PROMPT UNDER "LOGGED CONVERSATION MEMORIES"!
-   - For example, there is a log with ${targetFriendName} titled "Closure" where the user wrote: "Saya akhirnya bilang saya sudah move on, dan ada pertikaian kecil karena saya benci banget... Intinya ya hubungan jadi agak memburuk sih kurasa".
 4. DIRECT CONFLICT & PERTIKAIAN ANALYSIS:
-   - YOU MUST IMMEDIATELY READ THAT EXACT LOGGED CONTENT AND PROVIDE A DEEP ANALYSIS OF THE CONFLICT/PERTIKAIAN WITH ${targetFriendName}!
-   - DO NOT give generic "please share your log" or "reconnect" replies.
+   - READ THE LOGGED CONTENT DIRECTLY AND PROVIDE A DEEP ANALYSIS OF THE CONFLICT/PERTIKAIAN WITH ${targetFriendName}!
+   - DO NOT give generic "please share your log" or polite conversational replies.
    - Address the argument, closure, hurt feelings, and relationship deteriorating ("memburuk") described in the log.
    - Provide 3 realistic, empathetic steps on how the user should navigate this tension.
 
@@ -103,7 +106,7 @@ HERE IS THE USER'S LIVE RELATIONSHIP DATABASE:
 ### FRIEND PROFILES:
 ${friendsContext || 'No friends added yet.'}
 
-### LOGGED CONVERSATION MEMORIES (READ AND ANALYZE THESE EXACT CONTENTS DIRECTLY):
+### LOGGED CONVERSATION MEMORIES (MUST READ AND ANALYZE THESE EXACT CONTENTS DIRECTLY):
 ${diariesContext || 'No conversation memories logged yet.'}
 
 ### PERSONAL DAILY REFLECTIONS:
@@ -111,7 +114,19 @@ ${dailyContext || 'No daily reflections logged yet.'}
 
 Format your response cleanly in Indonesian using bold headers, bullet points, and emojis.`;
 
-    const result = await this.askGemini(userQuery, systemInstruction);
+    const enrichedUserPrompt = `PESAN USER: "${userQuery}"
+
+INSTRUKSI KHUSUS UNTUK PERTANYAAN INI:
+User sedang meminta analisis atau tanggapan mengenai percakapan/jurnalnya dengan ${targetFriendName}.
+Jurnal percakapan yang tercatat di database adalah: "${latestTitle}" dengan isi: "${latestContent}".
+
+TUGAS UTAMA:
+1. Bacalah isi jurnal tersebut secara cermat (terutama mengenai pertikaian, closure, rasa kecewa, dan hubungan yang memburuk).
+2. BERIKAN ANALISIS LENGKAP & EMPATIS DALAM BAHASA INDONESIA mengenai dinamika hubungan dan pertikaian tersebut.
+3. BERIKAN 3 REKOMENDASI LANGKAH SOLUTIF.
+4. JANGAN PERNAH meminta user mengirimkan log jurnal lagi atau membalas salam ramah biasa!`;
+
+    const result = await this.askGemini(enrichedUserPrompt, systemInstruction);
     if (result && !result.error && typeof result === 'string' && result.length > 20) {
       return result;
     }
