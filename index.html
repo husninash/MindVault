@@ -511,7 +511,7 @@
 
         <!-- Account Role & Admin Switcher -->
         <div class="glass-card" style="background: rgba(255, 255, 255, 0.9);">
-          <div style="display: flex; justify-content: space-between; align-items: center; gap: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap;">
             <div>
               <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
                 <strong style="font-size: 14px; color: var(--text-dark);">Account Role:</strong>
@@ -519,9 +519,14 @@
               </div>
               <p style="font-size: 12px; color: var(--text-muted);">Regular User Mode. System API keys and cloud settings are managed by Administrators in Admin Console.</p>
             </div>
-            <button id="settings-admin-switch-btn" class="btn btn-secondary" style="white-space: nowrap; flex-shrink: 0;" onclick="MindVaultApp.toggleUserAdminRole()">
-              <i class="fa-solid fa-shield-halved" style="color: var(--accent-hover);"></i> Switch to Admin Mode
-            </button>
+            <div style="display: flex; gap: 10px;">
+              <button id="settings-admin-switch-btn" class="btn btn-secondary" style="white-space: nowrap; flex-shrink: 0;" onclick="MindVaultApp.toggleUserAdminRole()">
+                <i class="fa-solid fa-shield-halved" style="color: var(--accent-hover);"></i> Switch to Admin Mode
+              </button>
+              <button class="btn btn-secondary" style="white-space: nowrap; flex-shrink: 0; color: #DC2626; border-color: rgba(220,38,38,0.3);" onclick="MindVaultApp.handleLogout()">
+                <i class="fa-solid fa-right-from-bracket"></i> Log Out
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1002,13 +1007,16 @@
   </div>
 </div>
 
-<!-- MODAL: ADD TODAY'S TOPIC / REFLECTION -->
+<!-- MODAL: ADD / EDIT TODAY'S TOPIC / REFLECTION -->
 <div id="modal-add-topic" class="modal-overlay">
   <div class="modal-card">
     <div class="modal-header">
-      <h3>💡 Tambah Topik / Renungan Hubungan</h3>
+      <h3 id="modal-add-topic-header-title">💡 Tambah Topik / Renungan Hubungan</h3>
       <button class="modal-close-btn">&times;</button>
     </div>
+    <input type="hidden" id="edit-topic-index" value="">
+    <input type="hidden" id="edit-topic-category" value="">
+    
     <div class="form-group">
       <label>Kategori Input</label>
       <select id="add-topic-type" class="form-control">
@@ -1020,7 +1028,7 @@
       <label>Isi Topik / Pemantik / Renungan <span style="color: red;">*</span></label>
       <textarea id="add-topic-content" class="form-control" style="min-height: 90px;" placeholder="e.g. Tanya Sophia tentang kucingnya Mochi, atau Tanyakan kabar Ethan tentang proyek barunya..."></textarea>
     </div>
-    <button class="btn btn-primary" style="width: 100%; padding: 14px;" onclick="MindVaultApp.saveTopicFromModal()">Simpan ke RAG Database 🚀</button>
+    <button id="btn-save-topic" class="btn btn-primary" style="width: 100%; padding: 14px;" onclick="MindVaultApp.saveTopicFromModal()">Simpan ke RAG Database 🚀</button>
   </div>
 </div>
 
@@ -1092,11 +1100,11 @@
 
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/data.js?v=6.0"></script>
-<script src="js/supabaseClient.js?v=6.0"></script>
-<script src="js/geminiClient.js?v=6.0"></script>
-<script src="js/graph.js?v=6.0"></script>
-<script src="js/app.js?v=6.0"></script>
+<script src="js/data.js?v=7.0"></script>
+<script src="js/supabaseClient.js?v=7.0"></script>
+<script src="js/geminiClient.js?v=7.0"></script>
+<script src="js/graph.js?v=7.0"></script>
+<script src="js/app.js?v=7.0"></script>
 
 </body>
 </html>

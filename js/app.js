@@ -349,13 +349,27 @@ const MindVaultApp = {
   },
 
   async handleLogout() {
-    if (confirm('Are you sure you want to log out of MindVault?')) {
-      if (typeof MindVaultSupabase !== 'undefined') {
-        await MindVaultSupabase.signOut();
-      }
+    if (confirm('Apakah Anda yakin ingin keluar (logout) dari MindVault?')) {
+      try {
+        if (typeof MindVaultSupabase !== 'undefined' && MindVaultSupabase.signOut) {
+          await MindVaultSupabase.signOut();
+        }
+      } catch (e) {}
+
       localStorage.removeItem('MINDVAULT_AUTH_SESSION');
       this.currentUser = null;
+
+      // Show Toast
+      this.showToast('Berhasil keluar (Logged out).', 'info');
+
+      // Clear input fields
+      if (document.getElementById('auth-username')) document.getElementById('auth-username').value = '';
+      if (document.getElementById('auth-password')) document.getElementById('auth-password').value = '';
+      if (document.getElementById('auth-name')) document.getElementById('auth-name').value = '';
+
+      // Force show Auth Modal Screen overlay
       this.showAuthScreen();
+      this.switchView('dashboard');
     }
   },
 
@@ -1382,10 +1396,15 @@ const MindVaultApp = {
     if (startersList) {
       startersList.innerHTML = starters.map((s, idx) => `
         <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px; background: white; border-radius: 14px; margin-bottom: 10px; border: 1px solid var(--card-border);">
-          <span style="font-size: 13px; font-weight: 600; color: var(--text-dark);">"${s}"</span>
-          <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px; color: #DC2626;" onclick="MindVaultApp.deleteTopicStarter(${idx})">
-            <i class="fa-solid fa-trash-can"></i>
-          </button>
+          <span style="font-size: 13px; font-weight: 600; color: var(--text-dark); flex: 1; margin-right: 10px;">"${s}"</span>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px; color: #6D28D9;" onclick="MindVaultApp.openEditTopicModal('starter', ${idx})">
+              <i class="fa-solid fa-pen-to-square"></i>
+            </button>
+            <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px; color: #DC2626;" onclick="MindVaultApp.deleteTopicStarter(${idx})">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
         </div>
       `).join('');
     }
@@ -1393,27 +1412,72 @@ const MindVaultApp = {
     if (reflectionsList) {
       reflectionsList.innerHTML = reflections.map((r, idx) => `
         <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px; background: var(--bg-main); border-radius: 14px; font-style: italic; font-size: 13px; margin-bottom: 10px; border-left: 3px solid #8B5CF6;">
-          <span style="color: var(--text-dark);">"${r}"</span>
-          <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px; color: #DC2626;" onclick="MindVaultApp.deleteTopicReflection(${idx})">
-            <i class="fa-solid fa-trash-can"></i>
-          </button>
+          <span style="color: var(--text-dark); flex: 1; margin-right: 10px;">"${r}"</span>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px; color: #6D28D9;" onclick="MindVaultApp.openEditTopicModal('reflection', ${idx})">
+              <i class="fa-solid fa-pen-to-square"></i>
+            </button>
+            <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px; color: #DC2626;" onclick="MindVaultApp.deleteTopicReflection(${idx})">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
         </div>
       `).join('');
     }
   },
 
   openAddTopicModal() {
+    const titleEl = document.getElementById('modal-add-topic-header-title');
+    if (titleEl) titleEl.innerText = '💡 Tambah Topik / Renungan Hubungan';
+    const indexEl = document.getElementById('edit-topic-index');
+    if (indexEl) indexEl.value = '';
+    const catEl = document.getElementById('edit-topic-category');
+    if (catEl) catEl.value = '';
+    const btnEl = document.getElementById('btn-save-topic');
+    if (btnEl) btnEl.innerText = 'Simpan ke RAG Database 🚀';
+
     const textarea = document.getElementById('add-topic-content');
     if (textarea) textarea.value = '';
+
     const modal = document.getElementById('modal-add-topic');
-    if (modal) {
-      modal.classList.add('active');
+    if (modal) modal.classList.add('active');
+  },
+
+  openEditTopicModal(category, idx) {
+    const { starters, reflections } = this.getLiveTopicsContext();
+    const text = category === 'starter' ? starters[idx] : reflections[idx];
+    if (text === undefined) {
+      this.showToast('Item tidak ditemukan.', 'warning');
+      return;
     }
+
+    const titleEl = document.getElementById('modal-add-topic-header-title');
+    if (titleEl) titleEl.innerText = `✏️ Edit ${category === 'starter' ? 'Pemantik Obrolan' : 'Renungan Hubungan'}`;
+
+    const indexEl = document.getElementById('edit-topic-index');
+    if (indexEl) indexEl.value = idx;
+    const catEl = document.getElementById('edit-topic-category');
+    if (catEl) catEl.value = category;
+
+    const typeSelect = document.getElementById('add-topic-type');
+    if (typeSelect) typeSelect.value = category;
+
+    const textarea = document.getElementById('add-topic-content');
+    if (textarea) textarea.value = text;
+
+    const btnEl = document.getElementById('btn-save-topic');
+    if (btnEl) btnEl.innerText = 'Update Topik RAG ✏️';
+
+    const modal = document.getElementById('modal-add-topic');
+    if (modal) modal.classList.add('active');
   },
 
   saveTopicFromModal() {
+    const editIndex = document.getElementById('edit-topic-index')?.value;
+    const editCat = document.getElementById('edit-topic-category')?.value;
     const type = document.getElementById('add-topic-type')?.value || 'starter';
     const content = document.getElementById('add-topic-content')?.value?.trim();
+
     if (!content) {
       this.showToast('Mohon isi konten topik / renungan.', 'warning');
       return;
@@ -1421,16 +1485,33 @@ const MindVaultApp = {
 
     let { starters, reflections } = this.getLiveTopicsContext();
 
-    if (type === 'starter') {
-      starters.unshift(content);
-      localStorage.setItem('MINDVAULT_LOCAL_TOPIC_STARTERS', JSON.stringify(starters));
-      MindVaultData.todaysTopics = starters;
-      this.showToast('Pemantik obrolan baru tersimpan ke RAG Database! 💡✨', 'success');
+    if (editIndex !== undefined && editIndex !== '') {
+      const idx = parseInt(editIndex, 10);
+      if (editCat === 'starter' || type === 'starter') {
+        if (starters[idx] !== undefined) starters[idx] = content;
+        else starters.unshift(content);
+        localStorage.setItem('MINDVAULT_LOCAL_TOPIC_STARTERS', JSON.stringify(starters));
+        MindVaultData.todaysTopics = starters;
+        this.showToast('Pemantik obrolan berhasil diperbarui! ✏️✨', 'success');
+      } else {
+        if (reflections[idx] !== undefined) reflections[idx] = content;
+        else reflections.unshift(content);
+        localStorage.setItem('MINDVAULT_LOCAL_TOPIC_REFLECTIONS', JSON.stringify(reflections));
+        MindVaultData.todaysThoughts = reflections;
+        this.showToast('Renungan hubungan berhasil diperbarui! ✏️🧠', 'success');
+      }
     } else {
-      reflections.unshift(content);
-      localStorage.setItem('MINDVAULT_LOCAL_TOPIC_REFLECTIONS', JSON.stringify(reflections));
-      MindVaultData.todaysThoughts = reflections;
-      this.showToast('Renungan hubungan baru tersimpan ke RAG Database! 📝🧠', 'success');
+      if (type === 'starter') {
+        starters.unshift(content);
+        localStorage.setItem('MINDVAULT_LOCAL_TOPIC_STARTERS', JSON.stringify(starters));
+        MindVaultData.todaysTopics = starters;
+        this.showToast('Pemantik obrolan baru tersimpan ke RAG Database! 💡✨', 'success');
+      } else {
+        reflections.unshift(content);
+        localStorage.setItem('MINDVAULT_LOCAL_TOPIC_REFLECTIONS', JSON.stringify(reflections));
+        MindVaultData.todaysThoughts = reflections;
+        this.showToast('Renungan hubungan baru tersimpan ke RAG Database! 📝🧠', 'success');
+      }
     }
 
     const modal = document.getElementById('modal-add-topic');
@@ -1914,8 +1995,12 @@ const MindVaultApp = {
 // Global Window Aliases
 window.MindVaultApp = MindVaultApp;
 window.openAddTopicModal = () => MindVaultApp.openAddTopicModal();
+window.openEditTopicModal = (cat, idx) => MindVaultApp.openEditTopicModal(cat, idx);
 window.saveTopicFromModal = () => MindVaultApp.saveTopicFromModal();
+window.deleteTopicStarter = (idx) => MindVaultApp.deleteTopicStarter(idx);
+window.deleteTopicReflection = (idx) => MindVaultApp.deleteTopicReflection(idx);
 window.openAddDiaryModal = () => MindVaultApp.openAddDiaryModal();
 window.saveDiaryFromModal = () => MindVaultApp.saveDiaryFromModal();
 window.openAddDreamModal = () => MindVaultApp.openAddDreamModal();
 window.saveDreamFromModal = () => MindVaultApp.saveDreamFromModal();
+window.handleLogout = () => MindVaultApp.handleLogout();
