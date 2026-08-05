@@ -353,19 +353,23 @@
       </div>
     </section>
 
-    <!-- PAGE VIEW 4: DIARY -->
+    <!-- PAGE VIEW 4: DIARY & DREAM JOURNAL -->
     <section id="view-diaries" class="page-view">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
         <div>
-          <h2 style="font-size: 24px; font-weight: 800;">Journal & Reflection</h2>
-          <p style="font-size: 14px; color: var(--text-muted);">Catat momen percakapan dan refleksi jurnal harian pribadi.</p>
+          <h2 style="font-size: 24px; font-weight: 800;">Journal, Reflection & Dream Log</h2>
+          <p style="font-size: 14px; color: var(--text-muted);">Catat momen percakapan, refleksi harian, dan alur cerita mimpi pribadi.</p>
         </div>
-        <div style="display: flex; gap: 10px;">
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button class="btn btn-primary" style="background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%); border: none;" onclick="MindVaultApp.openAddDreamModal()">
+            <i class="fa-solid fa-moon"></i>
+            <span>Log Cerita Mimpi 🌙</span>
+          </button>
           <button class="btn btn-secondary" onclick="document.getElementById('modal-add-daily-journal').classList.add('active')">
             <i class="fa-solid fa-book-bookmark"></i>
             <span>Refleksi Harian</span>
           </button>
-          <button class="btn btn-primary" onclick="document.getElementById('modal-add-diary').classList.add('active')">
+          <button class="btn btn-primary" onclick="MindVaultApp.openAddDiaryModal()">
             <i class="fa-solid fa-pen"></i>
             <span>Log Memory Teman</span>
           </button>
@@ -380,6 +384,9 @@
         <button class="diary-tab-btn" id="tab-btn-daily" onclick="MindVaultApp.switchDiaryTab('daily')">
           📝 Jurnal Harian (Daily Reflections)
         </button>
+        <button class="diary-tab-btn" id="tab-btn-dream" onclick="MindVaultApp.switchDiaryTab('dream')">
+          🌙 Dream Journal (Alur Cerita Mimpi)
+        </button>
       </div>
 
       <div id="diary-tab-memories-content">
@@ -388,6 +395,10 @@
 
       <div id="diary-tab-daily-content" style="display: none;">
         <div id="daily-journals-list"></div>
+      </div>
+
+      <div id="diary-tab-dream-content" style="display: none;">
+        <div id="dream-journals-list"></div>
       </div>
     </section>
 
@@ -924,6 +935,54 @@
       <input type="text" id="add-daily-gratitude" class="form-control" placeholder="e.g. Cuaca cerah, secangkir kopi hangat, kabar dari teman">
     </div>
     <button class="btn btn-primary" style="width: 100%; padding: 14px;" onclick="MindVaultApp.saveNewDailyJournal()">Simpan Jurnal Harian</button>
+<!-- MODAL: ADD / EDIT DREAM JOURNAL -->
+<div id="modal-add-dream-journal" class="modal-overlay">
+  <div class="modal-card" style="max-width: 620px;">
+    <div class="modal-header">
+      <h3 id="modal-add-dream-header-title">🌙 Log Alur Cerita Mimpi</h3>
+      <button class="modal-close-btn">&times;</button>
+    </div>
+    <input type="hidden" id="edit-dream-id" value="">
+
+    <div class="form-group">
+      <label>Judul Cerita Mimpi <span style="color: red;">*</span></label>
+      <input type="text" id="add-dream-title" class="form-control" placeholder="e.g. Terbang di Atas Kota Kaca & Bertemu Kucing Bicara">
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+      <div class="form-group">
+        <label>Tanggal / Malam Mimpi <span style="color: red;">*</span></label>
+        <input type="date" id="add-dream-date" class="form-control">
+      </div>
+      <div class="form-group">
+        <label>Sensasi & Tipe Mimpi</label>
+        <select id="add-dream-type" class="form-control">
+          <option value="🌌 Lucid Dream (Sadar Sedang Bermimpi)">🌌 Lucid Dream (Sadar Bermimpi)</option>
+          <option value="✨ Vivid & Indah (Penuh Warna)">✨ Vivid & Indah (Penuh Warna)</option>
+          <option value="🌀 Aneh & Surreal (Surealis)">🌀 Aneh & Surreal (Surealis)</option>
+          <option value="🔮 Mimpi Pertanda & Intuisi">🔮 Mimpi Pertanda & Intuisi</option>
+          <option value="⚡ Mimpi Buruk / Deg-degan">⚡ Mimpi Buruk / Deg-degan</option>
+          <option value="☕ Mimpi Santai & Petualangan">☕ Mimpi Santai & Petualangan</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Tokoh / Sosok yang Hadir dalam Mimpi</label>
+      <input type="text" id="add-dream-characters" class="form-control" placeholder="e.g. Ethan, Kucing Putih, Teman SD">
+    </div>
+
+    <div class="form-group">
+      <label>Alur Cerita Mimpi (Detail dari Awal sampai Bangun) <span style="color: red;">*</span></label>
+      <textarea id="add-dream-content" class="form-control" style="min-height: 120px;" placeholder="Ceritakan bagaimana mimpimu bermula, suasana tempatnya, kejadian unik/aneh, dan momen saat kamu terbangun..."></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>Perasaan / Catatan Saat Terbangun</label>
+      <input type="text" id="add-dream-reflection" class="form-control" placeholder="e.g. Bangun dengan perasaan penasaran dan agak lega">
+    </div>
+
+    <button id="btn-save-dream" class="btn btn-primary" style="width: 100%; padding: 14px; margin-top: 10px; background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%); border: none;" onclick="MindVaultApp.saveDreamFromModal()">Save Dream Log 🌙</button>
   </div>
 </div>
 

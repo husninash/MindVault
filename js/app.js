@@ -25,6 +25,7 @@ const MindVaultApp = {
     }
 
     await this.checkAuthSession();
+    this.getDreamJournals();
     this.renderDashboard();
     this.renderFriendsGrid();
     this.renderDiariesList();
@@ -1541,5 +1542,249 @@ const MindVaultApp = {
 
     this.switchDiaryTab('daily');
     this.renderDashboard();
+  },
+
+  switchDiaryTab(tabName) {
+    const memoriesBtn = document.getElementById('tab-btn-memories');
+    const dailyBtn = document.getElementById('tab-btn-daily');
+    const dreamBtn = document.getElementById('tab-btn-dream');
+
+    const memoriesContent = document.getElementById('diary-tab-memories-content');
+    const dailyContent = document.getElementById('diary-tab-daily-content');
+    const dreamContent = document.getElementById('diary-tab-dream-content');
+
+    if (memoriesBtn) memoriesBtn.classList.toggle('active', tabName === 'memories');
+    if (dailyBtn) dailyBtn.classList.toggle('active', tabName === 'daily');
+    if (dreamBtn) dreamBtn.classList.toggle('active', tabName === 'dream');
+
+    if (memoriesContent) memoriesContent.style.display = tabName === 'memories' ? 'block' : 'none';
+    if (dailyContent) dailyContent.style.display = tabName === 'daily' ? 'block' : 'none';
+    if (dreamContent) dreamContent.style.display = tabName === 'dream' ? 'block' : 'none';
+
+    if (tabName === 'dream') {
+      this.renderDreamJournalsList();
+    }
+  },
+
+  openAddDreamModal() {
+    const titleEl = document.getElementById('modal-add-dream-header-title');
+    if (titleEl) titleEl.innerText = '🌙 Log Alur Cerita Mimpi';
+    const editIdEl = document.getElementById('edit-dream-id');
+    if (editIdEl) editIdEl.value = '';
+    const btnEl = document.getElementById('btn-save-dream');
+    if (btnEl) btnEl.innerText = 'Save Dream Log 🌙';
+
+    const titleInput = document.getElementById('add-dream-title');
+    const dateInput = document.getElementById('add-dream-date');
+    const typeSelect = document.getElementById('add-dream-type');
+    const charsInput = document.getElementById('add-dream-characters');
+    const contentInput = document.getElementById('add-dream-content');
+    const reflectInput = document.getElementById('add-dream-reflection');
+
+    if (titleInput) titleInput.value = '';
+    if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+    if (typeSelect) typeSelect.selectedIndex = 0;
+    if (charsInput) charsInput.value = '';
+    if (contentInput) contentInput.value = '';
+    if (reflectInput) reflectInput.value = '';
+
+    document.getElementById('modal-add-dream-journal')?.classList.add('active');
+  },
+
+  openEditDreamModal(dreamId) {
+    const dreams = this.getDreamJournals();
+    const dream = dreams.find(d => String(d.id) === String(dreamId));
+    if (!dream) {
+      this.showToast('Dream log not found.', 'warning');
+      return;
+    }
+
+    const titleEl = document.getElementById('modal-add-dream-header-title');
+    if (titleEl) titleEl.innerText = `✏️ Edit Cerita Mimpi: ${dream.title}`;
+    const editIdEl = document.getElementById('edit-dream-id');
+    if (editIdEl) editIdEl.value = dream.id;
+    const btnEl = document.getElementById('btn-save-dream');
+    if (btnEl) btnEl.innerText = 'Update Dream Log 🌙';
+
+    const titleInput = document.getElementById('add-dream-title');
+    const dateInput = document.getElementById('add-dream-date');
+    const typeSelect = document.getElementById('add-dream-type');
+    const charsInput = document.getElementById('add-dream-characters');
+    const contentInput = document.getElementById('add-dream-content');
+    const reflectInput = document.getElementById('add-dream-reflection');
+
+    if (titleInput) titleInput.value = dream.title || '';
+    if (dateInput) dateInput.value = dream.date || new Date().toISOString().split('T')[0];
+    if (typeSelect && dream.type) typeSelect.value = dream.type;
+    if (charsInput) charsInput.value = dream.characters || '';
+    if (contentInput) contentInput.value = dream.content || '';
+    if (reflectInput) reflectInput.value = dream.reflection || '';
+
+    document.getElementById('modal-add-dream-journal')?.classList.add('active');
+  },
+
+  getDreamJournals() {
+    if (!MindVaultData.dreamJournals) {
+      let stored = [];
+      try {
+        stored = JSON.parse(localStorage.getItem('MINDVAULT_DREAM_JOURNALS') || '[]');
+      } catch (e) {}
+
+      if (stored.length === 0) {
+        stored = [
+          {
+            id: 1,
+            title: 'Terbang di Atas Kota Kaca & Bertemu Kucing Bicara',
+            date: new Date().toISOString().split('T')[0],
+            type: '🌌 Lucid Dream (Sadar Sedang Bermimpi)',
+            characters: 'Ethan, Kucing Putih',
+            content: 'Saya bermimpi sedang berjalan di atas jembatan kaca raksasa melayang di atas awan. Di tengah jembatan ada kucing putih besar yang memberi petunjuk jalan...',
+            reflection: 'Bangun dengan perasaan takjub dan penasaran.'
+          }
+        ];
+        localStorage.setItem('MINDVAULT_DREAM_JOURNALS', JSON.stringify(stored));
+      }
+      MindVaultData.dreamJournals = stored;
+    }
+    return MindVaultData.dreamJournals;
+  },
+
+  saveDreamFromModal() {
+    const editId = document.getElementById('edit-dream-id')?.value;
+    if (editId) {
+      this.saveEditedDream(editId);
+    } else {
+      this.saveNewDream();
+    }
+  },
+
+  saveNewDream() {
+    const title = document.getElementById('add-dream-title')?.value.trim();
+    const date = document.getElementById('add-dream-date')?.value || new Date().toISOString().split('T')[0];
+    const type = document.getElementById('add-dream-type')?.value || '🌌 Lucid Dream';
+    const characters = document.getElementById('add-dream-characters')?.value.trim() || '-';
+    const content = document.getElementById('add-dream-content')?.value.trim();
+    const reflection = document.getElementById('add-dream-reflection')?.value.trim() || '';
+
+    if (!title || !content) {
+      this.showToast('Mohon isi Judul dan Alur Cerita Mimpi.', 'warning');
+      return;
+    }
+
+    const dreams = this.getDreamJournals();
+    const newDream = {
+      id: Date.now(),
+      title,
+      date,
+      type,
+      characters,
+      content,
+      reflection
+    };
+
+    dreams.unshift(newDream);
+    localStorage.setItem('MINDVAULT_DREAM_JOURNALS', JSON.stringify(dreams));
+    this.showToast('Cerita mimpi berhasil disimpan! 🌙✨', 'success');
+    document.getElementById('modal-add-dream-journal')?.classList.remove('active');
+
+    this.switchDiaryTab('dream');
+    this.renderDreamJournalsList();
+  },
+
+  saveEditedDream(dreamId) {
+    const title = document.getElementById('add-dream-title')?.value.trim();
+    const date = document.getElementById('add-dream-date')?.value || new Date().toISOString().split('T')[0];
+    const type = document.getElementById('add-dream-type')?.value || '🌌 Lucid Dream';
+    const characters = document.getElementById('add-dream-characters')?.value.trim() || '-';
+    const content = document.getElementById('add-dream-content')?.value.trim();
+    const reflection = document.getElementById('add-dream-reflection')?.value.trim() || '';
+
+    if (!title || !content) {
+      this.showToast('Mohon isi Judul dan Alur Cerita Mimpi.', 'warning');
+      return;
+    }
+
+    const dreams = this.getDreamJournals();
+    const idx = dreams.findIndex(d => String(d.id) === String(dreamId));
+    if (idx === -1) {
+      this.showToast('Dream log not found.', 'error');
+      return;
+    }
+
+    dreams[idx] = {
+      ...dreams[idx],
+      title,
+      date,
+      type,
+      characters,
+      content,
+      reflection
+    };
+
+    localStorage.setItem('MINDVAULT_DREAM_JOURNALS', JSON.stringify(dreams));
+    this.showToast(`Cerita mimpi "${title}" berhasil diperbarui! ✏️🌙`, 'success');
+    document.getElementById('modal-add-dream-journal')?.classList.remove('active');
+
+    this.switchDiaryTab('dream');
+    this.renderDreamJournalsList();
+  },
+
+  deleteDream(dreamId) {
+    if (!confirm('Apakah Anda yakin ingin menghapus cerita mimpi ini?')) return;
+
+    let dreams = this.getDreamJournals();
+    dreams = dreams.filter(d => String(d.id) !== String(dreamId));
+    MindVaultData.dreamJournals = dreams;
+    localStorage.setItem('MINDVAULT_DREAM_JOURNALS', JSON.stringify(dreams));
+
+    this.showToast('Catatan cerita mimpi berhasil dihapus! 🗑️', 'info');
+    this.renderDreamJournalsList();
+  },
+
+  renderDreamJournalsList() {
+    const container = document.getElementById('dream-journals-list');
+    if (!container) return;
+
+    const dreams = this.getDreamJournals();
+
+    if (dreams.length === 0) {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 40px; background: white; border-radius: 20px; border: 1px dashed var(--card-border);">
+          <p style="color: var(--text-muted); font-size: 14px;">Belum ada alur cerita mimpi yang dicatat. Klik <strong>Log Cerita Mimpi 🌙</strong> untuk mencatat mimpi pertamamu!</p>
+        </div>`;
+      return;
+    }
+
+    container.innerHTML = dreams.map(dream => `
+      <div class="glass-card" style="margin-bottom: 16px; background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(243,232,255,0.6) 100%); border: 1px solid rgba(139,92,246,0.2);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 24px;">🌙</span>
+            <div>
+              <h4 style="font-size: 16px; font-weight: 800; color: #5B21B6;">${dream.title}</h4>
+              <span style="font-size: 12px; color: var(--text-muted);">Tokoh: <strong>${dream.characters || 'Self'}</strong></span>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 11px; font-weight: 700; background: rgba(139,92,246,0.15); color: #6D28D9; padding: 4px 12px; border-radius: 14px;">${dream.type || '🌌 Dream'}</span>
+            <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">📅 ${dream.date}</span>
+            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="MindVaultApp.openEditDreamModal('${dream.id}')">
+              <i class="fa-solid fa-pen-to-square" style="color: #6D28D9;"></i> Edit
+            </button>
+            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px; color: #DC2626; border-color: rgba(220,38,38,0.2);" onclick="MindVaultApp.deleteDream('${dream.id}')">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
+        </div>
+
+        <p style="font-size: 13px; color: var(--text-medium); line-height: 1.6; margin-bottom: 12px; white-space: pre-line;">${dream.content}</p>
+
+        ${dream.reflection ? `
+          <div style="padding: 8px 12px; background: rgba(255,255,255,0.7); border-radius: 10px; border-left: 3px solid #8B5CF6; font-size: 12px; color: #4C1D95;">
+            💭 <strong>Refleksi Saat Terbangun:</strong> ${dream.reflection}
+          </div>
+        ` : ''}
+      </div>
+    `).join('');
   }
 };
