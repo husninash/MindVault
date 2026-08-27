@@ -114,9 +114,10 @@ const MindVaultApp = {
     const modal = document.getElementById('auth-modal-screen');
     if (modal) {
       modal.style.setProperty('display', 'flex', 'important');
+      modal.style.setProperty('visibility', 'visible', 'important');
       modal.style.setProperty('opacity', '1', 'important');
       modal.style.setProperty('pointer-events', 'all', 'important');
-      modal.style.setProperty('z-index', '99999', 'important');
+      modal.style.setProperty('z-index', '999999', 'important');
       modal.classList.add('active');
     }
   },
@@ -125,6 +126,7 @@ const MindVaultApp = {
     const modal = document.getElementById('auth-modal-screen');
     if (modal) {
       modal.style.setProperty('display', 'none', 'important');
+      modal.style.setProperty('visibility', 'hidden', 'important');
       modal.style.setProperty('opacity', '0', 'important');
       modal.style.setProperty('pointer-events', 'none', 'important');
       modal.classList.remove('active');
