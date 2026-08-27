@@ -159,14 +159,34 @@ User merujuk pada jurnal/percakapan di atas. Bacalah isi catatan jurnal tersebut
     return this.localSmartAnalysisFallback(userQuery, friendsData, diariesData, dailyJournalsData, liveTopicsData);
   },
 
-  // Smart Contextual Local Analysis Engine
+  // Smart Contextual Local Analysis Engine (Dynamic & Adaptive)
   localSmartAnalysisFallback(userQuery, friendsData = [], diariesData = [], dailyJournalsData = [], liveTopicsData = {}) {
-    const query = (userQuery || '').toLowerCase();
+    const query = (userQuery || '').toLowerCase().trim();
     
-    // Check if user is asking about topics
-    if (/topik|topic|starter|pemantik|renungan|thought|ide obrolan/i.test(query)) {
-      const starters = (liveTopicsData && liveTopicsData.starters) ? liveTopicsData.starters : ["Ask Sophia about Mochi's Friday vet checkup", "Congratulate Liam on his 45km marathon training run"];
-      const reflections = (liveTopicsData && liveTopicsData.reflections) ? liveTopicsData.reflections : ["Great relationships aren't built on grand gestures, but on remembering the small details that matter."];
+    // 1. Handling Greetings & Casual Chat
+    if (/^(halo|hai|hi|hey|hello|pagi|siang|sore|malam|assalamualaikum|tes|test)\b/i.test(query)) {
+      const friendsCount = friendsData.length;
+      const recentNames = friendsData.slice(0, 3).map(f => f.name).join(', ');
+      
+      return `Halo! 👋 Saya **MindVault Assistant**, asisten kecerdasan relasi pribadi Anda.
+      
+Ada yang bisa saya bantu hari ini? Kamu bisa bertanya tentang:
+* 👥 **Profil & Minat Teman** ${friendsCount > 0 ? `(misal: *${recentNames}*)` : ''}
+* 💡 **Ide Obrolan / Topik Hari Ini** (RAG Engine)
+* 📖 **Analisis Jurnal Memori Percakapan**
+* 🎁 **Rekomendasi Kado & Persiapan Pertemuan (Meeting Prep)**
+
+Ketik pertanyaanmu dengan santai! 😊✨`;
+    }
+
+    // 2. Check if user is asking about topics / starters / reflections
+    if (/topik|topic|starter|pemantik|renungan|thought|ide obrolan|bahan ngobrol/i.test(query)) {
+      const starters = (liveTopicsData && liveTopicsData.starters && liveTopicsData.starters.length > 0) 
+        ? liveTopicsData.starters 
+        : ["Ask Sophia about Mochi's Friday vet checkup", "Congratulate Liam on his 45km marathon training run"];
+      const reflections = (liveTopicsData && liveTopicsData.reflections && liveTopicsData.reflections.length > 0) 
+        ? liveTopicsData.reflections 
+        : ["Great relationships aren't built on grand gestures, but on remembering the small details that matter."];
 
       return `💡 **Today's Topics & RAG Insights**
 
@@ -182,52 +202,73 @@ ${reflections.map(r => `  * "${r}"`).join('\n')}
 🌱 **Saran AI:** Gunakan ide pemantik di atas untuk mencairkan suasana saat mengobrol dengan teman-temanmu hari ini!`;
     }
 
-    // Find matching friend or most recent diary
-    let matchedFriend = friendsData.find(f => query.includes(f.name.toLowerCase()));
-    let matchedDiary = null;
-
-    if (matchedFriend) {
-      matchedDiary = diariesData.find(d => d.friendId === matchedFriend.id || (d.friendName && d.friendName.toLowerCase().includes(matchedFriend.name.toLowerCase())));
-    }
+    // 3. Match friend by name mentioned in query
+    let matchedFriend = friendsData.find(f => f.name && query.includes(f.name.toLowerCase()));
     
-    if (!matchedDiary && diariesData.length > 0) {
-      matchedDiary = diariesData[0];
-      matchedFriend = friendsData.find(f => f.name === matchedDiary.friendName || f.id === matchedDiary.friendId) || { name: matchedDiary.friendName || 'Ethan' };
+    // If friend is mentioned
+    if (matchedFriend) {
+      const friendDiaries = diariesData.filter(d => String(d.friendId) === String(matchedFriend.id) || (d.friendName && d.friendName.toLowerCase() === matchedFriend.name.toLowerCase()));
+      const milestones = matchedFriend.milestones || [];
+      const likesStr = (matchedFriend.likes && matchedFriend.likes.length > 0) ? matchedFriend.likes.join(', ') : 'Belum dicatat';
+      const safeStr = (matchedFriend.safeTopics && matchedFriend.safeTopics.length > 0) ? matchedFriend.safeTopics.join(', ') : 'Hobi santai, kabar sehari-hari';
+      const avoidStr = (matchedFriend.avoidTopics && matchedFriend.avoidTopics.length > 0) ? matchedFriend.avoidTopics.join(', ') : 'Tidak ada catatan';
+
+      if (/kado|hadiah|gift/i.test(query)) {
+        const giftList = matchedFriend.giftIdeas || [];
+        return `🎁 **Rekomendasi Hadiah untuk ${matchedFriend.name}**
+
+Berdasarkan profil & kesukaan ${matchedFriend.name}:
+* **Minat / Hal yang Disukai:** ${likesStr}
+* **Ide Hadiah Tercatat:**
+${giftList.length > 0 ? giftList.map(g => `  * 🎁 **${g.item}** ${g.price ? `(${g.price})` : ''}`).join('\n') : '  * Belum ada ide hadiah spesifik, coba barang terkait hobinya!'}
+
+💡 **Tips AI:** Berikan kado yang berkaitan dengan kesukaannya atau momen spesial terdekatnya!`;
+      }
+
+      if (/ultah|ulang tahun|birthday|wisuda|lahiran|acara|momen|jadwal/i.test(query)) {
+        return `📅 **Jadwal & Momen Spesial ${matchedFriend.name}**
+
+* **Tanggal Lahir:** ${matchedFriend.birthday || 'Belum diisi'}
+* **Momen Mendatang:**
+${milestones.length > 0 ? milestones.map(m => `  * ${m.type || '✨'}: **${m.title}** (📅 ${m.date}) ${m.notes ? `- *"${m.notes}"*` : ''}`).join('\n') : '  * Belum ada momen spesial tambahan yang dicatat.'}
+
+🌱 **Saran AI:** Kamu bisa memanfaatkan fitur *Meeting Prep* untuk menyiapkan topik obrolan saat momen tersebut tiba!`;
+      }
+
+      return `👤 **Profil Relasi: ${matchedFriend.name} (${matchedFriend.relation || 'Friend'})**
+
+* **Skor Hubungan:** ${matchedFriend.score || 85}% (Tier: ${matchedFriend.tier || 'Friend'})
+* **Kabar Terkini:** ${matchedFriend.currentLife || 'Belum ada update'}
+* **Topik Obrolan Aman 🟢:** ${safeStr}
+* **Topik yang Dihindari 🔴:** ${avoidStr}
+* **Riwayat Percakapan Tercatat:** ${friendDiaries.length} memori log
+
+${friendDiaries.length > 0 ? `📖 **Log Terakhir:** "${friendDiaries[0].title}" (${friendDiaries[0].date})` : 'Belum ada catatan memori khusus dengan teman ini.'}`;
     }
 
-    const friendName = matchedFriend ? matchedFriend.name : (matchedDiary ? matchedDiary.friendName : 'Ethan');
-    const safeTopicsStr = (matchedFriend && matchedFriend.safeTopics && matchedFriend.safeTopics.length > 0) 
-      ? matchedFriend.safeTopics.join(', ') 
-      : 'hobi & topik santai';
+    // 4. Checking general relationship questions or memory evaluation
+    if (diariesData.length > 0 && (/jurnal|memori|percakapan|obrolan|terakhir|evaluasi/i.test(query))) {
+      const latest = diariesData[0];
+      return `📖 **Analisis Jurnal Memori Terakhir: "${latest.title}"**
 
-    if (matchedDiary) {
-      return `📊 **Analisis Memori Jurnal Percakapan (${friendName})**
+* **Teman:** ${latest.friendName || 'Teman'}
+* **Tanggal:** ${latest.date || 'Tercatat'}
+* **Mood:** ${latest.mood || 'Reflektif'}
+* **Rangkuman Isi:** "${latest.content}"
 
-Saya telah membaca catatan jurnal percakapan kamu dengan **${friendName}** (*"${matchedDiary.title}"*):
-
-* **📝 Isi Catatan Jurnal:** "${matchedDiary.content}"
-* **⚡ Kondisi Hubungan:** Terjadi pertikaian kecil & rasa memburuk setelah pembahasan *closure* / move on.
-
----
-
-💡 **Insight Hubungan dari AI:**
-1. **Dinamika Pertikaian:** Percakapan jujur saat menegaskan status *move on* atau *closure* sering kali memicu kekecewaan atau gesekan emosional dari salah satu pihak.
-2. **Kondisi Emosional:** Perasaan bahwa hubungan "memburuk" adalah hal yang lumrah saat ada batas emosional baru yang ditetapkan.
-
-🌱 **Rekomendasi Langkah Selanjutnya:**
-* 🛑 **Beri Waktu & Ruang (Give Space):** Jangan terburu-buru menghubungi kembali saat emosi masih sensitif.
-* 🧘 **Hargai Kejujuran Diri:** Keputusanmu untuk jujur soal *move on* adalah langkah sehat bagi dirimu sendiri.
-* 💬 **Langkah Saat Suasana Mendingin:** Jika kelak ingin menyapa kembali, mulailah dari topik yang netral seperti **${safeTopicsStr}** tanpa mengungkit kembali konflik tersebut.`;
+💡 **Saran AI:** Jaga komunikasi yang konsisten dan catat hal-hal penting berikutnya saat kamu mengobrol lagi dengan ${latest.friendName || 'mereka'}!`;
     }
 
-    return `📊 **Analisis Jurnal Hubungan (${friendName})**
+    // 5. Default natural helpful response
+    return `✨ **MindVault Intelligence Assistant**
 
-Berdasarkan data jurnal terbaru:
-* **Teman:** ${friendName}
-* **Status:** Membutuhkan penanganan emosional yang peka pasca-percakapan berat.
+Saya siap membantu menganalisis hubungan dan memberikan saran obrolan!
+Kamu dapat:
+1. Menyebutkan nama teman (misal: *"${friendsData[0] ? friendsData[0].name : 'Nama Teman'}"*) untuk melihat saran topik atau ide kado.
+2. Bertanya tentang *"Topik hari ini"* untuk rekomendasi ide pemantik obrolan.
+3. Bertanya tentang evaluasi percakapan atau momen penting yang sedang kamu hadapi.
 
-🌱 **Saran AI:**
-Beri ruang sejenak agar suasana mendingin sebelum kembali berkomunikasi.`;
+*Tip: Tambahkan Google Gemini API Key di **Admin Console** untuk analisis AI generatif ultra-cerdas tanpa batas!* 🚀`;
   },
 
   // Simulator Roleplay Prompt for a specific friend
