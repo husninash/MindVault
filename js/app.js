@@ -609,6 +609,7 @@ const MindVaultApp = {
     const updatedFriend = {
       ...existing,
       ...friendData,
+      tier: friendData.relation || existing.tier || 'Friend',
       id: friendId
     };
 
@@ -1137,6 +1138,9 @@ const MindVaultApp = {
 
     const relationEl = document.getElementById('profile-relation');
     if (relationEl) relationEl.innerText = friend.relation || 'Friend';
+
+    const tierBadgeEl = document.getElementById('profile-tier-badge');
+    if (tierBadgeEl) tierBadgeEl.innerText = friend.relation || friend.tier || 'Friend';
 
     const avatarEl = document.getElementById('profile-avatar');
     if (avatarEl) avatarEl.src = friend.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80';
