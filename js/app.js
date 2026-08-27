@@ -1282,11 +1282,77 @@ const MindVaultApp = {
       }
     }
 
-    // Special Milestones & Upcoming Moments
+    // Special Milestones & Upcoming Moments (Includes Auto Birthday)
     const milestonesContainer = document.getElementById('profile-milestones-list');
     if (milestonesContainer) {
-      const milestones = friend.milestones || [];
-      if (milestones.length === 0) {
+      const today = new Date();
+      const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const currentYear = today.getFullYear();
+
+      const combinedList = [];
+
+      // 1. Auto-include Birthday if exists
+      if (friend.birthday) {
+        let bMonth, bDay;
+        const parts = String(friend.birthday).split(/[-/]/);
+        if (parts.length === 3) {
+          if (parts[0].length === 4) {
+            bMonth = parseInt(parts[1], 10) - 1;
+            bDay = parseInt(parts[2], 10);
+          } else {
+            bMonth = parseInt(parts[0], 10) - 1;
+            bDay = parseInt(parts[1], 10);
+          }
+        }
+
+        if (!isNaN(bMonth) && !isNaN(bDay)) {
+          let nextBday = new Date(currentYear, bMonth, bDay);
+          let diffMs = nextBday.getTime() - startToday.getTime();
+          let diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+          if (diffDays < 0) {
+            nextBday = new Date(currentYear + 1, bMonth, bDay);
+            diffMs = nextBday.getTime() - startToday.getTime();
+            diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+          }
+
+          const formattedBday = nextBday.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+
+          combinedList.push({
+            isAutoBirthday: true,
+            title: `Ulang Tahun ${friend.name}`,
+            type: '🎂 Ulang Tahun (Sistem)',
+            date: formattedBday,
+            diffDays,
+            notes: 'Otomatis tersinkronisasi dari data tanggal lahir profil.'
+          });
+        }
+      }
+
+      // 2. Add custom milestones
+      (friend.milestones || []).forEach((m, mIdx) => {
+        let diffDays = 9999;
+        let formattedDate = m.date || 'TBA';
+        if (m.date) {
+          const targetDate = new Date(m.date);
+          const targetStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+          diffDays = Math.round((targetStart.getTime() - startToday.getTime()) / (1000 * 60 * 60 * 24));
+          formattedDate = targetDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+        }
+
+        combinedList.push({
+          ...m,
+          mIdx,
+          isAutoBirthday: false,
+          diffDays,
+          formattedDate
+        });
+      });
+
+      // Sort by nearest upcoming days
+      combinedList.sort((a, b) => a.diffDays - b.diffDays);
+
+      if (combinedList.length === 0) {
         milestonesContainer.innerHTML = `
           <div style="padding: 16px; text-align: center; background: rgba(255,255,255,0.7); border-radius: 14px; border: 1px dashed var(--card-border);">
             <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">Belum ada momen atau acara spesial (Wisuda, Lahiran, dll) yang dicatat.</p>
@@ -1296,52 +1362,53 @@ const MindVaultApp = {
           </div>
         `;
       } else {
-        const today = new Date();
-        const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-
-        milestonesContainer.innerHTML = milestones.map((m, mIdx) => {
+        milestonesContainer.innerHTML = combinedList.map(item => {
           let dayDiffText = '';
           let isUpcoming = false;
 
-          if (m.date) {
-            const targetDate = new Date(m.date);
-            const targetStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
-            const diffDays = Math.round((targetStart.getTime() - startToday.getTime()) / (1000 * 60 * 60 * 24));
-            
-            if (diffDays === 0) {
-              dayDiffText = '🎉 HARI INI!';
-              isUpcoming = true;
-            } else if (diffDays === 1) {
-              dayDiffText = '⚡ Besok!';
-              isUpcoming = true;
-            } else if (diffDays > 1) {
-              dayDiffText = `⏳ ${diffDays} hari lagi`;
-              isUpcoming = true;
-            } else {
-              dayDiffText = `✨ Sudah lewat (${Math.abs(diffDays)} hari lalu)`;
-            }
+          if (item.diffDays === 0) {
+            dayDiffText = '🎉 HARI INI!';
+            isUpcoming = true;
+          } else if (item.diffDays === 1) {
+            dayDiffText = '⚡ Besok!';
+            isUpcoming = true;
+          } else if (item.diffDays > 1 && item.diffDays <= 7) {
+            dayDiffText = `⚡ ${item.diffDays} hari lagi (H-${item.diffDays})`;
+            isUpcoming = true;
+          } else if (item.diffDays > 7 && item.diffDays < 9000) {
+            dayDiffText = `⏳ ${item.diffDays} hari lagi`;
+            isUpcoming = true;
+          } else if (item.diffDays < 0) {
+            dayDiffText = `✨ Sudah lewat (${Math.abs(item.diffDays)} hari lalu)`;
           }
 
           const badgeColor = isUpcoming ? '#DC2626' : '#6B7280';
           const badgeBg = isUpcoming ? '#FEE2E2' : '#F3F4F6';
+          const cardBorder = (item.diffDays <= 7 && item.diffDays >= 0) ? 'border: 1.5px solid #FDA4AF; background: #FFF9FA;' : 'border: 1px solid var(--card-border); background: white;';
 
           return `
-            <div style="display: flex; align-items: flex-start; justify-content: space-between; padding: 14px; background: white; border-radius: 14px; border: 1px solid var(--card-border); margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; padding: 14px; border-radius: 14px; margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); ${cardBorder}">
               <div style="flex: 1; margin-right: 10px;">
                 <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px;">
-                  <strong style="font-size: 13px; color: var(--text-dark);">${m.title}</strong>
+                  <strong style="font-size: 13.5px; color: var(--text-dark);">${item.title}</strong>
                   ${dayDiffText ? `<span style="font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 10px; background: ${badgeBg}; color: ${badgeColor};">${dayDiffText}</span>` : ''}
                 </div>
-                <div style="font-size: 12px; color: #6D28D9; font-weight: 600; margin-bottom: 4px;">${m.type || '✨ Special Moment'} • 📅 ${m.date || 'TBA'}</div>
-                ${m.notes ? `<p style="font-size: 12px; color: var(--text-muted); line-height: 1.4; margin: 0; background: var(--bg-main); padding: 6px 10px; border-radius: 8px;">💡 ${m.notes}</p>` : ''}
+                <div style="font-size: 12px; color: #6D28D9; font-weight: 600; margin-bottom: 4px;">${item.type} • 📅 ${item.formattedDate || item.date}</div>
+                ${item.notes ? `<p style="font-size: 12px; color: var(--text-muted); line-height: 1.4; margin: 0; background: var(--bg-main); padding: 6px 10px; border-radius: 8px;">💡 ${item.notes}</p>` : ''}
               </div>
               <div style="display: flex; gap: 4px;">
-                <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="MindVaultApp.openEditMilestoneModal('${friend.id}', ${mIdx})" title="Edit Momen">
-                  <i class="fa-solid fa-pen-to-square" style="color: #6D28D9;"></i>
-                </button>
-                <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px; color: #DC2626;" onclick="MindVaultApp.deleteMilestone('${friend.id}', ${mIdx})" title="Hapus Momen">
-                  <i class="fa-solid fa-trash-can"></i>
-                </button>
+                ${item.isAutoBirthday ? `
+                  <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="MindVaultApp.openEditProfileModal('${friend.id}')" title="Edit Tanggal Lahir di Profil">
+                    <i class="fa-solid fa-cake-candles" style="color: #E11D48;"></i>
+                  </button>
+                ` : `
+                  <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="MindVaultApp.openEditMilestoneModal('${friend.id}', ${item.mIdx})" title="Edit Momen">
+                    <i class="fa-solid fa-pen-to-square" style="color: #6D28D9;"></i>
+                  </button>
+                  <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px; color: #DC2626;" onclick="MindVaultApp.deleteMilestone('${friend.id}', ${item.mIdx})" title="Hapus Momen">
+                    <i class="fa-solid fa-trash-can"></i>
+                  </button>
+                `}
               </div>
             </div>
           `;
