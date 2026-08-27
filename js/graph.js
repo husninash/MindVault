@@ -24,7 +24,13 @@ class KnowledgeGraphEngine {
     const centerX = width / 2;
     const centerY = height / 2;
 
-    this.nodes = this.data.nodes.map((node, index) => {
+    const friendNodes = this.data.nodes.filter(n => n.type === 'friend');
+    const topicNodes = this.data.nodes.filter(n => n.type === 'topic');
+
+    let friendCount = 0;
+    let topicCount = 0;
+
+    this.nodes = this.data.nodes.map((node) => {
       let x, y, radius, color;
 
       if (node.type === 'user') {
@@ -33,14 +39,18 @@ class KnowledgeGraphEngine {
         radius = 28;
         color = '#EA8DB6';
       } else if (node.type === 'friend') {
-        const angle = ((index - 1) / 4) * Math.PI * 2;
+        const totalF = Math.max(friendNodes.length, 1);
+        const angle = (friendCount / totalF) * Math.PI * 2 - Math.PI / 2;
+        friendCount++;
         const dist = Math.min(width, height) * 0.28;
         x = centerX + Math.cos(angle) * dist;
         y = centerY + Math.sin(angle) * dist;
         radius = 22;
         color = '#9333EA';
       } else {
-        const angle = (index / 10) * Math.PI * 2 + 0.5;
+        const totalT = Math.max(topicNodes.length, 1);
+        const angle = (topicCount / totalT) * Math.PI * 2;
+        topicCount++;
         const dist = Math.min(width, height) * 0.42;
         x = centerX + Math.cos(angle) * dist;
         y = centerY + Math.sin(angle) * dist;

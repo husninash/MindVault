@@ -1022,9 +1022,7 @@ const MindVaultApp = {
     // Special view handlers
     if (viewName === 'graph') {
       setTimeout(() => {
-        if (!this.graphEngine) {
-          this.graphEngine = new KnowledgeGraphEngine('knowledge-graph-canvas', MindVaultData.knowledgeGraph);
-        }
+        this.renderKnowledgeGraph();
       }, 100);
     } else if (viewName === 'profile') {
       this.renderFriendProfile(this.selectedFriendId);
@@ -2052,6 +2050,84 @@ const MindVaultApp = {
 
     this.showToast('Catatan cerita mimpi berhasil dihapus! 🗑️', 'info');
     this.renderDreamJournalsList();
+  },
+
+  generateKnowledgeGraphData() {
+    const nodes = [
+      { id: 'user', label: (this.currentUser && this.currentUser.name) ? this.currentUser.name : 'Me', type: 'user' }
+    ];
+    const edges = [];
+    const friends = MindVaultData.friends || [];
+    const hobbyMap = {}; // hobby/interest -> id
+
+    friends.forEach((friend, idx) => {
+      const friendNodeId = `friend-${friend.id || idx}`;
+      nodes.push({
+        id: friendNodeId,
+        label: friend.name || 'Friend',
+        type: 'friend',
+        rawFriend: friend
+      });
+
+      // Edge from User to Friend
+      edges.push({
+        from: 'user',
+        to: friendNodeId,
+        label: friend.relation || 'Friend'
+      });
+
+      // Extract hobbies or favorites
+      const itemsToLink = [];
+      if (friend.favorites) {
+        if (friend.favorites.hobby) itemsToLink.push({ name: friend.favorites.hobby, relation: 'Hobby' });
+        if (friend.favorites.drink) itemsToLink.push({ name: friend.favorites.drink, relation: 'Fav Drink' });
+        if (friend.favorites.food) itemsToLink.push({ name: friend.favorites.food, relation: 'Fav Food' });
+      }
+      if (Array.isArray(friend.likes)) {
+        friend.likes.forEach(like => {
+          if (like && like.trim()) itemsToLink.push({ name: like.trim(), relation: 'Likes' });
+        });
+      }
+
+      itemsToLink.forEach(item => {
+        const key = item.name.toLowerCase();
+        let topicId;
+        if (!hobbyMap[key]) {
+          topicId = `topic-${Object.keys(hobbyMap).length + 1}`;
+          hobbyMap[key] = topicId;
+          nodes.push({
+            id: topicId,
+            label: item.name,
+            type: 'topic'
+          });
+        } else {
+          topicId = hobbyMap[key];
+        }
+
+        edges.push({
+          from: friendNodeId,
+          to: topicId,
+          label: item.relation
+        });
+      });
+    });
+
+    return { nodes, edges };
+  },
+
+  renderKnowledgeGraph() {
+    const canvas = document.getElementById('knowledge-graph-canvas');
+    if (!canvas) return;
+
+    if (this.graphEngine) {
+      this.graphEngine.destroy();
+      this.graphEngine = null;
+    }
+
+    const graphData = this.generateKnowledgeGraphData();
+    MindVaultData.knowledgeGraph = graphData;
+
+    this.graphEngine = new KnowledgeGraphEngine('knowledge-graph-canvas', graphData);
   },
 
   renderDreamJournalsList() {
