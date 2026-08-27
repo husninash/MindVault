@@ -1178,6 +1178,25 @@
   </div>
 </div>
 
+<!-- CUSTOM BEAUTIFUL CONFIRMATION POPUP MODAL -->
+<div id="custom-confirm-modal" class="modal-overlay" style="z-index: 1000000;">
+  <div class="modal-card" style="max-width: 400px; text-align: center; padding: 28px 24px; border-radius: 24px; box-shadow: 0 20px 50px rgba(248, 187, 217, 0.4); border: 1.5px solid rgba(248,187,217,0.5);">
+    <div id="custom-confirm-icon" style="width: 58px; height: 58px; border-radius: 50%; background: linear-gradient(135deg, #FFE4E6 0%, #FFF1F2 100%); color: #E11D48; display: flex; align-items: center; justify-content: center; font-size: 26px; margin: 0 auto 16px auto; border: 2px solid #FDA4AF;">
+      <i class="fa-solid fa-right-from-bracket"></i>
+    </div>
+    <h3 id="custom-confirm-title" style="font-size: 18px; font-weight: 800; color: var(--text-dark); margin-bottom: 8px;">Konfirmasi Keluar</h3>
+    <p id="custom-confirm-message" style="font-size: 13.5px; color: var(--text-muted); line-height: 1.5; margin-bottom: 22px;">Apakah Anda yakin ingin keluar (logout) dari MindVault?</p>
+    <div style="display: flex; gap: 12px; justify-content: center;">
+      <button id="custom-confirm-cancel-btn" class="btn btn-secondary" style="flex: 1; padding: 11px; border-radius: 12px; font-weight: 700;">
+        Batal
+      </button>
+      <button id="custom-confirm-ok-btn" class="btn btn-primary" style="flex: 1; padding: 11px; border-radius: 12px; font-weight: 700; background: linear-gradient(135deg, #E11D48 0%, #BE123C 100%); border: none;">
+        Ya, Keluar
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- FLOATING AI ASSISTANT -->
 <div class="ai-floating-widget">
   <button class="ai-fab" id="ai-fab-btn" title="MindVault AI Assistant">

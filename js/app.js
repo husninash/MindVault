@@ -384,31 +384,74 @@ const MindVaultApp = {
     this.hideAuthScreen();
   },
 
-  async handleLogout() {
-    if (confirm('Apakah Anda yakin ingin keluar (logout) dari MindVault?')) {
-      try {
-        if (typeof MindVaultSupabase !== 'undefined' && MindVaultSupabase.signOut) {
-          await MindVaultSupabase.signOut();
-        }
-      } catch (e) {}
-
-      localStorage.removeItem('MINDVAULT_AUTH_SESSION');
-      this.currentUser = null;
-
-      // Clear input fields
-      if (document.getElementById('auth-input-email')) document.getElementById('auth-input-email').value = '';
-      if (document.getElementById('auth-input-password')) document.getElementById('auth-input-password').value = '';
-      if (document.getElementById('auth-input-name')) document.getElementById('auth-input-name').value = '';
-
-      this.updateUserSidebar();
-      this.applyRolePermissions();
-      this.switchAuthTab('login');
-
-      // Force show Auth Modal Screen overlay
-      this.showAuthScreen();
-      this.switchView('dashboard');
-      this.showToast('Berhasil keluar (Logged out). Silakan login kembali.', 'info');
+  showCustomConfirm({ title, message, icon, confirmText, cancelText, onConfirm }) {
+    const modal = document.getElementById('custom-confirm-modal');
+    if (!modal) {
+      if (confirm(message)) onConfirm();
+      return;
     }
+
+    const titleEl = document.getElementById('custom-confirm-title');
+    const msgEl = document.getElementById('custom-confirm-message');
+    const iconEl = document.getElementById('custom-confirm-icon');
+    const okBtn = document.getElementById('custom-confirm-ok-btn');
+    const cancelBtn = document.getElementById('custom-confirm-cancel-btn');
+
+    if (titleEl) titleEl.innerText = title || 'Konfirmasi Tindakan';
+    if (msgEl) msgEl.innerText = message || 'Apakah Anda yakin ingin melanjutkan?';
+    if (iconEl) iconEl.innerHTML = icon || '<i class="fa-solid fa-circle-question"></i>';
+    if (okBtn) okBtn.innerText = confirmText || 'Ya, Lanjutkan';
+    if (cancelBtn) cancelBtn.innerText = cancelText || 'Batal';
+
+    const closeHandler = () => {
+      modal.classList.remove('active');
+      okBtn.removeEventListener('click', okHandler);
+      cancelBtn.removeEventListener('click', closeHandler);
+    };
+
+    const okHandler = () => {
+      closeHandler();
+      if (typeof onConfirm === 'function') onConfirm();
+    };
+
+    okBtn.addEventListener('click', okHandler);
+    cancelBtn.addEventListener('click', closeHandler);
+
+    modal.classList.add('active');
+  },
+
+  async handleLogout() {
+    this.showCustomConfirm({
+      title: 'Konfirmasi Keluar',
+      message: 'Apakah Anda yakin ingin keluar (logout) dari MindVault?',
+      icon: '<i class="fa-solid fa-right-from-bracket"></i>',
+      confirmText: 'Ya, Keluar',
+      cancelText: 'Batal',
+      onConfirm: async () => {
+        try {
+          if (typeof MindVaultSupabase !== 'undefined' && MindVaultSupabase.signOut) {
+            await MindVaultSupabase.signOut();
+          }
+        } catch (e) {}
+
+        localStorage.removeItem('MINDVAULT_AUTH_SESSION');
+        this.currentUser = null;
+
+        // Clear input fields
+        if (document.getElementById('auth-input-email')) document.getElementById('auth-input-email').value = '';
+        if (document.getElementById('auth-input-password')) document.getElementById('auth-input-password').value = '';
+        if (document.getElementById('auth-input-name')) document.getElementById('auth-input-name').value = '';
+
+        this.updateUserSidebar();
+        this.applyRolePermissions();
+        this.switchAuthTab('login');
+
+        // Force show Auth Modal Screen overlay
+        this.showAuthScreen();
+        this.switchView('dashboard');
+        this.showToast('Berhasil keluar (Logged out). Silakan login kembali.', 'info');
+      }
+    });
   },
 
   uploadedAvatarData: null,
@@ -2357,15 +2400,22 @@ const MindVaultApp = {
   },
 
   deleteDream(dreamId) {
-    if (!confirm('Apakah Anda yakin ingin menghapus cerita mimpi ini?')) return;
+    this.showCustomConfirm({
+      title: 'Hapus Cerita Mimpi',
+      message: 'Apakah Anda yakin ingin menghapus catatan alur cerita mimpi ini?',
+      icon: '<i class="fa-solid fa-moon" style="color: #8B5CF6;"></i>',
+      confirmText: 'Ya, Hapus',
+      cancelText: 'Batal',
+      onConfirm: () => {
+        let dreams = this.getDreamJournals();
+        dreams = dreams.filter(d => String(d.id) !== String(dreamId));
+        MindVaultData.dreamJournals = dreams;
+        localStorage.setItem('MINDVAULT_DREAM_JOURNALS', JSON.stringify(dreams));
 
-    let dreams = this.getDreamJournals();
-    dreams = dreams.filter(d => String(d.id) !== String(dreamId));
-    MindVaultData.dreamJournals = dreams;
-    localStorage.setItem('MINDVAULT_DREAM_JOURNALS', JSON.stringify(dreams));
-
-    this.showToast('Catatan cerita mimpi berhasil dihapus! 🗑️', 'info');
-    this.renderDreamJournalsList();
+        this.showToast('Catatan cerita mimpi berhasil dihapus! 🗑️', 'info');
+        this.renderDreamJournalsList();
+      }
+    });
   },
 
   generateKnowledgeGraphData() {
@@ -2600,17 +2650,24 @@ const MindVaultApp = {
   },
 
   async deleteMilestone(friendId, mIdx) {
-    if (!confirm('Apakah Anda yakin ingin menghapus momen spesial ini?')) return;
+    this.showCustomConfirm({
+      title: 'Hapus Momen Spesial',
+      message: 'Apakah Anda yakin ingin menghapus momen / acara spesial ini?',
+      icon: '<i class="fa-solid fa-trash-can" style="color: #DC2626;"></i>',
+      confirmText: 'Ya, Hapus',
+      cancelText: 'Batal',
+      onConfirm: async () => {
+        const friend = MindVaultData.friends.find(f => String(f.id) === String(friendId));
+        if (!friend || !friend.milestones) return;
 
-    const friend = MindVaultData.friends.find(f => String(f.id) === String(friendId));
-    if (!friend || !friend.milestones) return;
+        friend.milestones.splice(mIdx, 1);
+        await MindVaultSupabase.updateFriend(friend);
 
-    friend.milestones.splice(mIdx, 1);
-    await MindVaultSupabase.updateFriend(friend);
-
-    this.showToast('Momen spesial berhasil dihapus 🗑️', 'info');
-    this.renderFriendProfile(friend.id);
-    this.renderRemindersList();
+        this.showToast('Momen spesial berhasil dihapus 🗑️', 'info');
+        this.renderFriendProfile(friend.id);
+        this.renderRemindersList();
+      }
+    });
   }
 };
 
