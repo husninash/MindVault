@@ -1091,13 +1091,79 @@ const MindVaultApp = {
     }
   },
 
-  // Render Dashboard Widgets
+  // Dynamic AI Intimacy Score Calculator based on Sentiment & Relationship logs
+  calculateDynamicFriendScore(friend) {
+    if (!friend) return 85;
+
+    let baseScore = 80;
+    const diaries = (MindVaultData.diaries || []).filter(d => 
+      String(d.friendId) === String(friend.id) || 
+      (d.friendName && friend.name && d.friendName.toLowerCase() === friend.name.toLowerCase())
+    );
+
+    // Negative conflict keywords
+    const severeConflictRegex = /anjing|babi|bangsat|najis|benci|hancur|putus|toxic|parah|sakit hati|menyakiti|dendam|kecewa berat|berantem hebat/i;
+    const moderateConflictRegex = /berantem|marah|kesal|jengkel|ribut|debat|tengkar|dingin|diam|kecewa|badmood|sulit|tersinggung/i;
+    const positiveRegex = /senang|bahagia|seru|hangat|sayang|tertawa|ketawa|quality time|dukung|bantu|nyaman|harmonis|akur|maaf/i;
+
+    let penalty = 0;
+    let bonus = 0;
+
+    // 1. Check current life status sentiment
+    const statusText = `${friend.currentLife || ''} ${friend.bio || ''}`;
+    if (severeConflictRegex.test(statusText)) {
+      penalty += 45;
+    } else if (moderateConflictRegex.test(statusText)) {
+      penalty += 25;
+    }
+
+    // 2. Check conversation diaries history
+    diaries.forEach(d => {
+      const fullText = `${d.title || ''} ${d.content || ''} ${d.mood || ''}`;
+      if (severeConflictRegex.test(fullText)) {
+        penalty += 35;
+      } else if (moderateConflictRegex.test(fullText)) {
+        penalty += 20;
+      } else if (positiveRegex.test(fullText)) {
+        bonus += 8;
+      } else {
+        bonus += 3; // Logged interaction bonus
+      }
+    });
+
+    // 3. Milestones bonus
+    if (friend.milestones && friend.milestones.length > 0) {
+      bonus += Math.min(friend.milestones.length * 3, 10);
+    }
+
+    let finalScore = Math.max(10, Math.min(99, baseScore + bonus - penalty));
+    return finalScore;
+  },
+
+  recalculateAllFriendScores() {
+    if (!MindVaultData.friends) return;
+    MindVaultData.friends.forEach(f => {
+      f.score = this.calculateDynamicFriendScore(f);
+      if (f.score <= 45) {
+        f.tier = 'Needs Repair / In Conflict';
+      } else if (f.score <= 65) {
+        f.tier = 'Cooling Down';
+      } else if (f.score <= 80) {
+        f.tier = f.relation || 'Good Friend';
+      } else {
+        f.tier = f.relation || 'Close Circle';
+      }
+    });
+  },
+
   renderDashboard() {
     const greetingHeading = document.getElementById('dash-greeting-heading');
     if (greetingHeading) {
       const userName = this.currentUser ? (this.currentUser.name || 'User') : 'Friend';
       greetingHeading.innerHTML = `Good morning, ${userName}! 🌸`;
     }
+
+    this.recalculateAllFriendScores();
 
     const friendsCount = MindVaultData.friends ? MindVaultData.friends.length : 0;
     const conversationDiariesCount = MindVaultData.diaries ? MindVaultData.diaries.length : 0;
@@ -1113,15 +1179,6 @@ const MindVaultApp = {
 
     const scoreVal = document.getElementById('dash-health-score');
     if (scoreVal) scoreVal.innerText = `${healthScore}%`;
-
-    const friendsVal = document.getElementById('dash-active-friends');
-    if (friendsVal) friendsVal.innerText = friendsCount;
-
-    const diariesVal = document.getElementById('dash-diaried-memories');
-    if (diariesVal) diariesVal.innerText = totalDiaries;
-
-    const insightsVal = document.getElementById('dash-ai-insights');
-    if (insightsVal) insightsVal.innerText = friendsCount > 0 ? (friendsCount * 2 + totalDiaries) : 0;
 
     // Today's topics list
     const topicsContainer = document.getElementById('dash-topics-list');
@@ -1163,44 +1220,54 @@ const MindVaultApp = {
 
   // Render Friends Grid Directory
   renderFriendsGrid() {
+    this.recalculateAllFriendScores();
     const grid = document.getElementById('friends-grid-container');
     if (!grid) return;
 
     if (!MindVaultData.friends || MindVaultData.friends.length === 0) {
       grid.innerHTML = `
-        <div style="grid-column: 1 / -1; text-align: center; padding: 40px; background: white; border-radius: 20px; border: 1px dashed var(--card-border);">
-          <p style="color: var(--text-muted); font-size: 14px;">Belum ada teman yang ditambahkan. Silakan tambah teman baru!</p>
+        <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; background: white; border-radius: 20px; border: 1px dashed var(--card-border);">
+          <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;">Belum ada teman yang ditambahkan. Tambahkan teman pertamamu sekarang!</p>
+          <button class="btn btn-primary" onclick="MindVaultApp.openAddFriendModal()">
+            <i class="fa-solid fa-user-plus"></i> Tambah Teman
+          </button>
         </div>`;
       return;
     }
 
-    grid.innerHTML = MindVaultData.friends.map(friend => `
-      <div class="friend-card">
-        <div class="friend-card-avatar-wrapper">
-          <img src="${friend.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80'}" class="friend-card-avatar" alt="${friend.name}">
-          <span class="tier-badge">${friend.tier || 'Friend'}</span>
-        </div>
-        <h4>${friend.name}</h4>
-        <p class="relation-type">${friend.relation || ''}</p>
-        
-        <div class="friend-card-tags">
-          ${(friend.likes || []).slice(0, 3).map(l => `<span class="tag-chip">❤️ ${l}</span>`).join('')}
-        </div>
+    grid.innerHTML = MindVaultData.friends.map(friend => {
+      const scoreColor = friend.score <= 45 ? '#DC2626' : (friend.score <= 65 ? '#D97706' : '#059669');
+      const badgeBg = friend.score <= 45 ? '#FEE2E2' : (friend.score <= 65 ? '#FEF3C7' : 'var(--secondary)');
+      const badgeColor = friend.score <= 45 ? '#DC2626' : (friend.score <= 65 ? '#D97706' : 'var(--accent-hover)');
 
-        <div style="width: 100%; padding: 10px; background: var(--bg-main); border-radius: 12px; font-size: 11px; color: var(--text-medium); margin-bottom: 14px; text-align: left;">
-          <strong>💡 AI Brief:</strong> ${(friend.currentLife || 'Belum ada info.').substring(0, 65)}...
-        </div>
+      return `
+        <div class="friend-card">
+          <div class="friend-card-avatar-wrapper">
+            <img src="${friend.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80'}" class="friend-card-avatar" alt="${friend.name}">
+            <span class="tier-badge" style="background: ${badgeBg}; color: ${badgeColor}; font-weight: 700;">${friend.tier || friend.relation || 'Friend'}</span>
+          </div>
+          <h4>${friend.name}</h4>
+          <p class="relation-type">${friend.relation || ''} • <strong style="color: ${scoreColor};">${friend.score}% Intimacy</strong></p>
+          
+          <div class="friend-card-tags">
+            ${(friend.likes || []).slice(0, 3).map(l => `<span class="tag-chip">❤️ ${l}</span>`).join('')}
+          </div>
 
-        <div class="friend-card-actions">
-          <button class="btn btn-secondary" onclick="MindVaultApp.openPrepModal(${friend.id})">
-            ⚡ Prep Meeting
-          </button>
-          <button class="btn btn-primary" onclick="MindVaultApp.viewProfile(${friend.id})">
-            View Profile
-          </button>
+          <div style="width: 100%; padding: 10px; background: var(--bg-main); border-radius: 12px; font-size: 11px; color: var(--text-medium); margin-bottom: 14px; text-align: left;">
+            <strong>💡 AI Brief:</strong> ${(friend.currentLife || 'Belum ada info.').substring(0, 65)}...
+          </div>
+
+          <div class="friend-card-actions">
+            <button class="btn btn-secondary" onclick="MindVaultApp.openPrepModal(${friend.id})">
+              ⚡ Prep Meeting
+            </button>
+            <button class="btn btn-primary" onclick="MindVaultApp.viewProfile(${friend.id})">
+              View Profile
+            </button>
+          </div>
         </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
   },
 
   viewProfile(id) {
@@ -1213,6 +1280,9 @@ const MindVaultApp = {
     const friend = MindVaultData.friends.find(f => f.id === id) || MindVaultData.friends[0];
     if (!friend) return;
 
+    // Recalculate dynamic score
+    friend.score = this.calculateDynamicFriendScore(friend);
+
     // Basic Header Info
     const nameEl = document.getElementById('profile-name');
     if (nameEl) nameEl.innerText = friend.name || 'Teman';
@@ -1221,7 +1291,22 @@ const MindVaultApp = {
     if (relationEl) relationEl.innerText = friend.relation || 'Friend';
 
     const tierBadgeEl = document.getElementById('profile-tier-badge');
-    if (tierBadgeEl) tierBadgeEl.innerText = friend.relation || friend.tier || 'Friend';
+    if (tierBadgeEl) {
+      let tierLabel = friend.relation || 'Friend';
+      if (friend.score <= 45) {
+        tierLabel = '⚠️ Konflik / Butuh Pemulihan';
+        tierBadgeEl.style.background = '#FEE2E2';
+        tierBadgeEl.style.color = '#DC2626';
+      } else if (friend.score <= 65) {
+        tierLabel = '❄️ Pendinginan / Jarak';
+        tierBadgeEl.style.background = '#FEF3C7';
+        tierBadgeEl.style.color = '#D97706';
+      } else {
+        tierBadgeEl.style.background = 'var(--secondary)';
+        tierBadgeEl.style.color = 'var(--accent-hover)';
+      }
+      tierBadgeEl.innerText = tierLabel;
+    }
 
     const avatarEl = document.getElementById('profile-avatar');
     if (avatarEl) avatarEl.src = friend.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80';
@@ -1230,7 +1315,10 @@ const MindVaultApp = {
     if (bioEl) bioEl.innerText = friend.bio || 'Belum ada bio ringkas.';
 
     const scoreEl = document.getElementById('profile-score-val');
-    if (scoreEl) scoreEl.innerText = `${friend.score || 85}% Intimacy Score`;
+    if (scoreEl) {
+      const scoreColor = friend.score <= 45 ? '#DC2626' : (friend.score <= 65 ? '#D97706' : '#059669');
+      scoreEl.innerHTML = `<span style="color: ${scoreColor}; font-weight: 800;">${friend.score}%</span> Intimacy Score`;
+    }
 
     const lifeEl = document.getElementById('profile-current-life');
     if (lifeEl) lifeEl.innerText = friend.currentLife || 'Belum ada kabar terbaru.';
