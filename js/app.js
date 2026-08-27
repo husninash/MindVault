@@ -625,8 +625,10 @@ const MindVaultApp = {
     document.getElementById('modal-add-friend')?.classList.remove('active');
 
     this.renderFriendsGrid();
+    this.renderRemindersList();
     this.populateDiaryFriendOptions();
     this.updateFriendsCountBadge();
+    if (this.activeView === 'graph') this.renderKnowledgeGraph();
   },
 
   async saveEditedFriend(friendId) {
@@ -646,8 +648,10 @@ const MindVaultApp = {
 
     this.renderFriendsGrid();
     this.renderFriendProfile(friendId);
+    this.renderRemindersList();
     this.populateDiaryFriendOptions();
     this.updateFriendsCountBadge();
+    if (this.activeView === 'graph') this.renderKnowledgeGraph();
   },
 
   openAddDiaryModal() {
@@ -1290,33 +1294,211 @@ const MindVaultApp = {
     `).join('');
   },
 
-  // Render Reminder Calendar items
+  // Calculate upcoming birthdays & reminders from friend profiles
+  getSmartReminders() {
+    const reminders = [];
+    const today = new Date();
+    const currentYear = today.getFullYear();
+
+    (MindVaultData.friends || []).forEach(friend => {
+      if (!friend.birthday) return;
+
+      // Handle both YYYY-MM-DD and MM/DD/YYYY or DD/MM/YYYY formats
+      let bMonth, bDay;
+      const parts = String(friend.birthday).split(/[-/]/);
+      if (parts.length === 3) {
+        if (parts[0].length === 4) {
+          // YYYY-MM-DD
+          bMonth = parseInt(parts[1], 10) - 1;
+          bDay = parseInt(parts[2], 10);
+        } else {
+          // MM/DD/YYYY
+          bMonth = parseInt(parts[0], 10) - 1;
+          bDay = parseInt(parts[1], 10);
+        }
+      }
+
+      if (isNaN(bMonth) || isNaN(bDay)) return;
+
+      // Next birthday date in current or next year
+      let nextBday = new Date(currentYear, bMonth, bDay);
+      // Reset time to start of day for accurate day diff
+      const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      
+      let diffMs = nextBday.getTime() - startToday.getTime();
+      let diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+      if (diffDays < 0) {
+        // Birthday already passed this year, check next year
+        nextBday = new Date(currentYear + 1, bMonth, bDay);
+        diffMs = nextBday.getTime() - startToday.getTime();
+        diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+      }
+
+      const formattedDate = nextBday.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+
+      // Determine reminder status
+      let urgency = 'normal';
+      let tagText = `${diffDays} hari lagi`;
+      let isDueSoon = false;
+
+      if (diffDays === 0) {
+        urgency = 'critical';
+        tagText = '🎉 HARI INI!';
+        isDueSoon = true;
+      } else if (diffDays === 1) {
+        urgency = 'high';
+        tagText = '⚡ Besok!';
+        isDueSoon = true;
+      } else if (diffDays <= 7) {
+        urgency = 'warning';
+        tagText = `⚡ ${diffDays} hari lagi (H-${diffDays})`;
+        isDueSoon = true;
+      } else if (diffDays <= 30) {
+        tagText = `${diffDays} hari lagi`;
+      }
+
+      reminders.push({
+        id: `bday-${friend.id}`,
+        friendId: friend.id,
+        friendName: friend.name,
+        friendAvatar: friend.avatar,
+        title: `Ulang Tahun ${friend.name}`,
+        date: formattedDate,
+        diffDays,
+        urgency,
+        tagText,
+        isDueSoon,
+        type: '🎂 Birthday Alert'
+      });
+    });
+
+    // Sort by nearest days
+    reminders.sort((a, b) => a.diffDays - b.diffDays);
+    return reminders;
+  },
+
+  // Render Reminder Calendar items & Alert Banners
   renderRemindersList() {
     const container = document.getElementById('reminders-list-container');
+    const reminders = this.getSmartReminders();
+    MindVaultData.reminders = reminders;
+
+    this.updateNotificationBell(reminders);
+    this.renderDashboardBirthdayAlert(reminders);
+
     if (!container) return;
 
-    if (!MindVaultData.reminders || MindVaultData.reminders.length === 0) {
+    if (reminders.length === 0) {
       container.innerHTML = `
         <div style="text-align: center; padding: 40px; background: white; border-radius: 20px; border: 1px dashed var(--card-border);">
-          <p style="color: var(--text-muted); font-size: 14px;">Belum ada pengingat.</p>
+          <p style="color: var(--text-muted); font-size: 14px;">Belum ada tanggal ulang tahun atau pengingat tersimpan di direktori teman.</p>
         </div>`;
       return;
     }
 
-    container.innerHTML = MindVaultData.reminders.map(rem => `
-      <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: white; border-radius: 16px; border: 1px solid var(--card-border); margin-bottom: 12px; box-shadow: var(--shadow-soft);">
-        <div style="display: flex; align-items: center; gap: 14px;">
-          <div style="width: 42px; height: 42px; background: var(--lavender-light); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px;">
-            🎂
+    container.innerHTML = reminders.map(rem => {
+      const badgeBg = rem.diffDays <= 1 ? '#FEE2E2' : (rem.diffDays <= 7 ? '#FEF3C7' : '#F3E8FF');
+      const badgeColor = rem.diffDays <= 1 ? '#DC2626' : (rem.diffDays <= 7 ? '#D97706' : '#7C3AED');
+      const cardBorder = rem.diffDays <= 7 ? 'border: 1.5px solid #F87171;' : 'border: 1px solid var(--card-border);';
+
+      return `
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: white; border-radius: 18px; margin-bottom: 12px; box-shadow: var(--shadow-soft); ${cardBorder}">
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <img src="${rem.friendAvatar}" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid var(--lavender-light);" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(rem.friendName)}&background=F8BBD9&color=2D1A29'">
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <strong style="font-size: 15px; color: var(--text-dark);">${rem.title}</strong>
+                <span style="font-size: 11px; font-weight: 800; padding: 2px 10px; border-radius: 12px; background: ${badgeBg}; color: ${badgeColor};">${rem.tagText}</span>
+              </div>
+              <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">📅 ${rem.date} • Disinkronkan dari profil ${rem.friendName}</p>
+            </div>
           </div>
-          <div>
-            <strong style="font-size: 14px;">${rem.title}</strong>
-            <p style="font-size: 12px; color: var(--text-muted);">${rem.date} • ${rem.type}</p>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-secondary" style="padding: 6px 14px; font-size: 12px;" onclick="MindVaultApp.openPrepModal('${rem.friendId}')">
+              ⚡ Siapkan Kado & Topik
+            </button>
+            <button class="btn btn-primary" style="padding: 6px 14px; font-size: 12px;" onclick="MindVaultApp.showToast('Pengingat aktif untuk ${rem.friendName} (${rem.tagText})! 🔔', 'success')">
+              🔔 Aktif
+            </button>
           </div>
         </div>
-        <button class="btn btn-secondary" style="padding: 6px 14px; font-size: 12px;" onclick="alert('Notification set for ${rem.date}!')">🔔 Remind Me</button>
+      `;
+    }).join('');
+  },
+
+  // Render floating warning alert in Dashboard when birthday is within 7 days
+  renderDashboardBirthdayAlert(reminders) {
+    const alertContainer = document.getElementById('dash-birthday-alert-container');
+    if (!alertContainer) return;
+
+    const dueSoon = reminders.filter(r => r.diffDays <= 7);
+    if (dueSoon.length === 0) {
+      alertContainer.innerHTML = '';
+      return;
+    }
+
+    const first = dueSoon[0];
+    alertContainer.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: linear-gradient(135deg, #FFF1F2 0%, #FFE4E6 100%); border-radius: 18px; border: 1.5px solid #FDA4AF; margin-bottom: 20px; box-shadow: 0 4px 16px rgba(225,29,72,0.12); flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 28px;">🎂</span>
+          <div>
+            <strong style="font-size: 14px; color: #9F1239;">Peringatan Ulang Tahun Mendekat (H-${first.diffDays})!</strong>
+            <p style="font-size: 13px; color: #BE123C; margin-top: 2px;">
+              <strong>${first.friendName}</strong> akan berulang tahun pada <strong>${first.date}</strong> (${first.tagText}). Waktunya siapkan ucapan atau ide kado spesial!
+            </p>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-primary" style="background: #E11D48; border-color: #E11D48; font-size: 12px; padding: 6px 14px;" onclick="MindVaultApp.openPrepModal('${first.friendId}')">
+            🎁 Lihat Ide Kado
+          </button>
+          <button class="btn btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="MindVaultApp.switchView('calendar')">
+            Lihat Semua Pengingat
+          </button>
+        </div>
       </div>
-    `).join('');
+    `;
+  },
+
+  // Update notification bell badge & dropdown list
+  updateNotificationBell(reminders) {
+    const badge = document.getElementById('notif-badge-count');
+    const dropdownList = document.getElementById('notification-dropdown-list');
+    const dueSoon = reminders.filter(r => r.diffDays <= 7);
+
+    if (badge) {
+      if (dueSoon.length > 0) {
+        badge.innerText = dueSoon.length;
+        badge.style.display = 'block';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    if (dropdownList) {
+      if (reminders.length === 0) {
+        dropdownList.innerHTML = '<p style="font-size: 13px; color: var(--text-muted); text-align: center; padding: 12px;">Tidak ada notifikasi saat ini.</p>';
+      } else {
+        dropdownList.innerHTML = reminders.map(r => `
+          <div style="display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(0,0,0,0.05); cursor: pointer;" onclick="MindVaultApp.switchView('calendar'); MindVaultApp.toggleNotificationDropdown(false);">
+            <span style="font-size: 20px;">🎂</span>
+            <div style="flex: 1;">
+              <p style="font-size: 13px; font-weight: 700; color: var(--text-dark); margin: 0;">${r.title}</p>
+              <p style="font-size: 11px; color: var(--text-muted); margin: 0;">${r.date} • <strong style="color: ${r.diffDays <= 7 ? '#E11D48' : '#7C3AED'};">${r.tagText}</strong></p>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+  },
+
+  toggleNotificationDropdown(forceState) {
+    const dropdown = document.getElementById('notification-dropdown');
+    if (!dropdown) return;
+    const isShown = typeof forceState === 'boolean' ? forceState : dropdown.style.display === 'block';
+    dropdown.style.display = isShown ? 'none' : 'block';
   },
 
   // Meeting Prep Modal
@@ -2189,4 +2371,5 @@ window.openAddDiaryModal = () => MindVaultApp.openAddDiaryModal();
 window.saveDiaryFromModal = () => MindVaultApp.saveDiaryFromModal();
 window.openAddDreamModal = () => MindVaultApp.openAddDreamModal();
 window.saveDreamFromModal = () => MindVaultApp.saveDreamFromModal();
+window.toggleNotificationDropdown = (state) => MindVaultApp.toggleNotificationDropdown(state);
 window.handleLogout = () => MindVaultApp.handleLogout();
