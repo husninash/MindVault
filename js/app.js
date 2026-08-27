@@ -1471,14 +1471,14 @@ const MindVaultApp = {
 
     try {
       const storedS = localStorage.getItem('MINDVAULT_LOCAL_TOPIC_STARTERS');
-      if (storedS) {
+      if (storedS !== null) {
         const parsed = JSON.parse(storedS);
-        if (Array.isArray(parsed) && parsed.length > 0) starters = parsed;
+        if (Array.isArray(parsed)) starters = parsed;
       }
       const storedR = localStorage.getItem('MINDVAULT_LOCAL_TOPIC_REFLECTIONS');
-      if (storedR) {
+      if (storedR !== null) {
         const parsed = JSON.parse(storedR);
-        if (Array.isArray(parsed) && parsed.length > 0) reflections = parsed;
+        if (Array.isArray(parsed)) reflections = parsed;
       }
     } catch (e) {}
 
@@ -1491,35 +1491,43 @@ const MindVaultApp = {
     const { starters, reflections } = this.getLiveTopicsContext();
 
     if (startersList) {
-      startersList.innerHTML = starters.map((s, idx) => `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px; background: white; border-radius: 14px; margin-bottom: 10px; border: 1px solid var(--card-border);">
-          <span style="font-size: 13px; font-weight: 600; color: var(--text-dark); flex: 1; margin-right: 10px;">"${s}"</span>
-          <div style="display: flex; gap: 6px; align-items: center;">
-            <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px; color: #6D28D9;" onclick="MindVaultApp.openEditTopicModal('starter', ${idx})">
-              <i class="fa-solid fa-pen-to-square"></i>
-            </button>
-            <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px; color: #DC2626;" onclick="MindVaultApp.deleteTopicStarter(${idx})">
-              <i class="fa-solid fa-trash-can"></i>
-            </button>
+      if (!starters || starters.length === 0) {
+        startersList.innerHTML = '<p style="font-size: 13px; color: var(--text-muted); padding: 14px; text-align: center; background: white; border-radius: 14px; border: 1px dashed var(--card-border);">Belum ada pemantik obrolan. Klik tombol "+ Tambah Topik / Renungan" untuk menambah baru.</p>';
+      } else {
+        startersList.innerHTML = starters.map((s, idx) => `
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px; background: white; border-radius: 14px; margin-bottom: 10px; border: 1px solid var(--card-border);">
+            <span style="font-size: 13px; font-weight: 600; color: var(--text-dark); flex: 1; margin-right: 10px;">"${s}"</span>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px; color: #6D28D9;" onclick="MindVaultApp.openEditTopicModal('starter', ${idx})" title="Edit topik">
+                <i class="fa-solid fa-pen-to-square"></i>
+              </button>
+              <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px; color: #DC2626;" onclick="MindVaultApp.deleteTopicStarter(${idx})" title="Hapus topik">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
           </div>
-        </div>
-      `).join('');
+        `).join('');
+      }
     }
 
     if (reflectionsList) {
-      reflectionsList.innerHTML = reflections.map((r, idx) => `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px; background: var(--bg-main); border-radius: 14px; font-style: italic; font-size: 13px; margin-bottom: 10px; border-left: 3px solid #8B5CF6;">
-          <span style="color: var(--text-dark); flex: 1; margin-right: 10px;">"${r}"</span>
-          <div style="display: flex; gap: 6px; align-items: center;">
-            <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px; color: #6D28D9;" onclick="MindVaultApp.openEditTopicModal('reflection', ${idx})">
-              <i class="fa-solid fa-pen-to-square"></i>
-            </button>
-            <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px; color: #DC2626;" onclick="MindVaultApp.deleteTopicReflection(${idx})">
-              <i class="fa-solid fa-trash-can"></i>
-            </button>
+      if (!reflections || reflections.length === 0) {
+        reflectionsList.innerHTML = '<p style="font-size: 13px; color: var(--text-muted); padding: 14px; text-align: center; background: var(--bg-main); border-radius: 14px; border: 1px dashed var(--card-border);">Belum ada renungan. Klik tombol "+ Tambah Topik / Renungan" untuk menambah baru.</p>';
+      } else {
+        reflectionsList.innerHTML = reflections.map((r, idx) => `
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px; background: var(--bg-main); border-radius: 14px; font-style: italic; font-size: 13px; margin-bottom: 10px; border-left: 3px solid #8B5CF6;">
+            <span style="color: var(--text-dark); flex: 1; margin-right: 10px;">"${r}"</span>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px; color: #6D28D9;" onclick="MindVaultApp.openEditTopicModal('reflection', ${idx})" title="Edit renungan">
+                <i class="fa-solid fa-pen-to-square"></i>
+              </button>
+              <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px; color: #DC2626;" onclick="MindVaultApp.deleteTopicReflection(${idx})" title="Hapus renungan">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
           </div>
-        </div>
-      `).join('');
+        `).join('');
+      }
     }
   },
 
@@ -1623,13 +1631,18 @@ const MindVaultApp = {
     const { starters } = this.getLiveTopicsContext();
     starters.splice(idx, 1);
     localStorage.setItem('MINDVAULT_LOCAL_TOPIC_STARTERS', JSON.stringify(starters));
+    MindVaultData.todaysTopics = starters;
+    this.showToast('Pemantik obrolan berhasil dihapus 🗑️', 'info');
     this.renderTopicsPage();
+    this.renderDashboard();
   },
 
   deleteTopicReflection(idx) {
     const { reflections } = this.getLiveTopicsContext();
     reflections.splice(idx, 1);
     localStorage.setItem('MINDVAULT_LOCAL_TOPIC_REFLECTIONS', JSON.stringify(reflections));
+    MindVaultData.todaysThoughts = reflections;
+    this.showToast('Renungan hubungan berhasil dihapus 🗑️', 'info');
     this.renderTopicsPage();
   },
 
