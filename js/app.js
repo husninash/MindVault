@@ -136,10 +136,18 @@ const MindVaultApp = {
   },
 
   updateUserSidebar() {
-    if (!this.currentUser) return;
     const nameEl = document.getElementById('sidebar-user-name');
     const badgeEl = document.getElementById('sidebar-user-role-badge');
     const avatarEl = document.getElementById('sidebar-user-avatar');
+
+    if (!this.currentUser) {
+      if (nameEl) nameEl.innerText = 'Guest User';
+      if (badgeEl) {
+        badgeEl.innerText = 'Guest 👤';
+        badgeEl.className = 'role-badge role-badge-user';
+      }
+      return;
+    }
 
     if (nameEl) nameEl.innerText = this.currentUser.name;
     const isAdmin = this.currentUser.role === 'admin';
@@ -391,6 +399,10 @@ const MindVaultApp = {
       if (document.getElementById('auth-input-email')) document.getElementById('auth-input-email').value = '';
       if (document.getElementById('auth-input-password')) document.getElementById('auth-input-password').value = '';
       if (document.getElementById('auth-input-name')) document.getElementById('auth-input-name').value = '';
+
+      this.updateUserSidebar();
+      this.applyRolePermissions();
+      this.switchAuthTab('login');
 
       // Force show Auth Modal Screen overlay
       this.showAuthScreen();
