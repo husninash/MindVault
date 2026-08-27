@@ -1230,6 +1230,73 @@ const MindVaultApp = {
       }
     }
 
+    // Special Milestones & Upcoming Moments
+    const milestonesContainer = document.getElementById('profile-milestones-list');
+    if (milestonesContainer) {
+      const milestones = friend.milestones || [];
+      if (milestones.length === 0) {
+        milestonesContainer.innerHTML = `
+          <div style="padding: 16px; text-align: center; background: rgba(255,255,255,0.7); border-radius: 14px; border: 1px dashed var(--card-border);">
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">Belum ada momen atau acara spesial (Wisuda, Lahiran, dll) yang dicatat.</p>
+            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="MindVaultApp.openAddMilestoneModal('${friend.id}')">
+              + Catat Momen Spesial
+            </button>
+          </div>
+        `;
+      } else {
+        const today = new Date();
+        const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+        milestonesContainer.innerHTML = milestones.map((m, mIdx) => {
+          let dayDiffText = '';
+          let isUpcoming = false;
+
+          if (m.date) {
+            const targetDate = new Date(m.date);
+            const targetStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+            const diffDays = Math.round((targetStart.getTime() - startToday.getTime()) / (1000 * 60 * 60 * 24));
+            
+            if (diffDays === 0) {
+              dayDiffText = '🎉 HARI INI!';
+              isUpcoming = true;
+            } else if (diffDays === 1) {
+              dayDiffText = '⚡ Besok!';
+              isUpcoming = true;
+            } else if (diffDays > 1) {
+              dayDiffText = `⏳ ${diffDays} hari lagi`;
+              isUpcoming = true;
+            } else {
+              dayDiffText = `✨ Sudah lewat (${Math.abs(diffDays)} hari lalu)`;
+            }
+          }
+
+          const badgeColor = isUpcoming ? '#DC2626' : '#6B7280';
+          const badgeBg = isUpcoming ? '#FEE2E2' : '#F3F4F6';
+
+          return `
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; padding: 14px; background: white; border-radius: 14px; border: 1px solid var(--card-border); margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
+              <div style="flex: 1; margin-right: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px;">
+                  <strong style="font-size: 13px; color: var(--text-dark);">${m.title}</strong>
+                  ${dayDiffText ? `<span style="font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 10px; background: ${badgeBg}; color: ${badgeColor};">${dayDiffText}</span>` : ''}
+                </div>
+                <div style="font-size: 12px; color: #6D28D9; font-weight: 600; margin-bottom: 4px;">${m.type || '✨ Special Moment'} • 📅 ${m.date || 'TBA'}</div>
+                ${m.notes ? `<p style="font-size: 12px; color: var(--text-muted); line-height: 1.4; margin: 0; background: var(--bg-main); padding: 6px 10px; border-radius: 8px;">💡 ${m.notes}</p>` : ''}
+              </div>
+              <div style="display: flex; gap: 4px;">
+                <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="MindVaultApp.openEditMilestoneModal('${friend.id}', ${mIdx})" title="Edit Momen">
+                  <i class="fa-solid fa-pen-to-square" style="color: #6D28D9;"></i>
+                </button>
+                <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px; color: #DC2626;" onclick="MindVaultApp.deleteMilestone('${friend.id}', ${mIdx})" title="Hapus Momen">
+                  <i class="fa-solid fa-trash-can"></i>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
     // Gift Ideas
     const giftsContainer = document.getElementById('profile-gift-ideas');
     if (giftsContainer) {
@@ -1369,7 +1436,54 @@ const MindVaultApp = {
         urgency,
         tagText,
         isDueSoon,
-        type: '🎂 Birthday Alert'
+        type: '🎂 Ulang Tahun'
+      });
+
+      // Include Special Milestones (Wisuda, Lahiran, Nikahan, dll)
+      const milestones = friend.milestones || [];
+      milestones.forEach((m, mIdx) => {
+        if (!m.date) return;
+        const targetDate = new Date(m.date);
+        const startTodayM = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const targetStartM = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+        const mDiffDays = Math.round((targetStartM.getTime() - startTodayM.getTime()) / (1000 * 60 * 60 * 24));
+
+        if (mDiffDays < 0) return; // Skip past events in active reminders
+
+        let mUrgency = 'normal';
+        let mTagText = `${mDiffDays} hari lagi`;
+        let mIsDueSoon = false;
+
+        if (mDiffDays === 0) {
+          mUrgency = 'critical';
+          mTagText = '🎉 HARI INI!';
+          mIsDueSoon = true;
+        } else if (mDiffDays === 1) {
+          mUrgency = 'high';
+          mTagText = '⚡ Besok!';
+          mIsDueSoon = true;
+        } else if (mDiffDays <= 7) {
+          mUrgency = 'warning';
+          mTagText = `⚡ ${mDiffDays} hari lagi (H-${mDiffDays})`;
+          mIsDueSoon = true;
+        }
+
+        const formattedMDate = targetDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+
+        reminders.push({
+          id: `milestone-${friend.id}-${mIdx}`,
+          friendId: friend.id,
+          friendName: friend.name,
+          friendAvatar: friend.avatar,
+          title: `${m.title} (${friend.name})`,
+          date: formattedMDate,
+          diffDays: mDiffDays,
+          urgency: mUrgency,
+          tagText: mTagText,
+          isDueSoon: mIsDueSoon,
+          type: m.type || '✨ Momen Spesial',
+          notes: m.notes || ''
+        });
       });
     });
 
@@ -1427,7 +1541,7 @@ const MindVaultApp = {
     }).join('');
   },
 
-  // Render floating warning alert in Dashboard when birthday is within 7 days
+  // Render floating warning alert in Dashboard when birthday or milestone is within 7 days
   renderDashboardBirthdayAlert(reminders) {
     const alertContainer = document.getElementById('dash-birthday-alert-container');
     if (!alertContainer) return;
@@ -1439,20 +1553,27 @@ const MindVaultApp = {
     }
 
     const first = dueSoon[0];
+    const isBirthday = first.type.includes('Ulang Tahun') || first.type.includes('Birthday');
+    const icon = isBirthday ? '🎂' : (first.type.slice(0, 2) || '🎉');
+    const headerTitle = isBirthday ? `Peringatan Ulang Tahun Mendekat (H-${first.diffDays})!` : `Momen Spesial Mendekat: ${first.title} (H-${first.diffDays})!`;
+    const descText = isBirthday 
+      ? `<strong>${first.friendName}</strong> akan berulang tahun pada <strong>${first.date}</strong> (${first.tagText}). Waktunya siapkan ucapan atau ide kado spesial!`
+      : `<strong>${first.friendName}</strong> memiliki acara <strong>${first.title}</strong> pada <strong>${first.date}</strong> (${first.tagText}). ${first.notes ? `<em>Catatan: "${first.notes}"</em>` : ''}`;
+
     alertContainer.innerHTML = `
       <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: linear-gradient(135deg, #FFF1F2 0%, #FFE4E6 100%); border-radius: 18px; border: 1.5px solid #FDA4AF; margin-bottom: 20px; box-shadow: 0 4px 16px rgba(225,29,72,0.12); flex-wrap: wrap; gap: 10px;">
         <div style="display: flex; align-items: center; gap: 12px;">
-          <span style="font-size: 28px;">🎂</span>
+          <span style="font-size: 28px;">${icon}</span>
           <div>
-            <strong style="font-size: 14px; color: #9F1239;">Peringatan Ulang Tahun Mendekat (H-${first.diffDays})!</strong>
+            <strong style="font-size: 14px; color: #9F1239;">${headerTitle}</strong>
             <p style="font-size: 13px; color: #BE123C; margin-top: 2px;">
-              <strong>${first.friendName}</strong> akan berulang tahun pada <strong>${first.date}</strong> (${first.tagText}). Waktunya siapkan ucapan atau ide kado spesial!
+              ${descText}
             </p>
           </div>
         </div>
         <div style="display: flex; gap: 8px;">
           <button class="btn btn-primary" style="background: #E11D48; border-color: #E11D48; font-size: 12px; padding: 6px 14px;" onclick="MindVaultApp.openPrepModal('${first.friendId}')">
-            🎁 Lihat Ide Kado
+            🎁 Buka Meeting Prep
           </button>
           <button class="btn btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="MindVaultApp.switchView('calendar')">
             Lihat Semua Pengingat
@@ -2358,6 +2479,125 @@ const MindVaultApp = {
       </div>
     `).join('');
   }
+  // Milestone / Special Moments Methods
+  openAddMilestoneModal(friendId) {
+    const targetFriendId = friendId || this.selectedFriendId || (MindVaultData.friends[0] ? MindVaultData.friends[0].id : null);
+    if (!targetFriendId) {
+      this.showToast('Pilih atau tambahkan teman terlebih dahulu.', 'warning');
+      return;
+    }
+
+    const titleEl = document.getElementById('modal-add-milestone-title');
+    if (titleEl) titleEl.innerText = '🎉 Tambah Acara & Momen Spesial Teman';
+    const idEl = document.getElementById('edit-milestone-id');
+    if (idEl) idEl.value = '';
+    const fIdEl = document.getElementById('edit-milestone-friend-id');
+    if (fIdEl) fIdEl.value = targetFriendId;
+
+    const titleInput = document.getElementById('add-milestone-title');
+    if (titleInput) titleInput.value = '';
+    const dateInput = document.getElementById('add-milestone-date');
+    if (dateInput) dateInput.value = '';
+    const notesInput = document.getElementById('add-milestone-notes');
+    if (notesInput) notesInput.value = '';
+
+    const btnEl = document.getElementById('btn-save-milestone');
+    if (btnEl) btnEl.innerText = 'Simpan Momen Spesial 🎉';
+
+    const modal = document.getElementById('modal-add-milestone');
+    if (modal) modal.classList.add('active');
+  },
+
+  openEditMilestoneModal(friendId, mIdx) {
+    const friend = MindVaultData.friends.find(f => String(f.id) === String(friendId));
+    if (!friend || !friend.milestones || !friend.milestones[mIdx]) {
+      this.showToast('Data momen spesial tidak ditemukan.', 'warning');
+      return;
+    }
+
+    const milestone = friend.milestones[mIdx];
+    const titleEl = document.getElementById('modal-add-milestone-title');
+    if (titleEl) titleEl.innerText = `✏️ Edit Momen Spesial: ${milestone.title}`;
+    const idEl = document.getElementById('edit-milestone-id');
+    if (idEl) idEl.value = mIdx;
+    const fIdEl = document.getElementById('edit-milestone-friend-id');
+    if (fIdEl) fIdEl.value = friendId;
+
+    const typeSelect = document.getElementById('add-milestone-type');
+    if (typeSelect) typeSelect.value = milestone.type || '🎓 Wisuda / Graduation';
+    const titleInput = document.getElementById('add-milestone-title');
+    if (titleInput) titleInput.value = milestone.title || '';
+    const dateInput = document.getElementById('add-milestone-date');
+    if (dateInput) dateInput.value = milestone.date || '';
+    const notesInput = document.getElementById('add-milestone-notes');
+    if (notesInput) notesInput.value = milestone.notes || '';
+
+    const btnEl = document.getElementById('btn-save-milestone');
+    if (btnEl) btnEl.innerText = 'Update Momen Spesial ✏️';
+
+    const modal = document.getElementById('modal-add-milestone');
+    if (modal) modal.classList.add('active');
+  },
+
+  async saveMilestoneFromModal() {
+    const editMIdx = document.getElementById('edit-milestone-id')?.value;
+    const friendId = document.getElementById('edit-milestone-friend-id')?.value;
+    const type = document.getElementById('add-milestone-type')?.value || '✨ Momen Spesial';
+    const title = document.getElementById('add-milestone-title')?.value?.trim();
+    const date = document.getElementById('add-milestone-date')?.value;
+    const notes = document.getElementById('add-milestone-notes')?.value?.trim();
+
+    if (!title || !date) {
+      this.showToast('Mohon lengkapi judul dan tanggal acara.', 'warning');
+      return;
+    }
+
+    const friend = MindVaultData.friends.find(f => String(f.id) === String(friendId));
+    if (!friend) {
+      this.showToast('Teman tidak ditemukan.', 'warning');
+      return;
+    }
+
+    if (!friend.milestones) friend.milestones = [];
+
+    const milestoneObj = {
+      id: editMIdx !== '' && friend.milestones[editMIdx] ? friend.milestones[editMIdx].id : `m-${Date.now()}`,
+      type,
+      title,
+      date,
+      notes
+    };
+
+    if (editMIdx !== '' && editMIdx !== undefined) {
+      friend.milestones[parseInt(editMIdx, 10)] = milestoneObj;
+      this.showToast(`Momen "${title}" berhasil diperbarui! ✏️🎉`, 'success');
+    } else {
+      friend.milestones.push(milestoneObj);
+      this.showToast(`Momen spesial "${title}" berhasil dicatat! 🎉✨`, 'success');
+    }
+
+    await MindVaultSupabase.updateFriend(friend);
+
+    const modal = document.getElementById('modal-add-milestone');
+    if (modal) modal.classList.remove('active');
+
+    this.renderFriendProfile(friend.id);
+    this.renderRemindersList();
+  },
+
+  async deleteMilestone(friendId, mIdx) {
+    if (!confirm('Apakah Anda yakin ingin menghapus momen spesial ini?')) return;
+
+    const friend = MindVaultData.friends.find(f => String(f.id) === String(friendId));
+    if (!friend || !friend.milestones) return;
+
+    friend.milestones.splice(mIdx, 1);
+    await MindVaultSupabase.updateFriend(friend);
+
+    this.showToast('Momen spesial berhasil dihapus 🗑️', 'info');
+    this.renderFriendProfile(friend.id);
+    this.renderRemindersList();
+  }
 };
 
 // Global Window Aliases
@@ -2371,5 +2611,9 @@ window.openAddDiaryModal = () => MindVaultApp.openAddDiaryModal();
 window.saveDiaryFromModal = () => MindVaultApp.saveDiaryFromModal();
 window.openAddDreamModal = () => MindVaultApp.openAddDreamModal();
 window.saveDreamFromModal = () => MindVaultApp.saveDreamFromModal();
+window.openAddMilestoneModal = (fId) => MindVaultApp.openAddMilestoneModal(fId);
+window.openEditMilestoneModal = (fId, idx) => MindVaultApp.openEditMilestoneModal(fId, idx);
+window.saveMilestoneFromModal = () => MindVaultApp.saveMilestoneFromModal();
+window.deleteMilestone = (fId, idx) => MindVaultApp.deleteMilestone(fId, idx);
 window.toggleNotificationDropdown = (state) => MindVaultApp.toggleNotificationDropdown(state);
 window.handleLogout = () => MindVaultApp.handleLogout();

@@ -359,8 +359,16 @@
 
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 24px;">
-          
+          <div class="glass-card">
+            <div class="card-title-row">
+              <h3><i class="fa-solid fa-calendar-star" style="color: #E11D48;"></i> Momen & Acara Spesial Mendatang</h3>
+              <button class="btn btn-primary" style="padding: 4px 10px; font-size: 11px;" onclick="MindVaultApp.openAddMilestoneModal()">
+                <i class="fa-solid fa-plus"></i> Tambah Acara
+              </button>
+            </div>
+            <div id="profile-milestones-list"></div>
+          </div>
+
           <div class="glass-card">
             <div class="card-title-row">
               <h3><i class="fa-solid fa-star"></i> Favorites</h3>
@@ -1069,6 +1077,52 @@
       <textarea id="add-topic-content" class="form-control" style="min-height: 90px;" placeholder="e.g. Tanya Sophia tentang kucingnya Mochi, atau Tanyakan kabar Ethan tentang proyek barunya..."></textarea>
     </div>
     <button id="btn-save-topic" class="btn btn-primary" style="width: 100%; padding: 14px;" onclick="MindVaultApp.saveTopicFromModal()">Simpan ke RAG Database 🚀</button>
+  </div>
+</div>
+
+<!-- MODAL: ADD / EDIT SPECIAL MILESTONE / MOMENT -->
+<div id="modal-add-milestone" class="modal-overlay">
+  <div class="modal-card" style="max-width: 520px;">
+    <div class="modal-header">
+      <h3 id="modal-add-milestone-title">🎉 Tambah Acara & Momen Spesial Teman</h3>
+      <button class="modal-close-btn">&times;</button>
+    </div>
+    <input type="hidden" id="edit-milestone-id" value="">
+    <input type="hidden" id="edit-milestone-friend-id" value="">
+
+    <div class="form-group">
+      <label>Tipe Acara / Momen Spesial <span style="color: red;">*</span></label>
+      <select id="add-milestone-type" class="form-control">
+        <option value="🎓 Wisuda / Graduation">🎓 Wisuda / Graduation</option>
+        <option value="👶 Kelahiran Anak / Babyshower">👶 Kelahiran Anak / Babyshower</option>
+        <option value="💍 Pernikahan / Lamaran / Anniversary">💍 Pernikahan / Lamaran / Anniversary</option>
+        <option value="💼 Promosi Kerja / Kantor Baru">💼 Promosi Kerja / Kantor Baru</option>
+        <option value="🏠 Pindah Rumah / Housewarming">🏠 Pindah Rumah / Housewarming</option>
+        <option value="✈️ Liburan / Perjalanan Spesial">✈️ Liburan / Perjalanan Spesial</option>
+        <option value="🏥 Operasi / Masa Pemulihan Kesehatan">🏥 Operasi / Masa Pemulihan Kesehatan</option>
+        <option value="🌟 Ujian / Sidang / Presentasi Penting">🌟 Ujian / Sidang / Presentasi Penting</option>
+        <option value="✨ Momen Spesial Lainnya">✨ Momen Spesial Lainnya</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Nama / Judul Acara <span style="color: red;">*</span></label>
+      <input type="text" id="add-milestone-title" class="form-control" placeholder="e.g. Wisuda S2 di UI, Perkiraan Hari Lahiran, Resepsi Nikah">
+    </div>
+
+    <div class="form-group">
+      <label>Tanggal Acara / Target Tanggal <span style="color: red;">*</span></label>
+      <input type="date" id="add-milestone-date" class="form-control">
+    </div>
+
+    <div class="form-group">
+      <label>Catatan / Rencana Kado & Ucapan</label>
+      <textarea id="add-milestone-notes" class="form-control" placeholder="e.g. Mau kirim buket bunga mawar, kasih kado perlengkapan bayi, atau telephon tepat jam 9 pagi..."></textarea>
+    </div>
+
+    <button id="btn-save-milestone" class="btn btn-primary" style="width: 100%; padding: 14px; margin-top: 8px;" onclick="MindVaultApp.saveMilestoneFromModal()">
+      Simpan Momen Spesial 🎉
+    </button>
   </div>
 </div>
 

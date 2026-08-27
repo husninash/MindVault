@@ -58,6 +58,8 @@ const MindVaultGemini = {
   async chatWithAssistant(userQuery, friendsData, diariesData, dailyJournalsData, activeFriendId, liveTopicsData) {
     const friendsContext = (friendsData || []).map(f => `
 - Friend Name: ${f.name} (ID: ${f.id}, Relation: ${f.relation || 'Friend'})
+  Birthday: ${f.birthday || 'N/A'}
+  Upcoming Special Milestones & Events: ${JSON.stringify(f.milestones || [])}
   Intimacy Score: ${f.score || 85}%
   Bio: ${f.bio || '-'}
   Current Life Status: ${f.currentLife || '-'}
