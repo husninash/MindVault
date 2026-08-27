@@ -98,7 +98,10 @@ const MindVaultApp = {
   showAuthScreen() {
     const modal = document.getElementById('auth-modal-screen');
     if (modal) {
-      modal.style.display = 'flex';
+      modal.style.setProperty('display', 'flex', 'important');
+      modal.style.setProperty('opacity', '1', 'important');
+      modal.style.setProperty('pointer-events', 'all', 'important');
+      modal.style.setProperty('z-index', '99999', 'important');
       modal.classList.add('active');
     }
   },
@@ -106,8 +109,10 @@ const MindVaultApp = {
   hideAuthScreen() {
     const modal = document.getElementById('auth-modal-screen');
     if (modal) {
+      modal.style.setProperty('display', 'none', 'important');
+      modal.style.setProperty('opacity', '0', 'important');
+      modal.style.setProperty('pointer-events', 'none', 'important');
       modal.classList.remove('active');
-      modal.style.display = 'none';
     }
     this.updateUserSidebar();
     this.applyRolePermissions();
@@ -403,6 +408,18 @@ const MindVaultApp = {
     reader.readAsDataURL(file);
   },
 
+  handleRelationSelectChange(val) {
+    const customInput = document.getElementById('add-friend-relation-custom');
+    if (!customInput) return;
+    if (val === 'Other') {
+      customInput.style.display = 'block';
+      customInput.focus();
+    } else {
+      customInput.style.display = 'none';
+      customInput.value = '';
+    }
+  },
+
   openAddFriendModal() {
     const titleEl = document.getElementById('modal-add-friend-title');
     if (titleEl) titleEl.innerText = '✨ Add New Friend Profile';
@@ -413,10 +430,17 @@ const MindVaultApp = {
 
     // Clear form inputs & reset upload state
     this.uploadedAvatarData = null;
-    ['name', 'relation', 'birthday', 'avatar', 'bio', 'life', 'fav-drink', 'fav-food', 'fav-color', 'fav-hobby', 'fav-book', 'likes', 'dislikes', 'safe-topics', 'avoid-topics', 'gifts'].forEach(id => {
+    ['name', 'birthday', 'avatar', 'bio', 'life', 'fav-drink', 'fav-food', 'fav-color', 'fav-hobby', 'fav-book', 'likes', 'dislikes', 'safe-topics', 'avoid-topics', 'gifts'].forEach(id => {
       const el = document.getElementById('add-friend-' + id);
       if (el) el.value = '';
     });
+    const relSelect = document.getElementById('add-friend-relation-select');
+    if (relSelect) relSelect.value = 'Close Friend';
+    const relCustom = document.getElementById('add-friend-relation-custom');
+    if (relCustom) {
+      relCustom.style.display = 'none';
+      relCustom.value = '';
+    }
     if (document.getElementById('add-friend-file')) document.getElementById('add-friend-file').value = '';
     const container = document.getElementById('add-friend-preview-container');
     if (container) container.style.display = 'none';
@@ -439,7 +463,24 @@ const MindVaultApp = {
     if (btnEl) btnEl.innerText = 'Save Changes';
 
     if (document.getElementById('add-friend-name')) document.getElementById('add-friend-name').value = friend.name || '';
-    if (document.getElementById('add-friend-relation')) document.getElementById('add-friend-relation').value = friend.relation || '';
+    
+    // Set Relationship dropdown / custom input
+    const relSelect = document.getElementById('add-friend-relation-select');
+    const relCustom = document.getElementById('add-friend-relation-custom');
+    if (relSelect && relCustom) {
+      const rel = (friend.relation || '').trim();
+      const matched = Array.from(relSelect.options).find(opt => opt.value.toLowerCase() === rel.toLowerCase() && opt.value !== 'Other');
+      if (matched) {
+        relSelect.value = matched.value;
+        relCustom.style.display = 'none';
+        relCustom.value = '';
+      } else {
+        relSelect.value = 'Other';
+        relCustom.style.display = 'block';
+        relCustom.value = rel;
+      }
+    }
+
     if (document.getElementById('add-friend-birthday')) document.getElementById('add-friend-birthday').value = friend.birthday || '';
     if (document.getElementById('add-friend-avatar')) document.getElementById('add-friend-avatar').value = friend.avatar || '';
     if (document.getElementById('add-friend-bio')) document.getElementById('add-friend-bio').value = friend.bio || '';
@@ -477,7 +518,19 @@ const MindVaultApp = {
 
   readFriendFormData() {
     const name = document.getElementById('add-friend-name')?.value.trim();
-    const relation = document.getElementById('add-friend-relation')?.value.trim();
+    
+    // Read relation from select or custom text input
+    const relSelect = document.getElementById('add-friend-relation-select');
+    const relCustom = document.getElementById('add-friend-relation-custom');
+    let relation = 'Friend';
+    if (relSelect) {
+      if (relSelect.value === 'Other') {
+        relation = (relCustom && relCustom.value.trim()) ? relCustom.value.trim() : 'Other';
+      } else {
+        relation = relSelect.value;
+      }
+    }
+
     const birthday = document.getElementById('add-friend-birthday')?.value;
     const avatarInput = document.getElementById('add-friend-avatar')?.value.trim();
     const bio = document.getElementById('add-friend-bio')?.value.trim();
@@ -991,13 +1044,14 @@ const MindVaultApp = {
     // Today's topics list
     const topicsContainer = document.getElementById('dash-topics-list');
     if (topicsContainer) {
-      if (!MindVaultData.todaysTopics || MindVaultData.todaysTopics.length === 0) {
+      const { starters } = this.getLiveTopicsContext();
+      if (!starters || starters.length === 0) {
         topicsContainer.innerHTML = '<p style="font-size: 13px; color: var(--text-muted); padding: 8px;">Belum ada topik hari ini.</p>';
       } else {
-        topicsContainer.innerHTML = MindVaultData.todaysTopics.map(topic => `
+        topicsContainer.innerHTML = starters.slice(0, 3).map(topic => `
           <div style="padding: 12px 14px; background: rgba(255,255,255,0.7); border-radius: 12px; margin-bottom: 8px; border: 1px solid rgba(248,187,217,0.3); display: flex; align-items: center; justify-content: space-between;">
-            <span style="font-size: 13px; font-weight: 600;">✨ ${topic.text}</span>
-            <span style="font-size: 10px; font-weight: 700; background: var(--secondary); color: var(--accent-hover); padding: 4px 10px; border-radius: 10px;">${topic.priority}</span>
+            <span style="font-size: 13px; font-weight: 600; color: var(--text-dark);">✨ "${topic}"</span>
+            <span style="font-size: 10px; font-weight: 700; background: var(--secondary); color: var(--accent-hover); padding: 4px 10px; border-radius: 10px;">RAG Active</span>
           </div>
         `).join('');
       }

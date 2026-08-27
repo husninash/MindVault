@@ -786,7 +786,20 @@
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
       <div class="form-group">
         <label>Relationship / Tier</label>
-        <input type="text" id="add-friend-relation" class="form-control" placeholder="e.g. Close Friend, Inner Circle">
+        <select id="add-friend-relation-select" class="form-control" onchange="MindVaultApp.handleRelationSelectChange(this.value)">
+          <option value="Inner Circle">Inner Circle (Sahabat Inti)</option>
+          <option value="Close Friend">Close Friend (Teman Dekat)</option>
+          <option value="Friend">Friend (Teman)</option>
+          <option value="Bestie">Bestie</option>
+          <option value="Family">Family (Keluarga)</option>
+          <option value="Partner / Lover">Partner / Lover (Pasangan)</option>
+          <option value="Ex Lover">Ex Lover (Mantan)</option>
+          <option value="Colleague / Work">Colleague / Work (Rekan Kerja)</option>
+          <option value="Mentor / Teacher">Mentor / Teacher</option>
+          <option value="Acquaintance">Acquaintance (Kenalan)</option>
+          <option value="Other">Other / Lainnya (Ketik Sendiri)...</option>
+        </select>
+        <input type="text" id="add-friend-relation-custom" class="form-control" style="display: none; margin-top: 8px;" placeholder="Ketik relationship / tier kustom...">
       </div>
       <div class="form-group">
         <label>Birthday (Tanggal Lahir)</label>
@@ -1100,11 +1113,11 @@
 
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/data.js?v=8.0"></script>
-<script src="js/supabaseClient.js?v=8.0"></script>
-<script src="js/geminiClient.js?v=8.0"></script>
-<script src="js/graph.js?v=8.0"></script>
-<script src="js/app.js?v=8.0"></script>
+<script src="js/data.js?v=9.0"></script>
+<script src="js/supabaseClient.js?v=9.0"></script>
+<script src="js/geminiClient.js?v=9.0"></script>
+<script src="js/graph.js?v=9.0"></script>
+<script src="js/app.js?v=9.0"></script>
 
 </body>
 </html>
