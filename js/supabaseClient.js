@@ -296,5 +296,37 @@ const MindVaultSupabase = {
 
   async fetchKnowledgeGraph() {
     return MindVaultData.knowledgeGraph || { nodes: [], edges: [] };
+  },
+
+  // Realtime Supabase Database Sync across all tabs & devices
+  subscribeRealtime(onUpdateCallback) {
+    if (!this.isConfigured || !this.client) return;
+    try {
+      this.client
+        .channel('mindvault-realtime-sync')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'friends' },
+          async (payload) => {
+            console.log('⚡ [Realtime] Friends table updated:', payload);
+            await MindVaultSupabase.fetchFriends();
+            if (onUpdateCallback) onUpdateCallback('friends', payload);
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'diaries' },
+          async (payload) => {
+            console.log('⚡ [Realtime] Diaries table updated:', payload);
+            await MindVaultSupabase.fetchDiaries();
+            if (onUpdateCallback) onUpdateCallback('diaries', payload);
+          }
+        )
+        .subscribe((status) => {
+          console.log('⚡ Realtime subscription status:', status);
+        });
+    } catch (err) {
+      console.warn('Realtime subscription error:', err);
+    }
   }
 };

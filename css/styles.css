@@ -59,43 +59,46 @@ body {
 /* Glass Sidebar */
 .sidebar {
   width: 280px;
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-right: 1px solid var(--card-border);
   display: flex;
   flex-direction: column;
-  padding: 24px 18px;
+  padding: 18px 14px 14px 14px;
   position: fixed;
   height: 100vh;
+  max-height: 100vh;
   z-index: 100;
   box-shadow: 4px 0 24px rgba(248, 187, 217, 0.15);
+  box-sizing: border-box;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 12px 24px 12px;
+  gap: 10px;
+  padding: 0 6px 14px 6px;
   border-bottom: 1px solid rgba(248, 187, 217, 0.25);
-  margin-bottom: 24px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
 }
 
 .brand-icon {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   background: linear-gradient(135deg, var(--accent) 0%, var(--lavender-deep) 100%);
-  border-radius: 14px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  font-size: 22px;
+  font-size: 20px;
   box-shadow: 0 6px 16px rgba(234, 141, 182, 0.4);
 }
 
 .brand-text h1 {
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 800;
   background: linear-gradient(135deg, var(--accent) 0%, #9333EA 100%);
   -webkit-background-clip: text;
@@ -103,41 +106,58 @@ body {
 }
 
 .brand-text p {
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--text-muted);
   font-weight: 600;
 }
 
+.sidebar-nav-container {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding-right: 2px;
+  margin-bottom: 10px;
+}
+
+.sidebar-nav-container::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-nav-container::-webkit-scrollbar-thumb {
+  background: rgba(248, 187, 217, 0.4);
+  border-radius: 4px;
+}
+
 /* Nav items */
 .nav-section-label {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.8px;
   color: var(--text-muted);
-  padding: 12px 14px 6px 14px;
+  padding: 8px 10px 4px 10px;
 }
 
 .nav-menu {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 20px;
+  gap: 4px;
+  margin-bottom: 10px;
 }
 
 .nav-item button {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 12px 16px;
+  gap: 12px;
+  padding: 9px 12px;
   background: transparent;
   border: none;
   border-radius: var(--radius-sm);
   color: var(--text-medium);
   font-family: inherit;
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
   transition: var(--transition);
@@ -147,7 +167,7 @@ body {
 .nav-item button:hover {
   background: rgba(248, 187, 217, 0.25);
   color: var(--accent);
-  transform: translateX(4px);
+  transform: translateX(3px);
 }
 
 .nav-item button.active {
@@ -158,8 +178,8 @@ body {
 }
 
 .nav-item button .nav-icon {
-  font-size: 18px;
-  width: 24px;
+  font-size: 16px;
+  width: 22px;
   text-align: center;
 }
 
@@ -167,40 +187,80 @@ body {
   margin-left: auto;
   background: var(--accent);
   color: white;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 12px;
+  padding: 2px 7px;
+  border-radius: 10px;
 }
 
 /* User Card Bottom Sidebar */
 .user-profile-card {
-  margin-top: auto;
-  background: rgba(255, 255, 255, 0.9);
-  padding: 12px 14px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 10px 12px;
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   border: 1px solid var(--card-border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  margin-top: auto;
 }
 
 .user-avatar {
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   object-fit: cover;
   border: 2px solid var(--primary);
+  flex-shrink: 0;
+}
+
+.user-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .user-info h4 {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.user-info p {
-  font-size: 11px;
-  color: var(--text-muted);
+.user-sidebar-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.user-action-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(248, 187, 217, 0.4);
+  background: #FFF5F9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition);
+  font-size: 13px;
+}
+
+.user-action-btn:hover {
+  background: #FFE4EE;
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+
+.user-action-btn.logout:hover {
+  background: #FEE2E2;
+  border-color: #EF4444;
+  color: #DC2626;
 }
 
 /* Main Content Area */

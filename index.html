@@ -41,57 +41,59 @@
       </div>
     </div>
 
-    <div class="nav-section-label">Main Navigation</div>
-    <ul class="nav-menu">
-      <li class="nav-item">
-        <button class="active" data-view="dashboard">
-          <i class="fa-solid fa-chart-pie nav-icon"></i>
-          <span>Dashboard</span>
-        </button>
-      </li>
-      <li class="nav-item">
-        <button data-view="friends">
-          <i class="fa-solid fa-user-group nav-icon"></i>
-          <span>Friends Directory</span>
-          <span class="nav-badge" id="nav-friends-count">0</span>
-        </button>
-      </li>
-      <li class="nav-item">
-        <button data-view="diaries">
-          <i class="fa-solid fa-book-bookmark nav-icon"></i>
-          <span>Conversation Diary</span>
-        </button>
-      </li>
-      <li class="nav-item">
-        <button data-view="topics">
-          <i class="fa-solid fa-comments nav-icon"></i>
-          <span>Today's Topics</span>
-        </button>
-      </li>
-    </ul>
+    <div class="sidebar-nav-container">
+      <div class="nav-section-label">Main Navigation</div>
+      <ul class="nav-menu">
+        <li class="nav-item">
+          <button class="active" data-view="dashboard">
+            <i class="fa-solid fa-chart-pie nav-icon"></i>
+            <span>Dashboard</span>
+          </button>
+        </li>
+        <li class="nav-item">
+          <button data-view="friends">
+            <i class="fa-solid fa-user-group nav-icon"></i>
+            <span>Friends Directory</span>
+            <span class="nav-badge" id="nav-friends-count">0</span>
+          </button>
+        </li>
+        <li class="nav-item">
+          <button data-view="diaries">
+            <i class="fa-solid fa-book-bookmark nav-icon"></i>
+            <span>Conversation Diary</span>
+          </button>
+        </li>
+        <li class="nav-item">
+          <button data-view="topics">
+            <i class="fa-solid fa-comments nav-icon"></i>
+            <span>Today's Topics</span>
+          </button>
+        </li>
+      </ul>
 
-    <div class="nav-section-label">Intelligence</div>
-    <ul class="nav-menu">
-      <li class="nav-item">
-        <button data-view="graph">
-          <i class="fa-solid fa-circle-nodes nav-icon"></i>
-          <span>Knowledge Graph</span>
-        </button>
-      </li>
-      <li class="nav-item">
-        <button data-view="calendar">
-          <i class="fa-solid fa-calendar-check nav-icon"></i>
-          <span>Reminders</span>
-        </button>
-      </li>
-      <li class="nav-item" id="nav-item-admin">
-        <button data-view="admin">
-          <i class="fa-solid fa-shield-halved nav-icon" style="color: var(--accent-hover);"></i>
-          <span>Admin Console</span>
-          <span class="nav-badge" style="background: #9333EA;">Admin</span>
-        </button>
-      </li>
-    </ul>
+      <div class="nav-section-label">Intelligence</div>
+      <ul class="nav-menu">
+        <li class="nav-item">
+          <button data-view="graph">
+            <i class="fa-solid fa-circle-nodes nav-icon"></i>
+            <span>Knowledge Graph</span>
+          </button>
+        </li>
+        <li class="nav-item">
+          <button data-view="calendar">
+            <i class="fa-solid fa-calendar-check nav-icon"></i>
+            <span>Reminders</span>
+          </button>
+        </li>
+        <li class="nav-item" id="nav-item-admin">
+          <button data-view="admin">
+            <i class="fa-solid fa-shield-halved nav-icon" style="color: var(--accent-hover);"></i>
+            <span>Admin Console</span>
+            <span class="nav-badge" style="background: #9333EA;">Admin</span>
+          </button>
+        </li>
+      </ul>
+    </div>
 
     <!-- Bottom User Card -->
     <div class="user-profile-card">
@@ -100,9 +102,13 @@
         <h4 id="sidebar-user-name">Aria Chen</h4>
         <span id="sidebar-user-role-badge" class="role-badge role-badge-user">User</span>
       </div>
-      <div style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
-        <i class="fa-solid fa-gear" style="color: var(--text-muted); cursor: pointer;" title="Settings" onclick="MindVaultApp.switchView('settings')"></i>
-        <i class="fa-solid fa-right-from-bracket" style="color: var(--accent-hover); cursor: pointer;" title="Logout" onclick="MindVaultApp.handleLogout()"></i>
+      <div class="user-sidebar-actions">
+        <button class="user-action-btn" title="Settings" onclick="MindVaultApp.switchView('settings')">
+          <i class="fa-solid fa-gear" style="color: var(--text-muted);"></i>
+        </button>
+        <button class="user-action-btn logout" title="Log Out" onclick="MindVaultApp.handleLogout()">
+          <i class="fa-solid fa-right-from-bracket" style="color: #E11D48;"></i>
+        </button>
       </div>
     </div>
   </aside>
@@ -126,8 +132,11 @@
           <i class="fa-solid fa-plus"></i>
           <span>Log Memory</span>
         </button>
-        <button class="btn btn-icon-only">
+        <button class="btn btn-icon-only" title="Notifications">
           <i class="fa-regular fa-bell"></i>
+        </button>
+        <button class="btn btn-icon-only" style="color: #E11D48; border-color: rgba(225, 29, 72, 0.2);" title="Log Out" onclick="MindVaultApp.handleLogout()">
+          <i class="fa-solid fa-right-from-bracket"></i>
         </button>
       </div>
     </header>

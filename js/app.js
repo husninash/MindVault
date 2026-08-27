@@ -22,6 +22,21 @@ const MindVaultApp = {
       MindVaultData.reminders = await MindVaultSupabase.fetchReminders();
       MindVaultData.todaysTopics = await MindVaultSupabase.fetchTopics();
       MindVaultData.knowledgeGraph = await MindVaultSupabase.fetchKnowledgeGraph();
+
+      // Subscribe to Realtime Cloud DB updates across all tabs & devices
+      MindVaultSupabase.subscribeRealtime((type, payload) => {
+        if (type === 'friends') {
+          this.renderFriendsGrid();
+          this.populateDiaryFriendOptions();
+          this.updateFriendsCountBadge();
+          this.renderDashboard();
+          if (this.activeView === 'graph') this.renderKnowledgeGraph();
+          if (this.activeView === 'profile' && this.selectedFriendId) this.renderFriendProfile(this.selectedFriendId);
+        } else if (type === 'diaries') {
+          this.renderDiariesList();
+          this.renderDashboard();
+        }
+      });
     }
 
     await this.checkAuthSession();
