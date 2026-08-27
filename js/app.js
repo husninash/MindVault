@@ -385,17 +385,15 @@ const MindVaultApp = {
       localStorage.removeItem('MINDVAULT_AUTH_SESSION');
       this.currentUser = null;
 
-      // Show Toast
-      this.showToast('Berhasil keluar (Logged out).', 'info');
-
       // Clear input fields
-      if (document.getElementById('auth-username')) document.getElementById('auth-username').value = '';
-      if (document.getElementById('auth-password')) document.getElementById('auth-password').value = '';
-      if (document.getElementById('auth-name')) document.getElementById('auth-name').value = '';
+      if (document.getElementById('auth-input-email')) document.getElementById('auth-input-email').value = '';
+      if (document.getElementById('auth-input-password')) document.getElementById('auth-input-password').value = '';
+      if (document.getElementById('auth-input-name')) document.getElementById('auth-input-name').value = '';
 
       // Force show Auth Modal Screen overlay
       this.showAuthScreen();
       this.switchView('dashboard');
+      this.showToast('Berhasil keluar (Logged out). Silakan login kembali.', 'info');
     }
   },
 
