@@ -997,6 +997,15 @@ const MindVaultApp = {
         this.switchView(targetView);
       });
     });
+
+    // Close notification dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      const dropdown = document.getElementById('notification-dropdown');
+      const notifBtn = document.getElementById('header-notif-btn');
+      if (dropdown && notifBtn && !notifBtn.contains(e.target) && !dropdown.contains(e.target)) {
+        dropdown.style.display = 'none';
+      }
+    });
   },
 
   switchView(viewName) {
@@ -1618,8 +1627,12 @@ const MindVaultApp = {
   toggleNotificationDropdown(forceState) {
     const dropdown = document.getElementById('notification-dropdown');
     if (!dropdown) return;
-    const isShown = typeof forceState === 'boolean' ? forceState : dropdown.style.display === 'block';
-    dropdown.style.display = isShown ? 'none' : 'block';
+    if (typeof forceState === 'boolean') {
+      dropdown.style.display = forceState ? 'block' : 'none';
+    } else {
+      const isVisible = dropdown.style.display === 'block';
+      dropdown.style.display = isVisible ? 'none' : 'block';
+    }
   },
 
   // Meeting Prep Modal
