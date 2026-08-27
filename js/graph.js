@@ -31,27 +31,51 @@ class KnowledgeGraphEngine {
     let topicCount = 0;
 
     this.nodes = this.data.nodes.map((node) => {
-      let x, y, radius, color;
+      let x, y, radius, color, scoreLabel = '';
 
       if (node.type === 'user') {
         x = centerX;
         y = centerY;
-        radius = 28;
+        radius = 30;
         color = '#EA8DB6';
       } else if (node.type === 'friend') {
         const totalF = Math.max(friendNodes.length, 1);
         const angle = (friendCount / totalF) * Math.PI * 2 - Math.PI / 2;
         friendCount++;
-        const dist = Math.min(width, height) * 0.28;
+
+        const score = node.score !== undefined ? node.score : 80;
+        scoreLabel = `${score}%`;
+
+        // INTIMACY DISTANCE FORMULA:
+        // High Intimacy (80-100%) -> Very close to user center (0.18 - 0.22 * minDimension)
+        // Medium Intimacy (50-79%) -> Middle orbit (0.28 - 0.34 * minDimension)
+        // Low / Conflict Intimacy (10-49%) -> Far outer orbit / drifting away (0.42 - 0.46 * minDimension)
+        const minDim = Math.min(width, height);
+        const normalizedIntimacy = Math.max(0.1, Math.min(1.0, score / 100)); // 0.1 to 1.0
+        
+        // Closer distance for higher intimacy
+        const dist = minDim * (0.45 - (normalizedIntimacy * 0.25));
+
         x = centerX + Math.cos(angle) * dist;
         y = centerY + Math.sin(angle) * dist;
-        radius = 22;
-        color = '#9333EA';
+
+        // Node size based on intimacy
+        radius = Math.round(18 + normalizedIntimacy * 8); // 19px for low score up to 26px for close friends
+
+        // Visual Color Coding:
+        // High (Green/Purple gradient), Medium (Yellow/Amber), Conflict/Low (Crimson Red)
+        if (score <= 45) {
+          color = '#EF4444'; // Red for conflict / needs repair
+        } else if (score <= 65) {
+          color = '#F59E0B'; // Amber for cooling down
+        } else {
+          color = '#8B5CF6'; // Purple for close friendship
+        }
       } else {
         const totalT = Math.max(topicNodes.length, 1);
         const angle = (topicCount / totalT) * Math.PI * 2;
         topicCount++;
-        const dist = Math.min(width, height) * 0.42;
+        const dist = Math.min(width, height) * 0.44;
         x = centerX + Math.cos(angle) * dist;
         y = centerY + Math.sin(angle) * dist;
         radius = 16;
@@ -62,10 +86,11 @@ class KnowledgeGraphEngine {
         ...node,
         x,
         y,
-        vx: (Math.random() - 0.5) * 0.2,
-        vy: (Math.random() - 0.5) * 0.2,
+        vx: (Math.random() - 0.5) * 0.15,
+        vy: (Math.random() - 0.5) * 0.15,
         radius,
-        color
+        color,
+        scoreLabel
       };
     });
 
@@ -90,7 +115,7 @@ class KnowledgeGraphEngine {
       let found = null;
       for (const node of this.nodes) {
         const dist = Math.hypot(node.x - mouseX, node.y - mouseY);
-        if (dist <= node.radius + 4) {
+        if (dist <= node.radius + 6) {
           found = node;
           break;
         }
@@ -113,6 +138,34 @@ class KnowledgeGraphEngine {
   animate() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
+    const width = this.canvas.width;
+    const height = this.canvas.height;
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const minDim = Math.min(width, height);
+
+    // Draw Orbit Circles (Intimacy Tiers)
+    this.ctx.save();
+    this.ctx.setLineDash([4, 6]);
+    this.ctx.strokeStyle = 'rgba(234, 141, 182, 0.2)';
+    this.ctx.lineWidth = 1;
+    
+    // Close Circle Orbit
+    this.ctx.beginPath();
+    this.ctx.arc(centerX, centerY, minDim * 0.20, 0, Math.PI * 2);
+    this.ctx.stroke();
+
+    // Medium Orbit
+    this.ctx.beginPath();
+    this.ctx.arc(centerX, centerY, minDim * 0.32, 0, Math.PI * 2);
+    this.ctx.stroke();
+
+    // Outer / Low Orbit
+    this.ctx.beginPath();
+    this.ctx.arc(centerX, centerY, minDim * 0.44, 0, Math.PI * 2);
+    this.ctx.stroke();
+    this.ctx.restore();
+
     // Update node positions subtly (floating animation)
     for (const node of this.nodes) {
       if (node.type !== 'user') {
@@ -120,9 +173,9 @@ class KnowledgeGraphEngine {
         node.y += node.vy;
 
         // Bounce back if drifting too far
-        const dx = node.x - this.canvas.width / 2;
-        const dy = node.y - this.canvas.height / 2;
-        if (Math.hypot(dx, dy) > Math.min(this.canvas.width, this.canvas.height) * 0.45) {
+        const dx = node.x - centerX;
+        const dy = node.y - centerY;
+        if (Math.hypot(dx, dy) > minDim * 0.48) {
           node.vx *= -1;
           node.vy *= -1;
         }
@@ -136,19 +189,34 @@ class KnowledgeGraphEngine {
 
       if (source && target) {
         const isHighlighted = (this.hoveredNode && (this.hoveredNode.id === source.id || this.hoveredNode.id === target.id));
+        
+        let strokeColor = 'rgba(200, 180, 210, 0.35)';
+        let lineWidth = 1.5;
+
+        if (edge.score !== undefined) {
+          if (edge.score <= 45) {
+            strokeColor = isHighlighted ? 'rgba(239, 68, 68, 0.9)' : 'rgba(239, 68, 68, 0.35)';
+          } else if (edge.score <= 65) {
+            strokeColor = isHighlighted ? 'rgba(245, 158, 11, 0.9)' : 'rgba(245, 158, 11, 0.35)';
+          } else {
+            strokeColor = isHighlighted ? 'rgba(139, 92, 246, 0.9)' : 'rgba(139, 92, 246, 0.35)';
+          }
+          lineWidth = Math.max(1.2, (edge.score / 100) * 3);
+        }
+
         this.ctx.beginPath();
         this.ctx.moveTo(source.x, source.y);
         this.ctx.lineTo(target.x, target.y);
-        this.ctx.strokeStyle = isHighlighted ? 'rgba(234, 141, 182, 0.9)' : 'rgba(200, 180, 210, 0.35)';
-        this.ctx.lineWidth = isHighlighted ? 3 : 1.5;
+        this.ctx.strokeStyle = isHighlighted ? 'rgba(234, 141, 182, 0.9)' : strokeColor;
+        this.ctx.lineWidth = isHighlighted ? 3 : lineWidth;
         this.ctx.stroke();
 
         // Edge label if hovered
-        if (isHighlighted) {
+        if (isHighlighted && edge.label) {
           const midX = (source.x + target.x) / 2;
           const midY = (source.y + target.y) / 2;
           this.ctx.fillStyle = '#2D1A29';
-          this.ctx.font = '600 11px Plus Jakarta Sans';
+          this.ctx.font = '700 11px Plus Jakarta Sans';
           this.ctx.fillText(edge.label, midX, midY - 6);
         }
       }
@@ -175,11 +243,26 @@ class KnowledgeGraphEngine {
       this.ctx.strokeStyle = '#FFFFFF';
       this.ctx.stroke();
 
+      // Intimacy Percentage Badge inside Node if Friend
+      if (node.type === 'friend' && node.score !== undefined) {
+        this.ctx.fillStyle = '#FFFFFF';
+        this.ctx.font = '800 10px Plus Jakarta Sans';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText(`${node.score}%`, node.x, node.y);
+      }
+
       // Node Label
+      this.ctx.textBaseline = 'alphabetic';
       this.ctx.fillStyle = isHovered ? '#EA8DB6' : '#2D1A29';
       this.ctx.font = isHovered ? '700 13px Plus Jakarta Sans' : '600 12px Plus Jakarta Sans';
       this.ctx.textAlign = 'center';
-      this.ctx.fillText(node.label, node.x, node.y + node.radius + 16);
+      
+      let displayLabel = node.label;
+      if (node.type === 'friend' && node.score <= 45) {
+        displayLabel = `⚠️ ${node.label}`;
+      }
+      this.ctx.fillText(displayLabel, node.x, node.y + node.radius + 16);
     }
 
     this.animationId = requestAnimationFrame(() => this.animate());

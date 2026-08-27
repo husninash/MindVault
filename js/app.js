@@ -2583,10 +2583,13 @@ const MindVaultApp = {
 
     friends.forEach((friend, idx) => {
       const friendNodeId = `friend-${friend.id || idx}`;
+      const score = friend.score !== undefined ? friend.score : this.calculateDynamicFriendScore(friend);
       nodes.push({
         id: friendNodeId,
         label: friend.name || 'Friend',
         type: 'friend',
+        score: score,
+        tier: friend.tier || friend.relation || 'Friend',
         rawFriend: friend
       });
 
@@ -2594,7 +2597,8 @@ const MindVaultApp = {
       edges.push({
         from: 'user',
         to: friendNodeId,
-        label: friend.relation || 'Friend'
+        label: `${score}% • ${friend.tier || friend.relation || 'Friend'}`,
+        score: score
       });
 
       // Extract hobbies or favorites
