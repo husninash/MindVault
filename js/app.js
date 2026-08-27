@@ -2478,7 +2478,8 @@ const MindVaultApp = {
         ` : ''}
       </div>
     `).join('');
-  }
+  },
+
   // Milestone / Special Moments Methods
   openAddMilestoneModal(friendId) {
     const targetFriendId = friendId || this.selectedFriendId || (MindVaultData.friends[0] ? MindVaultData.friends[0].id : null);
