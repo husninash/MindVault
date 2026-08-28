@@ -1170,15 +1170,98 @@ const MindVaultApp = {
     const dailyJournalsCount = MindVaultData.dailyJournals ? MindVaultData.dailyJournals.length : 0;
     const totalDiaries = conversationDiariesCount + dailyJournalsCount;
 
-    // Health Score calculation
+    // Health / Intimacy Score calculation
     let healthScore = 0;
     if (friendsCount > 0) {
       const totalScore = MindVaultData.friends.reduce((sum, f) => sum + (f.score || 85), 0);
       healthScore = Math.round(totalScore / friendsCount);
+    } else if (totalDiaries > 0) {
+      // Analyze general sentiment across diaries if no friends yet
+      const allText = [...(MindVaultData.diaries || []), ...(MindVaultData.dailyJournals || [])]
+        .map(d => `${d.title || ''} ${d.content || ''} ${d.mood || ''}`).join(' ');
+      const severeConflictRegex = /anjing|babi|bangsat|najis|benci|hancur|putus|toxic|parah|sakit hati|menyakiti|dendam|kecewa berat|berantem hebat|dibully|bully/i;
+      const moderateConflictRegex = /berantem|marah|kesal|jengkel|ribut|debat|tengkar|dingin|diam|kecewa|badmood|sulit|tersinggung/i;
+      const positiveRegex = /senang|bahagia|seru|hangat|sayang|tertawa|ketawa|quality time|dukung|bantu|nyaman|harmonis|akur|maaf/i;
+
+      if (severeConflictRegex.test(allText)) {
+        healthScore = 35;
+      } else if (moderateConflictRegex.test(allText)) {
+        healthScore = 55;
+      } else if (positiveRegex.test(allText)) {
+        healthScore = 90;
+      } else {
+        healthScore = 75;
+      }
+    } else {
+      healthScore = 85;
     }
 
+    // Update Top Stat Widgets
     const scoreVal = document.getElementById('dash-health-score');
     if (scoreVal) scoreVal.innerText = `${healthScore}%`;
+
+    const activeFriendsEl = document.getElementById('dash-active-friends');
+    if (activeFriendsEl) activeFriendsEl.innerText = `${friendsCount}`;
+
+    const diariedMemoriesEl = document.getElementById('dash-diaried-memories');
+    if (diariedMemoriesEl) diariedMemoriesEl.innerText = `${totalDiaries}`;
+
+    const aiInsightsEl = document.getElementById('dash-ai-insights');
+    if (aiInsightsEl) {
+      const { starters } = this.getLiveTopicsContext();
+      const insightsCount = (starters ? starters.length : 0) + (totalDiaries > 0 ? 2 : 0);
+      aiInsightsEl.innerText = `${insightsCount}`;
+    }
+
+    // Update Intimacy Gauge Circle & Info Card dynamically
+    const gaugeScoreEl = document.getElementById('dash-gauge-score');
+    const gaugeLabelEl = document.getElementById('dash-gauge-label');
+    const gaugeDescEl = document.getElementById('dash-gauge-desc');
+    const gaugeCircleEl = document.getElementById('dash-gauge-circle');
+
+    if (gaugeScoreEl) gaugeScoreEl.innerText = healthScore;
+
+    let gaugeLabel = 'EXCELLENT';
+    let gaugeColor = '#EC4899';
+    let gaugeBg = '#FDF2F8';
+    let gaugeDesc = 'Hubungan sangat harmonis & interaksi berjalan positif bulan ini.';
+
+    if (healthScore >= 80) {
+      gaugeLabel = 'EXCELLENT';
+      gaugeColor = '#EC4899';
+      gaugeBg = '#FDF2F8';
+      gaugeDesc = 'Hubungan harmonis dan interaksi berjalan sangat positif.';
+    } else if (healthScore >= 65) {
+      gaugeLabel = 'GOOD';
+      gaugeColor = '#8B5CF6';
+      gaugeBg = '#F3E8FF';
+      gaugeDesc = 'Koneksi stabil dan komunikasi terjalin secara aktif.';
+    } else if (healthScore >= 45) {
+      gaugeLabel = 'COOLING DOWN';
+      gaugeColor = '#F59E0B';
+      gaugeBg = '#FEF3C7';
+      gaugeDesc = 'Ada sedikit ketegangan atau interaksi mulai renggang.';
+    } else {
+      gaugeLabel = 'IN CONFLICT';
+      gaugeColor = '#EF4444';
+      gaugeBg = '#FEE2E2';
+      gaugeDesc = 'Terdeteksi konflik / ketegangan emosional dari catatan terbaru.';
+    }
+
+    if (gaugeLabelEl) {
+      gaugeLabelEl.innerText = gaugeLabel;
+      gaugeLabelEl.style.color = gaugeColor;
+    }
+    if (gaugeScoreEl) {
+      gaugeScoreEl.style.color = gaugeColor;
+    }
+    if (gaugeDescEl) {
+      gaugeDescEl.innerText = gaugeDesc;
+    }
+    if (gaugeCircleEl) {
+      gaugeCircleEl.style.background = `conic-gradient(${gaugeColor} 0% ${healthScore}%, ${gaugeBg} ${healthScore}% 100%)`;
+      gaugeCircleEl.style.boxShadow = `0 8px 24px ${gaugeColor}33`;
+    }
 
     // Today's topics list
     const topicsContainer = document.getElementById('dash-topics-list');

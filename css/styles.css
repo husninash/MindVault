@@ -582,6 +582,7 @@ body {
   align-items: center;
   justify-content: center;
   box-shadow: 0 8px 24px rgba(234, 141, 182, 0.3);
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .gauge-inner {

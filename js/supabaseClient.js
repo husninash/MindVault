@@ -4,9 +4,13 @@ const MindVaultSupabase = {
   isConfigured: false,
 
   init() {
-    // Read credentials from window.ENV, localStorage, or custom config
-    const supabaseUrl = (window.ENV && window.ENV.SUPABASE_URL) || localStorage.getItem('MINDVAULT_SUPABASE_URL') || 'https://dlryqgpucgkcgnocnvqn.supabase.co';
-    const supabaseKey = (window.ENV && window.ENV.SUPABASE_ANON_KEY) || localStorage.getItem('MINDVAULT_SUPABASE_ANON_KEY');
+    // Default Supabase Cloud Project Credentials
+    const defaultUrl = 'https://dlryqgpucgkcgnocnvqn.supabase.co';
+    const defaultKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRscnlxZ3B1Y2drY2dub2NudnFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3OTExNTIsImV4cCI6MjEwMTM2NzE1Mn0.PmFztvjPlmUI2nTVHpDJnOKF_wVN0GtydjdJy79vhEA';
+
+    // Read credentials from window.ENV, localStorage, or fallback to default cloud credentials
+    const supabaseUrl = (window.ENV && window.ENV.SUPABASE_URL) || localStorage.getItem('MINDVAULT_SUPABASE_URL') || defaultUrl;
+    const supabaseKey = (window.ENV && window.ENV.SUPABASE_ANON_KEY) || localStorage.getItem('MINDVAULT_SUPABASE_ANON_KEY') || defaultKey;
 
     if (window.supabase && supabaseUrl && supabaseKey) {
       try {
