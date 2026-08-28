@@ -399,7 +399,7 @@ const MindVaultApp = {
     const cancelBtn = document.getElementById('custom-confirm-cancel-btn');
 
     if (titleEl) titleEl.innerText = title || 'Konfirmasi Tindakan';
-    if (msgEl) msgEl.innerText = message || 'Apakah Anda yakin ingin melanjutkan?';
+    if (msgEl) msgEl.innerHTML = message || 'Apakah Anda yakin ingin melanjutkan?';
     if (iconEl) iconEl.innerHTML = icon || '<i class="fa-solid fa-circle-question"></i>';
     if (okBtn) okBtn.innerText = confirmText || 'Ya, Lanjutkan';
     if (cancelBtn) cancelBtn.innerText = cancelText || 'Batal';
