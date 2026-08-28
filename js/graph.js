@@ -260,7 +260,7 @@ class KnowledgeGraphEngine {
       
       let displayLabel = node.label;
       if (node.type === 'friend' && node.score <= 45) {
-        displayLabel = `⚠️ ${node.label}`;
+        displayLabel = `[!] ${node.label}`;
       }
       this.ctx.fillText(displayLabel, node.x, node.y + node.radius + 16);
     }

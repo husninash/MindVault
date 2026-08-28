@@ -139,7 +139,7 @@
           </button>
           <div id="notification-dropdown" style="display: none; position: absolute; right: 0; top: 48px; width: 340px; background: white; border-radius: 18px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: 1px solid var(--card-border); z-index: 1000; padding: 16px; max-height: 420px; overflow-y: auto;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid var(--card-border); padding-bottom: 8px;">
-              <strong style="font-size: 14px; color: var(--text-dark);">🔔 Notifikasi & Pengingat</strong>
+              <strong style="font-size: 14px; color: var(--text-dark);"><i class="fa-solid fa-bell"></i> Notifikasi & Pengingat</strong>
               <span id="notif-dropdown-status" style="font-size: 11px; color: var(--text-muted);">H-7 Ultah</span>
             </div>
             <div id="notification-dropdown-list">
@@ -162,7 +162,7 @@
       <!-- Hero Banner -->
       <div class="hero-banner">
         <div class="hero-content">
-          <h2 id="dash-greeting-heading">Good morning! 🌸</h2>
+          <h2 id="dash-greeting-heading">Good morning!</h2>
           <p>Your relationships are thriving. Track and cultivate your personal connections effortlessly.</p>
           <div class="quote-pill">
             <i class="fa-solid fa-quote-left"></i>
@@ -170,7 +170,7 @@
           </div>
         </div>
         <div class="hero-illustration">
-          <span>💖</span>
+          <i class="fa-solid fa-heart" style="font-size: 3rem; color: var(--accent);"></i>
         </div>
       </div>
 
@@ -269,13 +269,13 @@
             </div>
             <div style="display: flex; flex-direction: column; gap: 10px;">
               <button class="btn btn-secondary" style="width: 100%; justify-content: flex-start;" onclick="MindVaultApp.openPrepModal(1)">
-                ⚡ Meeting Cheat-Sheet
+                <i class="fa-solid fa-bolt" style="margin-right: 6px; color: var(--accent);"></i> Meeting Cheat-Sheet
               </button>
               <button class="btn btn-secondary" style="width: 100%; justify-content: flex-start;" onclick="MindVaultApp.openSimulatorModal(1)">
-                💬 Conversation Simulator
+                <i class="fa-solid fa-comments" style="margin-right: 6px; color: var(--accent);"></i> Conversation Simulator
               </button>
               <button class="btn btn-secondary" style="width: 100%; justify-content: flex-start;" onclick="MindVaultApp.switchView('graph')">
-                🕸️ Relationship Graph
+                <i class="fa-solid fa-circle-nodes" style="margin-right: 6px; color: var(--accent);"></i> Relationship Graph
               </button>
             </div>
           </div>
@@ -321,8 +321,8 @@
         </div>
         <div class="profile-actions-bar">
           <button class="btn btn-secondary" onclick="MindVaultApp.openEditProfileModal(MindVaultApp.selectedFriendId)"><i class="fa-solid fa-pen-to-square" style="color: var(--accent-hover);"></i> Edit Profile</button>
-          <button class="btn btn-secondary" onclick="MindVaultApp.openPrepModal(MindVaultApp.selectedFriendId)">⚡ Prep Meeting</button>
-          <button class="btn btn-primary" onclick="MindVaultApp.openSimulatorModal(MindVaultApp.selectedFriendId)">💬 Practice Chat</button>
+          <button class="btn btn-secondary" onclick="MindVaultApp.openPrepModal(MindVaultApp.selectedFriendId)"><i class="fa-solid fa-bolt"></i> Prep Meeting</button>
+          <button class="btn btn-primary" onclick="MindVaultApp.openSimulatorModal(MindVaultApp.selectedFriendId)"><i class="fa-solid fa-comments"></i> Practice Chat</button>
         </div>
       </div>
 
@@ -399,7 +399,7 @@
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
           <button class="btn btn-primary" style="background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%); border: none;" onclick="MindVaultApp.openAddDreamModal()">
             <i class="fa-solid fa-moon"></i>
-            <span>Log Cerita Mimpi 🌙</span>
+            <span>Log Cerita Mimpi</span>
           </button>
           <button class="btn btn-secondary" onclick="document.getElementById('modal-add-daily-journal').classList.add('active')">
             <i class="fa-solid fa-book-bookmark"></i>
@@ -415,13 +415,13 @@
       <!-- Tab Switcher -->
       <div class="diary-tab-container">
         <button class="diary-tab-btn active" id="tab-btn-memories" onclick="MindVaultApp.switchDiaryTab('memories')">
-          💬 Conversation Memories
+          Conversation Memories
         </button>
         <button class="diary-tab-btn" id="tab-btn-daily" onclick="MindVaultApp.switchDiaryTab('daily')">
-          📝 Jurnal Harian (Daily Reflections)
+          Jurnal Harian (Daily Reflections)
         </button>
         <button class="diary-tab-btn" id="tab-btn-dream" onclick="MindVaultApp.switchDiaryTab('dream')">
-          🌙 Dream Journal (Alur Cerita Mimpi)
+          Dream Journal (Alur Cerita Mimpi)
         </button>
       </div>
 
@@ -459,15 +459,15 @@
         </div>
         <button class="btn btn-primary" onclick="MindVaultApp.openAddTopicModal()">
           <i class="fa-solid fa-lightbulb"></i>
-          <span>Tambah Topik / Renungan 💡</span>
+          <span>Tambah Topik / Renungan</span>
         </button>
       </div>
 
       <div class="grid-2">
         <div class="glass-card">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 style="font-size: 18px; font-weight: 700;">💡 AI Suggested Starters</h3>
-            <span class="tag-chip" style="background: rgba(248,187,217,0.3); color: var(--accent-hover);">RAG Active 🤖</span>
+            <h3 style="font-size: 18px; font-weight: 700;">AI Suggested Starters</h3>
+            <span class="tag-chip" style="background: rgba(248,187,217,0.3); color: var(--accent-hover);">RAG Active</span>
           </div>
           <div id="topics-starters-list">
             <!-- Dynamically rendered starters -->
@@ -476,8 +476,8 @@
 
         <div class="glass-card">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 style="font-size: 18px; font-weight: 700;">📝 My Relationship Reflections</h3>
-            <span class="tag-chip" style="background: rgba(233,213,255,0.4); color: #6D28D9;">RAG Active 🧠</span>
+            <h3 style="font-size: 18px; font-weight: 700;">My Relationship Reflections</h3>
+            <span class="tag-chip" style="background: rgba(233,213,255,0.4); color: #6D28D9;">RAG Active</span>
           </div>
           <div id="topics-reflections-list">
             <!-- Dynamically rendered reflections -->
@@ -519,17 +519,17 @@
           <div class="form-group">
             <label>Theme Style</label>
             <select class="form-control" id="user-setting-theme">
-              <option value="pink">🌸 Soft Pastel Pink (Default)</option>
-              <option value="lavender">💜 Elegant Lavender</option>
-              <option value="emerald">🌿 Fresh Emerald</option>
+              <option value="pink">Soft Pastel Pink (Default)</option>
+              <option value="lavender">Elegant Lavender</option>
+              <option value="emerald">Fresh Emerald</option>
             </select>
           </div>
           <div class="form-group">
             <label>AI Assistant Persona</label>
             <select class="form-control" id="user-setting-tone">
-              <option value="warm">Friendly & Warm 😊</option>
-              <option value="concise">Concise & Professional 🎯</option>
-              <option value="empathic">Empathic & Empathetic 💖</option>
+              <option value="warm">Friendly & Warm</option>
+              <option value="concise">Concise & Professional</option>
+              <option value="empathic">Empathic & Empathetic</option>
             </select>
           </div>
           <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; margin-top: 14px;">
@@ -539,7 +539,7 @@
             </div>
             <input type="checkbox" checked style="accent-color: var(--accent); width: 18px; height: 18px;">
           </div>
-          <button class="btn btn-secondary" style="margin-top: 14px;" onclick="MindVaultApp.showToast('Preferences saved successfully! ✨', 'success')">Save Preferences</button>
+          <button class="btn btn-secondary" style="margin-top: 14px;" onclick="MindVaultApp.showToast('Preferences saved successfully!', 'success')">Save Preferences</button>
         </div>
 
         <!-- Account Role & Admin Switcher -->
@@ -573,7 +573,7 @@
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
         <div>
           <h2 style="font-size: 24px; font-weight: 800; display: flex; align-items: center; gap: 10px;">
-            🛡️ Admin & System Console
+            Admin & System Console
           </h2>
           <p style="font-size: 14px; color: var(--text-muted);">Pusat konfigurasi API Key, pengelola database Supabase, dan manajemen user sistem.</p>
         </div>
@@ -749,7 +749,7 @@
   <div class="modal-card">
     <div class="modal-header">
       <h3 style="display: flex; align-items: center; gap: 10px;">
-        ⚡ 1-Minute Meeting Cheat-Sheet
+        1-Minute Meeting Cheat-Sheet
       </h3>
       <button class="modal-close-btn">&times;</button>
     </div>
@@ -763,22 +763,22 @@
     </div>
 
     <div style="margin-bottom: 18px;">
-      <strong style="font-size: 13px; color: var(--accent-hover);">📰 Current Life Update:</strong>
+      <strong style="font-size: 13px; color: var(--accent-hover);">Current Life Update:</strong>
       <p id="prep-current-life" style="font-size: 13px; margin-top: 4px; color: var(--text-medium);"></p>
     </div>
 
     <div class="grid-2" style="margin-bottom: 20px;">
       <div>
-        <strong style="font-size: 13px; color: #059669;">🟢 Safe Topics to Bring Up:</strong>
+        <strong style="font-size: 13px; color: #059669;">Safe Topics to Bring Up:</strong>
         <ul id="prep-safe-list" style="list-style: none; margin-top: 8px;"></ul>
       </div>
       <div>
-        <strong style="font-size: 13px; color: #DC2626;">🔴 Topics to Avoid:</strong>
+        <strong style="font-size: 13px; color: #DC2626;">Topics to Avoid:</strong>
         <ul id="prep-avoid-list" style="list-style: none; margin-top: 8px;"></ul>
       </div>
     </div>
 
-    <button class="btn btn-primary" style="width: 100%;" onclick="document.getElementById('modal-meeting-prep').classList.remove('active')">Got It, Ready to Meet! 🎉</button>
+    <button class="btn btn-primary" style="width: 100%;" onclick="document.getElementById('modal-meeting-prep').classList.remove('active')">Got It, Ready to Meet!</button>
   </div>
 </div>
 
@@ -786,7 +786,7 @@
 <div id="modal-sim-chat" class="modal-overlay">
   <div class="modal-card">
     <div class="modal-header">
-      <h3>💬 Conversation Simulator (<span id="sim-friend-name">Sophia</span>)</h3>
+      <h3><i class="fa-solid fa-comments" style="margin-right: 6px; color: var(--accent);"></i> Conversation Simulator (<span id="sim-friend-name">Sophia</span>)</h3>
       <button class="modal-close-btn">&times;</button>
     </div>
 
@@ -805,13 +805,13 @@
 <div id="modal-add-friend" class="modal-overlay">
   <div class="modal-card" style="max-width: 680px;">
     <div class="modal-header">
-      <h3 id="modal-add-friend-title">✨ Add New Friend Profile</h3>
+      <h3 id="modal-add-friend-title">Add New Friend Profile</h3>
       <button class="modal-close-btn">&times;</button>
     </div>
     <input type="hidden" id="edit-friend-id" value="">
     
     <!-- Section 1: Basic Info -->
-    <div style="font-weight: 700; font-size: 13px; color: var(--accent-hover); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">👤 Basic Information</div>
+    <div style="font-weight: 700; font-size: 13px; color: var(--accent-hover); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Basic Information</div>
     <div class="form-group">
       <label>Full Name <span style="color: red;">*</span></label>
       <input type="text" id="add-friend-name" class="form-control" placeholder="e.g. Chloe Bennett">
@@ -848,7 +848,7 @@
       
       <div id="add-friend-preview-container" style="display: none; margin-top: 10px; text-align: center;">
         <img id="add-friend-preview-img" src="" style="width: 68px; height: 68px; border-radius: 50%; object-fit: cover; border: 2px solid var(--accent); box-shadow: var(--shadow-soft);" alt="Preview">
-        <p style="font-size: 11px; color: #059669; margin-top: 4px;">✔ Photo attached ready to save</p>
+        <p style="font-size: 11px; color: #059669; margin-top: 4px;"><i class="fa-solid fa-check"></i> Photo attached ready to save</p>
       </div>
 
       <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px; text-align: center;">- OR paste web image URL -</div>
@@ -865,7 +865,7 @@
     </div>
 
     <!-- Section 2: Favorites -->
-    <div style="font-weight: 700; font-size: 13px; color: var(--accent-hover); margin-top: 18px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">⭐ Favorites / Favorit (Optional)</div>
+    <div style="font-weight: 700; font-size: 13px; color: var(--accent-hover); margin-top: 18px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Favorites (Optional)</div>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
       <div class="form-group">
         <label>Favorite Drink</label>
@@ -890,7 +890,7 @@
     </div>
 
     <!-- Section 3: Topics & Preferences -->
-    <div style="font-weight: 700; font-size: 13px; color: var(--accent-hover); margin-top: 18px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">💬 Topics & Preferences (Optional)</div>
+    <div style="font-weight: 700; font-size: 13px; color: var(--accent-hover); margin-top: 18px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Topics & Preferences (Optional)</div>
     <div class="form-group">
       <label>Likes & Interests (Pisahkan dengan koma)</label>
       <input type="text" id="add-friend-likes" class="form-control" placeholder="e.g. Design, Japan, Coffee, Cat Cafes">
@@ -900,16 +900,16 @@
       <input type="text" id="add-friend-dislikes" class="form-control" placeholder="e.g. Cilantro, Late arrivals without text">
     </div>
     <div class="form-group">
-      <label>🟢 Safe Topics (Topik Aman/Asyik untuk Dibahas)</label>
+      <label>Safe Topics (Topik Aman untuk Dibahas)</label>
       <input type="text" id="add-friend-safe-topics" class="form-control" placeholder="Pisahkan dengan koma, e.g. Upcoming trip, New studio">
     </div>
     <div class="form-group">
-      <label>🔴 Avoid Topics (Topik Dihindari)</label>
+      <label>Avoid Topics (Topik Dihindari)</label>
       <input type="text" id="add-friend-avoid-topics" class="form-control" placeholder="Pisahkan dengan koma, e.g. Ex-partner, Work drama">
     </div>
 
     <!-- Section 4: Gift Ideas -->
-    <div style="font-weight: 700; font-size: 13px; color: var(--accent-hover); margin-top: 18px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">🎁 Gift Ideas / Ide Hadiah (Optional)</div>
+    <div style="font-weight: 700; font-size: 13px; color: var(--accent-hover); margin-top: 18px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Gift Ideas (Optional)</div>
     <div class="form-group">
       <label>Ide Hadiah (Format: Nama Barang ($Harga))</label>
       <input type="text" id="add-friend-gifts" class="form-control" placeholder="e.g. Instax Camera ($199), Ceramic Bowl ($45)">
@@ -923,7 +923,7 @@
 <div id="modal-add-diary" class="modal-overlay">
   <div class="modal-card">
     <div class="modal-header">
-      <h3 id="modal-add-diary-header-title">📖 Log New Memory / Conversation</h3>
+      <h3 id="modal-add-diary-header-title">Log New Memory / Conversation</h3>
       <button class="modal-close-btn">&times;</button>
     </div>
     <input type="hidden" id="edit-diary-id" value="">
@@ -949,11 +949,11 @@
     <div class="form-group">
       <label>Mood Percakapan</label>
       <select id="add-diary-mood" class="form-control">
-        <option value="😊 Energetic & Inspired">😊 Energetic & Inspired</option>
-        <option value="⚡ Motivated & Focused">⚡ Motivated & Focused</option>
-        <option value="🎨 Creative & Warm">🎨 Creative & Warm</option>
-        <option value="💭 Serious & Emotional">💭 Serious & Emotional</option>
-        <option value="☕ Chill & Relaxed">☕ Chill & Relaxed</option>
+        <option value="Energetic & Inspired">Energetic & Inspired</option>
+        <option value="Motivated & Focused">Motivated & Focused</option>
+        <option value="Creative & Warm">Creative & Warm</option>
+        <option value="Serious & Emotional">Serious & Emotional</option>
+        <option value="Chill & Relaxed">Chill & Relaxed</option>
       </select>
     </div>
 
@@ -970,7 +970,7 @@
 <div id="modal-add-daily-journal" class="modal-overlay">
   <div class="modal-card">
     <div class="modal-header">
-      <h3>📝 Jurnal Harian & Refleksi Diri</h3>
+      <h3>Jurnal Harian & Refleksi Diri</h3>
       <button class="modal-close-btn">&times;</button>
     </div>
     <div class="form-group">
@@ -985,11 +985,11 @@
       <div class="form-group">
         <label>Mood Hari Ini</label>
         <select id="add-daily-mood" class="form-control">
-          <option value="🌟 Grateful & Happy">🌟 Grateful & Happy</option>
-          <option value="⚡ Motivated & Productive">⚡ Motivated & Productive</option>
-          <option value="☕ Calm & Peaceful">☕ Calm & Peaceful</option>
-          <option value="💭 Reflective">💭 Reflective</option>
-          <option value="🌧️ Tired & Resting">🌧️ Tired & Resting</option>
+          <option value="Grateful & Happy">Grateful & Happy</option>
+          <option value="Motivated & Productive">Motivated & Productive</option>
+          <option value="Calm & Peaceful">Calm & Peaceful</option>
+          <option value="Reflective">Reflective</option>
+          <option value="Tired & Resting">Tired & Resting</option>
         </select>
       </div>
     </div>
@@ -1009,7 +1009,7 @@
 <div id="modal-add-dream-journal" class="modal-overlay">
   <div class="modal-card" style="max-width: 620px;">
     <div class="modal-header">
-      <h3 id="modal-add-dream-header-title">🌙 Log Alur Cerita Mimpi</h3>
+      <h3 id="modal-add-dream-header-title">Log Alur Cerita Mimpi</h3>
       <button class="modal-close-btn">&times;</button>
     </div>
     <input type="hidden" id="edit-dream-id" value="">
@@ -1027,12 +1027,12 @@
       <div class="form-group">
         <label>Sensasi & Tipe Mimpi</label>
         <select id="add-dream-type" class="form-control">
-          <option value="🌌 Lucid Dream (Sadar Sedang Bermimpi)">🌌 Lucid Dream (Sadar Bermimpi)</option>
-          <option value="✨ Vivid & Indah (Penuh Warna)">✨ Vivid & Indah (Penuh Warna)</option>
-          <option value="🌀 Aneh & Surreal (Surealis)">🌀 Aneh & Surreal (Surealis)</option>
-          <option value="🔮 Mimpi Pertanda & Intuisi">🔮 Mimpi Pertanda & Intuisi</option>
-          <option value="⚡ Mimpi Buruk / Deg-degan">⚡ Mimpi Buruk / Deg-degan</option>
-          <option value="☕ Mimpi Santai & Petualangan">☕ Mimpi Santai & Petualangan</option>
+          <option value="Lucid Dream (Sadar Bermimpi)">Lucid Dream (Sadar Bermimpi)</option>
+          <option value="Vivid & Indah (Penuh Warna)">Vivid & Indah (Penuh Warna)</option>
+          <option value="Aneh & Surreal (Surealis)">Aneh & Surreal (Surealis)</option>
+          <option value="Mimpi Pertanda & Intuisi">Mimpi Pertanda & Intuisi</option>
+          <option value="Mimpi Buruk / Tegang">Mimpi Buruk / Tegang</option>
+          <option value="Mimpi Santai & Petualangan">Mimpi Santai & Petualangan</option>
         </select>
       </div>
     </div>
@@ -1052,7 +1052,7 @@
       <input type="text" id="add-dream-reflection" class="form-control" placeholder="e.g. Bangun dengan perasaan penasaran dan agak lega">
     </div>
 
-    <button id="btn-save-dream" class="btn btn-primary" style="width: 100%; padding: 14px; margin-top: 10px; background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%); border: none;" onclick="MindVaultApp.saveDreamFromModal()">Save Dream Log 🌙</button>
+    <button id="btn-save-dream" class="btn btn-primary" style="width: 100%; padding: 14px; margin-top: 10px; background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%); border: none;" onclick="MindVaultApp.saveDreamFromModal()">Save Dream Log</button>
   </div>
 </div>
 
@@ -1060,7 +1060,7 @@
 <div id="modal-add-topic" class="modal-overlay">
   <div class="modal-card">
     <div class="modal-header">
-      <h3 id="modal-add-topic-header-title">💡 Tambah Topik / Renungan Hubungan</h3>
+      <h3 id="modal-add-topic-header-title">Tambah Topik / Renungan Hubungan</h3>
       <button class="modal-close-btn">&times;</button>
     </div>
     <input type="hidden" id="edit-topic-index" value="">
@@ -1069,15 +1069,15 @@
     <div class="form-group">
       <label>Kategori Input</label>
       <select id="add-topic-type" class="form-control">
-        <option value="starter">💡 AI Suggested Starter (Pemantik Obrolan)</option>
-        <option value="reflection">📝 Relationship Reflection (Renungan Hubungan)</option>
+        <option value="starter">AI Suggested Starter (Pemantik Obrolan)</option>
+        <option value="reflection">Relationship Reflection (Renungan Hubungan)</option>
       </select>
     </div>
     <div class="form-group">
       <label>Isi Topik / Pemantik / Renungan <span style="color: red;">*</span></label>
       <textarea id="add-topic-content" class="form-control" style="min-height: 90px;" placeholder="e.g. Tanya Sophia tentang kucingnya Mochi, atau Tanyakan kabar Ethan tentang proyek barunya..."></textarea>
     </div>
-    <button id="btn-save-topic" class="btn btn-primary" style="width: 100%; padding: 14px;" onclick="MindVaultApp.saveTopicFromModal()">Simpan ke RAG Database 🚀</button>
+    <button id="btn-save-topic" class="btn btn-primary" style="width: 100%; padding: 14px;" onclick="MindVaultApp.saveTopicFromModal()">Simpan ke RAG Database</button>
   </div>
 </div>
 
@@ -1085,7 +1085,7 @@
 <div id="modal-add-milestone" class="modal-overlay">
   <div class="modal-card" style="max-width: 520px;">
     <div class="modal-header">
-      <h3 id="modal-add-milestone-title">🎉 Tambah Acara & Momen Spesial Teman</h3>
+      <h3 id="modal-add-milestone-title">Tambah Acara & Momen Spesial Teman</h3>
       <button class="modal-close-btn">&times;</button>
     </div>
     <input type="hidden" id="edit-milestone-id" value="">
@@ -1094,15 +1094,15 @@
     <div class="form-group">
       <label>Tipe Acara / Momen Spesial <span style="color: red;">*</span></label>
       <select id="add-milestone-type" class="form-control">
-        <option value="🎓 Wisuda / Graduation">🎓 Wisuda / Graduation</option>
-        <option value="👶 Kelahiran Anak / Babyshower">👶 Kelahiran Anak / Babyshower</option>
-        <option value="💍 Pernikahan / Lamaran / Anniversary">💍 Pernikahan / Lamaran / Anniversary</option>
-        <option value="💼 Promosi Kerja / Kantor Baru">💼 Promosi Kerja / Kantor Baru</option>
-        <option value="🏠 Pindah Rumah / Housewarming">🏠 Pindah Rumah / Housewarming</option>
-        <option value="✈️ Liburan / Perjalanan Spesial">✈️ Liburan / Perjalanan Spesial</option>
-        <option value="🏥 Operasi / Masa Pemulihan Kesehatan">🏥 Operasi / Masa Pemulihan Kesehatan</option>
-        <option value="🌟 Ujian / Sidang / Presentasi Penting">🌟 Ujian / Sidang / Presentasi Penting</option>
-        <option value="✨ Momen Spesial Lainnya">✨ Momen Spesial Lainnya</option>
+        <option value="Wisuda / Graduation">Wisuda / Graduation</option>
+        <option value="Kelahiran Anak / Babyshower">Kelahiran Anak / Babyshower</option>
+        <option value="Pernikahan / Lamaran / Anniversary">Pernikahan / Lamaran / Anniversary</option>
+        <option value="Promosi Kerja / Kantor Baru">Promosi Kerja / Kantor Baru</option>
+        <option value="Pindah Rumah / Housewarming">Pindah Rumah / Housewarming</option>
+        <option value="Liburan / Perjalanan Spesial">Liburan / Perjalanan Spesial</option>
+        <option value="Operasi / Pemulihan Kesehatan">Operasi / Pemulihan Kesehatan</option>
+        <option value="Ujian / Sidang / Presentasi Penting">Ujian / Sidang / Presentasi Penting</option>
+        <option value="Momen Spesial Lainnya">Momen Spesial Lainnya</option>
       </select>
     </div>
 
@@ -1122,7 +1122,7 @@
     </div>
 
     <button id="btn-save-milestone" class="btn btn-primary" style="width: 100%; padding: 14px; margin-top: 8px;" onclick="MindVaultApp.saveMilestoneFromModal()">
-      Simpan Momen Spesial 🎉
+      Simpan Momen Spesial
     </button>
   </div>
 </div>
@@ -1167,13 +1167,13 @@
 
       <!-- Quick Demo Login Helpers -->
       <div style="margin-top: 20px; padding-top: 16px; border-top: 1px dashed rgba(248, 187, 217, 0.4);">
-        <p style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 10px; font-weight: 600;">✨ Quick 1-Click Demo Login:</p>
+        <p style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 10px; font-weight: 600;">Quick 1-Click Demo Login:</p>
         <div style="display: flex; gap: 8px; justify-content: center;">
           <button type="button" class="btn btn-secondary" style="font-size: 12px; padding: 7px 12px; border-radius: 10px;" onclick="MindVaultApp.demoLogin('user')">
-            👤 User Demo
+            User Demo
           </button>
           <button type="button" class="btn btn-secondary" style="font-size: 12px; padding: 7px 12px; border-radius: 10px; color: #9333EA; border-color: rgba(147, 51, 234, 0.3);" onclick="MindVaultApp.demoLogin('admin')">
-            🛡️ Admin Cantik
+            Admin Cantik
           </button>
         </div>
       </div>

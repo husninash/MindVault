@@ -155,7 +155,7 @@ const MindVaultApp = {
     if (!this.currentUser) {
       if (nameEl) nameEl.innerText = 'Guest User';
       if (badgeEl) {
-        badgeEl.innerText = 'Guest 👤';
+        badgeEl.innerText = 'Guest';
         badgeEl.className = 'role-badge role-badge-user';
       }
       return;
@@ -164,7 +164,7 @@ const MindVaultApp = {
     if (nameEl) nameEl.innerText = this.currentUser.name;
     const isAdmin = this.currentUser.role === 'admin';
     if (badgeEl) {
-      badgeEl.innerText = isAdmin ? 'Admin 🛡️' : 'User 👤';
+      badgeEl.innerText = isAdmin ? 'Admin' : 'User';
       badgeEl.className = `role-badge ${isAdmin ? 'role-badge-admin' : 'role-badge-user'}`;
     }
     if (avatarEl && this.currentUser.avatar) avatarEl.src = this.currentUser.avatar;
@@ -178,7 +178,7 @@ const MindVaultApp = {
     // Update dashboard hero greeting
     const greetingHeading = document.getElementById('dash-greeting-heading');
     if (greetingHeading) {
-      greetingHeading.innerHTML = `Good morning, ${this.currentUser.name || 'User'}! 🌸`;
+      greetingHeading.innerHTML = `Good morning, ${this.currentUser.name || 'User'}!`;
     }
   },
 
@@ -241,7 +241,7 @@ const MindVaultApp = {
     localStorage.setItem('MINDVAULT_AUTH_SESSION', JSON.stringify(this.currentUser));
     this.updateUserSidebar();
     this.applyRolePermissions();
-    this.showToast(`Switched role to ${newRole.toUpperCase()} mode! ✨`, 'success');
+    this.showToast(`Switched role to ${newRole.toUpperCase()} mode.`, 'success');
     if (newRole === 'admin') {
       this.switchView('admin');
     } else if (this.activeView === 'admin') {
@@ -296,7 +296,7 @@ const MindVaultApp = {
           avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80'
         };
         localStorage.setItem('MINDVAULT_AUTH_SESSION', JSON.stringify(this.currentUser));
-        this.showToast('Logged in as Administrator (Admin Cantik)! 🛡️✨', 'success');
+        this.showToast('Logged in as Administrator (Admin Mode).', 'success');
         this.hideAuthScreen();
         this.switchView('admin');
         return;
@@ -372,7 +372,7 @@ const MindVaultApp = {
     }
 
     localStorage.setItem('MINDVAULT_AUTH_SESSION', JSON.stringify(this.currentUser));
-    this.showToast(`Welcome back, ${this.currentUser.name}! 👋`, 'success');
+    this.showToast(`Welcome back, ${this.currentUser.name}!`, 'success');
     this.hideAuthScreen();
   },
 
@@ -504,7 +504,7 @@ const MindVaultApp = {
 
   openAddFriendModal() {
     const titleEl = document.getElementById('modal-add-friend-title');
-    if (titleEl) titleEl.innerText = '✨ Add New Friend Profile';
+    if (titleEl) titleEl.innerText = 'Add New Friend Profile';
     const idEl = document.getElementById('edit-friend-id');
     if (idEl) idEl.value = '';
     const btnEl = document.getElementById('btn-save-friend');
@@ -538,7 +538,7 @@ const MindVaultApp = {
     }
 
     const titleEl = document.getElementById('modal-add-friend-title');
-    if (titleEl) titleEl.innerText = `✏️ Edit Profile: ${friend.name}`;
+    if (titleEl) titleEl.innerText = `Edit Profile: ${friend.name}`;
     const idEl = document.getElementById('edit-friend-id');
     if (idEl) idEl.value = friend.id;
     const btnEl = document.getElementById('btn-save-friend');
@@ -676,7 +676,7 @@ const MindVaultApp = {
     };
 
     await MindVaultSupabase.insertFriend(newFriend);
-    this.showToast(`${newFriend.name} has been added to your friend directory! ✨`, 'success');
+    this.showToast(`${newFriend.name} has been added to your friend directory.`, 'success');
     document.getElementById('modal-add-friend')?.classList.remove('active');
 
     this.renderFriendsGrid();
@@ -698,7 +698,7 @@ const MindVaultApp = {
     };
 
     await MindVaultSupabase.updateFriend(updatedFriend);
-    this.showToast(`Profile ${updatedFriend.name} successfully updated! ✨`, 'success');
+    this.showToast(`Profile ${updatedFriend.name} successfully updated.`, 'success');
     document.getElementById('modal-add-friend')?.classList.remove('active');
 
     this.renderFriendsGrid();
@@ -711,7 +711,7 @@ const MindVaultApp = {
 
   openAddDiaryModal() {
     const titleEl = document.getElementById('modal-add-diary-header-title');
-    if (titleEl) titleEl.innerText = '📖 Log New Memory / Conversation';
+    if (titleEl) titleEl.innerText = 'Log New Memory / Conversation';
     const editIdEl = document.getElementById('edit-diary-id');
     if (editIdEl) editIdEl.value = '';
     const btnEl = document.getElementById('btn-save-diary');
@@ -740,7 +740,7 @@ const MindVaultApp = {
     }
 
     const titleEl = document.getElementById('modal-add-diary-header-title');
-    if (titleEl) titleEl.innerText = `✏️ Edit Memory Log: ${diary.title}`;
+    if (titleEl) titleEl.innerText = `Edit Memory Log: ${diary.title}`;
     const editIdEl = document.getElementById('edit-diary-id');
     if (editIdEl) editIdEl.value = diary.id;
     const btnEl = document.getElementById('btn-save-diary');
@@ -776,7 +776,7 @@ const MindVaultApp = {
     const title = document.getElementById('add-diary-title')?.value.trim();
     const friendName = document.getElementById('add-diary-friend')?.value;
     const date = document.getElementById('add-diary-date')?.value || new Date().toISOString().split('T')[0];
-    const mood = document.getElementById('add-diary-mood')?.value || '😊 Energetic & Inspired';
+    const mood = document.getElementById('add-diary-mood')?.value || 'Energetic & Inspired';
     const content = document.getElementById('add-diary-content')?.value.trim();
 
     if (!title || !content) {
@@ -799,7 +799,7 @@ const MindVaultApp = {
     };
 
     await MindVaultSupabase.insertDiary(newDiary);
-    this.showToast('Memory log saved successfully! 📖', 'success');
+    this.showToast('Memory log saved successfully.', 'success');
     document.getElementById('modal-add-diary')?.classList.remove('active');
 
     this.renderDiariesList();
@@ -810,7 +810,7 @@ const MindVaultApp = {
     const title = document.getElementById('add-diary-title')?.value.trim();
     const friendName = document.getElementById('add-diary-friend')?.value;
     const date = document.getElementById('add-diary-date')?.value || new Date().toISOString().split('T')[0];
-    const mood = document.getElementById('add-diary-mood')?.value || '😊 Energetic & Inspired';
+    const mood = document.getElementById('add-diary-mood')?.value || 'Energetic & Inspired';
     const content = document.getElementById('add-diary-content')?.value.trim();
 
     if (!title || !content) {
@@ -852,7 +852,7 @@ const MindVaultApp = {
       console.warn('Supabase update exception handled:', e);
     }
 
-    this.showToast(`Catatan memory "${title}" berhasil diperbarui! ✏️✨`, 'success');
+    this.showToast(`Catatan memory "${title}" berhasil diperbarui.`, 'success');
     document.getElementById('modal-add-diary')?.classList.remove('active');
 
     this.renderDiariesList();
@@ -865,7 +865,7 @@ const MindVaultApp = {
     MindVaultData.diaries = (MindVaultData.diaries || []).filter(d => String(d.id) !== String(diaryId));
     await MindVaultSupabase.deleteDiary(diaryId);
 
-    this.showToast('Catatan percakapan berhasil dihapus! 🗑️', 'info');
+    this.showToast('Catatan percakapan berhasil dihapus.', 'info');
     this.renderDiariesList();
     this.renderDashboard();
   },
@@ -882,7 +882,7 @@ const MindVaultApp = {
       cancelText: 'Batal',
       onConfirm: async () => {
         await MindVaultSupabase.deleteFriend(friendId);
-        this.showToast(`Profil ${friendName} berhasil dihapus dari Supabase! 🗑️`, 'info');
+        this.showToast(`Profil ${friendName} berhasil dihapus.`, 'info');
 
         this.renderFriendsGrid();
         this.populateDiaryFriendOptions();
@@ -937,7 +937,7 @@ const MindVaultApp = {
 
     this.updateUserSidebar();
     this.renderDashboard();
-    this.showToast('Profile settings updated & synced across devices! ✨', 'success');
+    this.showToast('Profile settings updated & synced.', 'success');
   },
 
   saveSupabaseConfig() {
@@ -966,7 +966,7 @@ const MindVaultApp = {
     if (typeof MindVaultSupabase !== 'undefined') {
       await MindVaultSupabase.saveGeminiKey(key.trim());
     }
-    this.showToast('API Key saved & synced to all devices! ✨', 'success');
+    this.showToast('API Key saved & synced.', 'success');
     this.testAIKeyConnection();
   },
 
@@ -974,9 +974,9 @@ const MindVaultApp = {
     const badge = document.getElementById('supabase-status-badge');
     if (!badge) return;
     if (typeof MindVaultSupabase !== 'undefined' && MindVaultSupabase.isConfigured) {
-      badge.innerHTML = `<span style="color: #059669; background: #ECFDF5; padding: 6px 14px; border-radius: 12px; display: inline-block;">🟢 Connected to Supabase Live Backend</span>`;
+      badge.innerHTML = `<span style="color: #059669; background: #ECFDF5; padding: 6px 14px; border-radius: 12px; display: inline-block;">Connected to Supabase Live Backend</span>`;
     } else {
-      badge.innerHTML = `<span style="color: #D97706; background: #FFFBEB; padding: 6px 14px; border-radius: 12px; display: inline-block;">🟡 Offline Mode (Local Fallback Data Active)</span>`;
+      badge.innerHTML = `<span style="color: #D97706; background: #FFFBEB; padding: 6px 14px; border-radius: 12px; display: inline-block;">Offline Mode (Local Fallback Data Active)</span>`;
     }
   },
 
@@ -986,7 +986,7 @@ const MindVaultApp = {
     if (typeof MindVaultSupabase !== 'undefined' && MindVaultSupabase.isConfigured) {
       if (dot) dot.className = 'status-dot status-dot-active';
       if (title) title.innerText = 'Supabase Connected';
-      this.showToast('Database Connection Test Passed! 🟢', 'success');
+      this.showToast('Database Connection Test Passed.', 'success');
     } else {
       if (dot) dot.className = 'status-dot status-dot-warning';
       if (title) title.innerText = 'Local Offline Mode';
@@ -1001,7 +1001,7 @@ const MindVaultApp = {
     if (key) {
       if (dot) dot.className = 'status-dot status-dot-active';
       if (title) title.innerText = 'Gemini AI Ready';
-      this.showToast('AI API Key verified & active across devices! ⚡', 'success');
+      this.showToast('AI API Key verified & active.', 'success');
     } else {
       if (dot) dot.className = 'status-dot status-dot-warning';
       if (title) title.innerText = 'Rule-based AI';
@@ -1210,7 +1210,7 @@ const MindVaultApp = {
     const greetingHeading = document.getElementById('dash-greeting-heading');
     if (greetingHeading) {
       const userName = this.currentUser ? (this.currentUser.name || 'User') : 'Friend';
-      greetingHeading.innerHTML = `Good morning, ${userName}! 🌸`;
+      greetingHeading.innerHTML = `Good morning, ${userName}!`;
     }
 
     this.recalculateAllFriendScores();
@@ -1322,7 +1322,7 @@ const MindVaultApp = {
       } else {
         topicsContainer.innerHTML = starters.slice(0, 3).map(topic => `
           <div style="padding: 12px 14px; background: rgba(255,255,255,0.7); border-radius: 12px; margin-bottom: 8px; border: 1px solid rgba(248,187,217,0.3); display: flex; align-items: center; justify-content: space-between;">
-            <span style="font-size: 13px; font-weight: 600; color: var(--text-dark);">✨ "${topic}"</span>
+            <span style="font-size: 13px; font-weight: 600; color: var(--text-dark);">"${topic}"</span>
             <span style="font-size: 10px; font-weight: 700; background: var(--secondary); color: var(--accent-hover); padding: 4px 10px; border-radius: 10px;">RAG Active</span>
           </div>
         `).join('');
@@ -1386,16 +1386,16 @@ const MindVaultApp = {
           <p class="relation-type">${friend.relation || ''} • <strong style="color: ${scoreColor};">${friend.score}% Intimacy</strong></p>
           
           <div class="friend-card-tags">
-            ${(friend.likes || []).slice(0, 3).map(l => `<span class="tag-chip">❤️ ${l}</span>`).join('')}
+            ${(friend.likes || []).slice(0, 3).map(l => `<span class="tag-chip">${l}</span>`).join('')}
           </div>
 
           <div style="width: 100%; padding: 10px; background: var(--bg-main); border-radius: 12px; font-size: 11px; color: var(--text-medium); margin-bottom: 14px; text-align: left;">
-            <strong>💡 AI Brief:</strong> ${(friend.currentLife || 'Belum ada info.').substring(0, 65)}...
+            <strong>AI Brief:</strong> ${(friend.currentLife || 'Belum ada info.').substring(0, 65)}...
           </div>
 
           <div class="friend-card-actions">
             <button class="btn btn-secondary" onclick="MindVaultApp.openPrepModal(${friend.id})">
-              ⚡ Prep Meeting
+              Prep Meeting
             </button>
             <button class="btn btn-primary" onclick="MindVaultApp.viewProfile(${friend.id})">
               View Profile
@@ -1430,11 +1430,11 @@ const MindVaultApp = {
     if (tierBadgeEl) {
       let tierLabel = friend.relation || 'Friend';
       if (friend.score <= 45) {
-        tierLabel = '⚠️ Konflik / Butuh Pemulihan';
+        tierLabel = 'Konflik / Butuh Pemulihan';
         tierBadgeEl.style.background = '#FEE2E2';
         tierBadgeEl.style.color = '#DC2626';
       } else if (friend.score <= 65) {
-        tierLabel = '❄️ Pendinginan / Jarak';
+        tierLabel = 'Pendinginan / Jarak';
         tierBadgeEl.style.background = '#FEF3C7';
         tierBadgeEl.style.color = '#D97706';
       } else {
@@ -1486,7 +1486,7 @@ const MindVaultApp = {
       } else {
         safeContainer.innerHTML = safeList.map(topic => `
           <div class="topic-box safe-topic-box">
-            🟢 <strong>Great Topic:</strong> ${topic}
+            <strong>Great Topic:</strong> ${topic}
           </div>
         `).join('');
       }
@@ -1500,7 +1500,7 @@ const MindVaultApp = {
       } else {
         avoidContainer.innerHTML = avoidList.map(topic => `
           <div class="topic-box avoid-topic-box">
-            🔴 <strong>Topic to Avoid:</strong> ${topic}
+            <strong>Topic to Avoid:</strong> ${topic}
           </div>
         `).join('');
       }
@@ -1545,7 +1545,7 @@ const MindVaultApp = {
           combinedList.push({
             isAutoBirthday: true,
             title: `Ulang Tahun ${friend.name}`,
-            type: '🎂 Ulang Tahun (Sistem)',
+            type: 'Ulang Tahun',
             date: formattedBday,
             diffDays,
             notes: 'Otomatis tersinkronisasi dari data tanggal lahir profil.'
@@ -1591,19 +1591,19 @@ const MindVaultApp = {
           let isUpcoming = false;
 
           if (item.diffDays === 0) {
-            dayDiffText = '🎉 HARI INI!';
+            dayDiffText = 'HARI INI';
             isUpcoming = true;
           } else if (item.diffDays === 1) {
-            dayDiffText = '⚡ Besok!';
+            dayDiffText = 'Besok';
             isUpcoming = true;
           } else if (item.diffDays > 1 && item.diffDays <= 7) {
-            dayDiffText = `⚡ ${item.diffDays} hari lagi (H-${item.diffDays})`;
+            dayDiffText = `${item.diffDays} hari lagi (H-${item.diffDays})`;
             isUpcoming = true;
           } else if (item.diffDays > 7 && item.diffDays < 9000) {
             dayDiffText = `⏳ ${item.diffDays} hari lagi`;
             isUpcoming = true;
           } else if (item.diffDays < 0) {
-            dayDiffText = `✨ Sudah lewat (${Math.abs(item.diffDays)} hari lalu)`;
+            dayDiffText = `Sudah lewat (${Math.abs(item.diffDays)} hari lalu)`;
           }
 
           const badgeColor = isUpcoming ? '#DC2626' : '#6B7280';
@@ -1617,8 +1617,8 @@ const MindVaultApp = {
                   <strong style="font-size: 13.5px; color: var(--text-dark);">${item.title}</strong>
                   ${dayDiffText ? `<span style="font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 10px; background: ${badgeBg}; color: ${badgeColor};">${dayDiffText}</span>` : ''}
                 </div>
-                <div style="font-size: 12px; color: #6D28D9; font-weight: 600; margin-bottom: 4px;">${item.type} • 📅 ${item.formattedDate || item.date}</div>
-                ${item.notes ? `<p style="font-size: 12px; color: var(--text-muted); line-height: 1.4; margin: 0; background: var(--bg-main); padding: 6px 10px; border-radius: 8px;">💡 ${item.notes}</p>` : ''}
+                <div style="font-size: 12px; color: #6D28D9; font-weight: 600; margin-bottom: 4px;">${item.type} • ${item.formattedDate || item.date}</div>
+                ${item.notes ? `<p style="font-size: 12px; color: var(--text-muted); line-height: 1.4; margin: 0; background: var(--bg-main); padding: 6px 10px; border-radius: 8px;">${item.notes}</p>` : ''}
               </div>
               <div style="display: flex; gap: 4px;">
                 ${item.isAutoBirthday ? `
@@ -1677,14 +1677,14 @@ const MindVaultApp = {
       <div class="glass-card" style="margin-bottom: 16px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
           <div style="display: flex; align-items: center; gap: 10px;">
-            <span style="font-size: 20px;">📖</span>
+            <i class="fa-solid fa-book" style="font-size: 18px; color: var(--accent);"></i>
             <div>
               <h4 style="font-size: 16px; font-weight: 700;">${diary.title}</h4>
               <span style="font-size: 12px; color: var(--text-muted);">With <strong>${diary.friendName}</strong> • ${diary.location || 'Personal Log'}</span>
             </div>
           </div>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 12px; font-weight: 700; background: var(--primary-light); color: var(--accent-hover); padding: 4px 12px; border-radius: 14px;">📅 ${diary.date}</span>
+            <span style="font-size: 12px; font-weight: 700; background: var(--primary-light); color: var(--accent-hover); padding: 4px 12px; border-radius: 14px;">${diary.date}</span>
             <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="MindVaultApp.openEditDiaryModal('${diary.id}')">
               <i class="fa-solid fa-pen-to-square" style="color: var(--accent-hover);"></i> Edit
             </button>
@@ -1754,15 +1754,15 @@ const MindVaultApp = {
 
       if (diffDays === 0) {
         urgency = 'critical';
-        tagText = '🎉 HARI INI!';
+        tagText = 'HARI INI';
         isDueSoon = true;
       } else if (diffDays === 1) {
         urgency = 'high';
-        tagText = '⚡ Besok!';
+        tagText = 'Besok';
         isDueSoon = true;
       } else if (diffDays <= 7) {
         urgency = 'warning';
-        tagText = `⚡ ${diffDays} hari lagi (H-${diffDays})`;
+        tagText = `${diffDays} hari lagi (H-${diffDays})`;
         isDueSoon = true;
       } else if (diffDays <= 30) {
         tagText = `${diffDays} hari lagi`;
@@ -1779,7 +1779,7 @@ const MindVaultApp = {
         urgency,
         tagText,
         isDueSoon,
-        type: '🎂 Ulang Tahun'
+        type: 'Ulang Tahun'
       });
 
       // Include Special Milestones (Wisuda, Lahiran, Nikahan, dll)
@@ -1799,15 +1799,15 @@ const MindVaultApp = {
 
         if (mDiffDays === 0) {
           mUrgency = 'critical';
-          mTagText = '🎉 HARI INI!';
+          mTagText = 'HARI INI';
           mIsDueSoon = true;
         } else if (mDiffDays === 1) {
           mUrgency = 'high';
-          mTagText = '⚡ Besok!';
+          mTagText = 'Besok';
           mIsDueSoon = true;
         } else if (mDiffDays <= 7) {
           mUrgency = 'warning';
-          mTagText = `⚡ ${mDiffDays} hari lagi (H-${mDiffDays})`;
+          mTagText = `${mDiffDays} hari lagi (H-${mDiffDays})`;
           mIsDueSoon = true;
         }
 
@@ -1824,7 +1824,7 @@ const MindVaultApp = {
           urgency: mUrgency,
           tagText: mTagText,
           isDueSoon: mIsDueSoon,
-          type: m.type || '✨ Momen Spesial',
+          type: m.type || 'Momen Spesial',
           notes: m.notes || ''
         });
       });
@@ -1868,15 +1868,15 @@ const MindVaultApp = {
                 <strong style="font-size: 15px; color: var(--text-dark);">${rem.title}</strong>
                 <span style="font-size: 11px; font-weight: 800; padding: 2px 10px; border-radius: 12px; background: ${badgeBg}; color: ${badgeColor};">${rem.tagText}</span>
               </div>
-              <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">📅 ${rem.date} • Disinkronkan dari profil ${rem.friendName}</p>
+              <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">${rem.date} • Disinkronkan dari profil ${rem.friendName}</p>
             </div>
           </div>
           <div style="display: flex; gap: 8px;">
             <button class="btn btn-secondary" style="padding: 6px 14px; font-size: 12px;" onclick="MindVaultApp.openPrepModal('${rem.friendId}')">
-              ⚡ Siapkan Kado & Topik
+              Siapkan Kado & Topik
             </button>
-            <button class="btn btn-primary" style="padding: 6px 14px; font-size: 12px;" onclick="MindVaultApp.showToast('Pengingat aktif untuk ${rem.friendName} (${rem.tagText})! 🔔', 'success')">
-              🔔 Aktif
+            <button class="btn btn-primary" style="padding: 6px 14px; font-size: 12px;" onclick="MindVaultApp.showToast('Pengingat aktif untuk ${rem.friendName} (${rem.tagText}).', 'success')">
+              Aktif
             </button>
           </div>
         </div>
@@ -1897,7 +1897,7 @@ const MindVaultApp = {
 
     const first = dueSoon[0];
     const isBirthday = first.type.includes('Ulang Tahun') || first.type.includes('Birthday');
-    const icon = isBirthday ? '🎂' : (first.type.slice(0, 2) || '🎉');
+    const icon = '<i class="fa-solid fa-bell" style="color: var(--accent);"></i>';
     const headerTitle = isBirthday ? `Peringatan Ulang Tahun Mendekat (H-${first.diffDays})!` : `Momen Spesial Mendekat: ${first.title} (H-${first.diffDays})!`;
     const descText = isBirthday 
       ? `<strong>${first.friendName}</strong> akan berulang tahun pada <strong>${first.date}</strong> (${first.tagText}). Waktunya siapkan ucapan atau ide kado spesial!`
@@ -1916,7 +1916,7 @@ const MindVaultApp = {
         </div>
         <div style="display: flex; gap: 8px;">
           <button class="btn btn-primary" style="background: #E11D48; border-color: #E11D48; font-size: 12px; padding: 6px 14px;" onclick="MindVaultApp.openPrepModal('${first.friendId}')">
-            🎁 Buka Meeting Prep
+            Buka Meeting Prep
           </button>
           <button class="btn btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="MindVaultApp.switchView('calendar')">
             Lihat Semua Pengingat
@@ -1947,7 +1947,7 @@ const MindVaultApp = {
       } else {
         dropdownList.innerHTML = reminders.map(r => `
           <div style="display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(0,0,0,0.05); cursor: pointer;" onclick="MindVaultApp.switchView('calendar'); MindVaultApp.toggleNotificationDropdown(false);">
-            <span style="font-size: 20px;">🎂</span>
+            <i class="fa-solid fa-calendar-check" style="font-size: 18px; color: var(--accent);"></i>
             <div style="flex: 1;">
               <p style="font-size: 13px; font-weight: 700; color: var(--text-dark); margin: 0;">${r.title}</p>
               <p style="font-size: 11px; color: var(--text-muted); margin: 0;">${r.date} • <strong style="color: ${r.diffDays <= 7 ? '#E11D48' : '#7C3AED'};">${r.tagText}</strong></p>
@@ -1978,8 +1978,8 @@ const MindVaultApp = {
     document.getElementById('prep-friend-avatar').src = friend.avatar;
     document.getElementById('prep-current-life').innerText = friend.currentLife;
     
-    document.getElementById('prep-safe-list').innerHTML = friend.safeTopics.map(t => `<li style="margin-bottom: 6px; font-size: 13px;">🟢 ${t}</li>`).join('');
-    document.getElementById('prep-avoid-list').innerHTML = friend.avoidTopics.map(t => `<li style="margin-bottom: 6px; font-size: 13px;">🔴 ${t}</li>`).join('');
+    document.getElementById('prep-safe-list').innerHTML = friend.safeTopics.map(t => `<li style="margin-bottom: 6px; font-size: 13px;"><i class="fa-solid fa-check" style="color: #059669; margin-right: 6px;"></i>${t}</li>`).join('');
+    document.getElementById('prep-avoid-list').innerHTML = friend.avoidTopics.map(t => `<li style="margin-bottom: 6px; font-size: 13px;"><i class="fa-solid fa-xmark" style="color: #DC2626; margin-right: 6px;"></i>${t}</li>`).join('');
     
     modal.classList.add('active');
   },
@@ -1992,7 +1992,7 @@ const MindVaultApp = {
     document.getElementById('sim-friend-name').innerText = friend.name;
     document.getElementById('sim-chat-log').innerHTML = `
       <div class="chat-bubble ai">
-        👋 Hey Aria! Great to catch up. How are things with you?
+        Hi Aria, great to catch up. How are things with you?
       </div>
     `;
 
@@ -2013,14 +2013,14 @@ const MindVaultApp = {
 
     // Show typing indicator
     const typingId = 'typing-' + Date.now();
-    log.innerHTML += `<div class="chat-bubble ai" id="${typingId}"><em>${friend.name} is typing... 💬</em></div>`;
+    log.innerHTML += `<div class="chat-bubble ai" id="${typingId}"><em>${friend.name} is typing...</em></div>`;
     log.scrollTop = log.scrollHeight;
 
     // Check if API key is set
     if (!MindVaultGemini.getApiKey()) {
       setTimeout(() => {
         const typingEl = document.getElementById(typingId);
-        if (typingEl) typingEl.innerHTML = `⚠️ <em>Roleplay AI membutuhkan API Key. Masukkan Key di ⚙️ Settings -> AI Configuration agar ${friend.name} bisa membalas secara LIVE!</em>`;
+        if (typingEl) typingEl.innerHTML = `<em>Roleplay AI membutuhkan API Key. Masukkan Key di Settings -> AI Configuration agar ${friend.name} bisa membalas secara LIVE!</em>`;
         log.scrollTop = log.scrollHeight;
       }, 400);
       return;
@@ -2032,7 +2032,7 @@ const MindVaultApp = {
 
     if (aiResponse && aiResponse.error) {
       if (typingEl) {
-        typingEl.innerHTML = `❌ <strong>AI Error:</strong> ${aiResponse.message}`;
+        typingEl.innerHTML = `<strong>AI Error:</strong> ${aiResponse.message}`;
       }
       log.scrollTop = log.scrollHeight;
       return;
@@ -2100,7 +2100,7 @@ const MindVaultApp = {
             friendName: friendName,
             content: content,
             date: new Date().toISOString().split('T')[0],
-            mood: '💭 Serious & Emotional'
+            mood: 'Serious & Emotional'
           });
         }
       }
@@ -2182,13 +2182,13 @@ const MindVaultApp = {
 
   openAddTopicModal() {
     const titleEl = document.getElementById('modal-add-topic-header-title');
-    if (titleEl) titleEl.innerText = '💡 Tambah Topik / Renungan Hubungan';
+    if (titleEl) titleEl.innerText = 'Tambah Topik / Renungan Hubungan';
     const indexEl = document.getElementById('edit-topic-index');
     if (indexEl) indexEl.value = '';
     const catEl = document.getElementById('edit-topic-category');
     if (catEl) catEl.value = '';
     const btnEl = document.getElementById('btn-save-topic');
-    if (btnEl) btnEl.innerText = 'Simpan ke RAG Database 🚀';
+    if (btnEl) btnEl.innerText = 'Simpan ke RAG Database';
 
     const textarea = document.getElementById('add-topic-content');
     if (textarea) textarea.value = '';
@@ -2206,7 +2206,7 @@ const MindVaultApp = {
     }
 
     const titleEl = document.getElementById('modal-add-topic-header-title');
-    if (titleEl) titleEl.innerText = `✏️ Edit ${category === 'starter' ? 'Pemantik Obrolan' : 'Renungan Hubungan'}`;
+    if (titleEl) titleEl.innerText = `Edit ${category === 'starter' ? 'Pemantik Obrolan' : 'Renungan Hubungan'}`;
 
     const indexEl = document.getElementById('edit-topic-index');
     if (indexEl) indexEl.value = idx;
@@ -2220,7 +2220,7 @@ const MindVaultApp = {
     if (textarea) textarea.value = text;
 
     const btnEl = document.getElementById('btn-save-topic');
-    if (btnEl) btnEl.innerText = 'Update Topik RAG ✏️';
+    if (btnEl) btnEl.innerText = 'Update Topik RAG';
 
     const modal = document.getElementById('modal-add-topic');
     if (modal) modal.classList.add('active');
@@ -2246,25 +2246,25 @@ const MindVaultApp = {
         else starters.unshift(content);
         localStorage.setItem('MINDVAULT_LOCAL_TOPIC_STARTERS', JSON.stringify(starters));
         MindVaultData.todaysTopics = starters;
-        this.showToast('Pemantik obrolan berhasil diperbarui! ✏️✨', 'success');
+        this.showToast('Pemantik obrolan berhasil diperbarui.', 'success');
       } else {
         if (reflections[idx] !== undefined) reflections[idx] = content;
         else reflections.unshift(content);
         localStorage.setItem('MINDVAULT_LOCAL_TOPIC_REFLECTIONS', JSON.stringify(reflections));
         MindVaultData.todaysThoughts = reflections;
-        this.showToast('Renungan hubungan berhasil diperbarui! ✏️🧠', 'success');
+        this.showToast('Renungan hubungan berhasil diperbarui.', 'success');
       }
     } else {
       if (type === 'starter') {
         starters.unshift(content);
         localStorage.setItem('MINDVAULT_LOCAL_TOPIC_STARTERS', JSON.stringify(starters));
         MindVaultData.todaysTopics = starters;
-        this.showToast('Pemantik obrolan baru tersimpan ke RAG Database! 💡✨', 'success');
+        this.showToast('Pemantik obrolan baru tersimpan ke RAG Database.', 'success');
       } else {
         reflections.unshift(content);
         localStorage.setItem('MINDVAULT_LOCAL_TOPIC_REFLECTIONS', JSON.stringify(reflections));
         MindVaultData.todaysThoughts = reflections;
-        this.showToast('Renungan hubungan baru tersimpan ke RAG Database! 📝🧠', 'success');
+        this.showToast('Renungan hubungan baru tersimpan ke RAG Database.', 'success');
       }
     }
 
@@ -2281,7 +2281,7 @@ const MindVaultApp = {
     starters.splice(idx, 1);
     localStorage.setItem('MINDVAULT_LOCAL_TOPIC_STARTERS', JSON.stringify(starters));
     MindVaultData.todaysTopics = starters;
-    this.showToast('Pemantik obrolan berhasil dihapus 🗑️', 'info');
+    this.showToast('Pemantik obrolan berhasil dihapus.', 'info');
     this.renderTopicsPage();
     this.renderDashboard();
   },
@@ -2291,7 +2291,7 @@ const MindVaultApp = {
     reflections.splice(idx, 1);
     localStorage.setItem('MINDVAULT_LOCAL_TOPIC_REFLECTIONS', JSON.stringify(reflections));
     MindVaultData.todaysThoughts = reflections;
-    this.showToast('Renungan hubungan berhasil dihapus 🗑️', 'info');
+    this.showToast('Renungan hubungan berhasil dihapus.', 'info');
     this.renderTopicsPage();
   },
 
@@ -2307,7 +2307,7 @@ const MindVaultApp = {
 
     // Show typing indicator
     const typingId = 'ai-typing-' + Date.now();
-    log.innerHTML += `<div class="chat-bubble ai" id="${typingId}"><em>Menganalisis memori percakapan & RAG database... ✨</em></div>`;
+    log.innerHTML += `<div class="chat-bubble ai" id="${typingId}"><em>Menganalisis memori percakapan & RAG database...</em></div>`;
     log.scrollTop = log.scrollHeight;
 
     const liveDiaries = this.getLiveDiariesContext();
@@ -2445,11 +2445,11 @@ const MindVaultApp = {
     const toast = document.createElement('div');
     toast.className = `toast-message toast-${type}`;
 
-    let iconHtml = '✨';
-    if (type === 'success') iconHtml = '🎉';
-    else if (type === 'error') iconHtml = '❌';
-    else if (type === 'warning') iconHtml = '⚠️';
-    else if (type === 'info') iconHtml = '💡';
+    let iconHtml = '<i class="fa-solid fa-circle-check"></i>';
+    if (type === 'success') iconHtml = '<i class="fa-solid fa-circle-check"></i>';
+    else if (type === 'error') iconHtml = '<i class="fa-solid fa-circle-xmark"></i>';
+    else if (type === 'warning') iconHtml = '<i class="fa-solid fa-triangle-exclamation"></i>';
+    else if (type === 'info') iconHtml = '<i class="fa-solid fa-circle-info"></i>';
 
     toast.innerHTML = `
       <div class="toast-icon">${iconHtml}</div>
@@ -2516,7 +2516,7 @@ const MindVaultApp = {
       <div class="glass-card" style="margin-bottom: 16px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
           <div style="display: flex; align-items: center; gap: 10px;">
-            <span style="font-size: 22px;">📝</span>
+            <i class="fa-solid fa-pen-nib" style="font-size: 18px; color: var(--accent);"></i>
             <div>
               <h4 style="font-size: 16px; font-weight: 700;">${j.title}</h4>
               <span style="font-size: 12px; color: var(--text-muted);">${j.date} • Mood: <strong>${j.mood || 'Reflective'}</strong></span>
@@ -2532,7 +2532,7 @@ const MindVaultApp = {
         <p style="font-size: 13.5px; color: var(--text-dark); line-height: 1.6; margin-bottom: 12px;">${j.content}</p>
         ${j.gratitude ? `
           <div style="padding: 10px 14px; background: rgba(248, 187, 217, 0.15); border-radius: 12px; font-size: 12.5px; color: var(--accent-hover);">
-            🙏 <strong>Hal yang Disyukuri:</strong> ${j.gratitude}
+            <strong>Hal yang Disyukuri:</strong> ${j.gratitude}
           </div>
         ` : ''}
       </div>
@@ -2550,7 +2550,7 @@ const MindVaultApp = {
         MindVaultData.dailyJournals = (MindVaultData.dailyJournals || []).filter(j => String(j.id) !== String(journalId));
         localStorage.setItem('MINDVAULT_LOCAL_DAILY_JOURNALS', JSON.stringify(MindVaultData.dailyJournals));
 
-        this.showToast('Jurnal harian berhasil dihapus! 🗑️', 'info');
+        this.showToast('Jurnal harian berhasil dihapus.', 'info');
         this.renderDailyJournalsList();
         this.renderDashboard();
       }
@@ -2582,7 +2582,7 @@ const MindVaultApp = {
     MindVaultData.dailyJournals.unshift(newJournal);
     localStorage.setItem('MINDVAULT_LOCAL_DAILY_JOURNALS', JSON.stringify(MindVaultData.dailyJournals));
 
-    this.showToast('Jurnal Harian berhasil disimpan! 📝✨', 'success');
+    this.showToast('Jurnal Harian berhasil disimpan.', 'success');
     document.getElementById('modal-add-daily-journal')?.classList.remove('active');
 
     // Clear form inputs
@@ -2623,11 +2623,11 @@ const MindVaultApp = {
 
   openAddDreamModal() {
     const titleEl = document.getElementById('modal-add-dream-header-title');
-    if (titleEl) titleEl.innerText = '🌙 Log Alur Cerita Mimpi';
+    if (titleEl) titleEl.innerText = 'Log Alur Cerita Mimpi';
     const editIdEl = document.getElementById('edit-dream-id');
     if (editIdEl) editIdEl.value = '';
     const btnEl = document.getElementById('btn-save-dream');
-    if (btnEl) btnEl.innerText = 'Save Dream Log 🌙';
+    if (btnEl) btnEl.innerText = 'Save Dream Log';
 
     const titleInput = document.getElementById('add-dream-title');
     const dateInput = document.getElementById('add-dream-date');
@@ -2655,11 +2655,11 @@ const MindVaultApp = {
     }
 
     const titleEl = document.getElementById('modal-add-dream-header-title');
-    if (titleEl) titleEl.innerText = `✏️ Edit Cerita Mimpi: ${dream.title}`;
+    if (titleEl) titleEl.innerText = `Edit Cerita Mimpi: ${dream.title}`;
     const editIdEl = document.getElementById('edit-dream-id');
     if (editIdEl) editIdEl.value = dream.id;
     const btnEl = document.getElementById('btn-save-dream');
-    if (btnEl) btnEl.innerText = 'Update Dream Log 🌙';
+    if (btnEl) btnEl.innerText = 'Update Dream Log';
 
     const titleInput = document.getElementById('add-dream-title');
     const dateInput = document.getElementById('add-dream-date');
@@ -2691,7 +2691,7 @@ const MindVaultApp = {
             id: 1,
             title: 'Terbang di Atas Kota Kaca & Bertemu Kucing Bicara',
             date: new Date().toISOString().split('T')[0],
-            type: '🌌 Lucid Dream (Sadar Sedang Bermimpi)',
+            type: 'Lucid Dream (Sadar Bermimpi)',
             characters: 'Ethan, Kucing Putih',
             content: 'Saya bermimpi sedang berjalan di atas jembatan kaca raksasa melayang di atas awan. Di tengah jembatan ada kucing putih besar yang memberi petunjuk jalan...',
             reflection: 'Bangun dengan perasaan takjub dan penasaran.'
@@ -2716,7 +2716,7 @@ const MindVaultApp = {
   saveNewDream() {
     const title = document.getElementById('add-dream-title')?.value.trim();
     const date = document.getElementById('add-dream-date')?.value || new Date().toISOString().split('T')[0];
-    const type = document.getElementById('add-dream-type')?.value || '🌌 Lucid Dream';
+    const type = document.getElementById('add-dream-type')?.value || 'Lucid Dream';
     const characters = document.getElementById('add-dream-characters')?.value.trim() || '-';
     const content = document.getElementById('add-dream-content')?.value.trim();
     const reflection = document.getElementById('add-dream-reflection')?.value.trim() || '';
@@ -2739,7 +2739,7 @@ const MindVaultApp = {
 
     dreams.unshift(newDream);
     localStorage.setItem('MINDVAULT_DREAM_JOURNALS', JSON.stringify(dreams));
-    this.showToast('Cerita mimpi berhasil disimpan! 🌙✨', 'success');
+    this.showToast('Cerita mimpi berhasil disimpan.', 'success');
     document.getElementById('modal-add-dream-journal')?.classList.remove('active');
 
     this.switchDiaryTab('dream');
@@ -2749,7 +2749,7 @@ const MindVaultApp = {
   saveEditedDream(dreamId) {
     const title = document.getElementById('add-dream-title')?.value.trim();
     const date = document.getElementById('add-dream-date')?.value || new Date().toISOString().split('T')[0];
-    const type = document.getElementById('add-dream-type')?.value || '🌌 Lucid Dream';
+    const type = document.getElementById('add-dream-type')?.value || 'Lucid Dream';
     const characters = document.getElementById('add-dream-characters')?.value.trim() || '-';
     const content = document.getElementById('add-dream-content')?.value.trim();
     const reflection = document.getElementById('add-dream-reflection')?.value.trim() || '';
@@ -2777,7 +2777,7 @@ const MindVaultApp = {
     };
 
     localStorage.setItem('MINDVAULT_DREAM_JOURNALS', JSON.stringify(dreams));
-    this.showToast(`Cerita mimpi "${title}" berhasil diperbarui! ✏️🌙`, 'success');
+    this.showToast(`Cerita mimpi "${title}" berhasil diperbarui.`, 'success');
     document.getElementById('modal-add-dream-journal')?.classList.remove('active');
 
     this.switchDiaryTab('dream');
@@ -2797,7 +2797,7 @@ const MindVaultApp = {
         MindVaultData.dreamJournals = dreams;
         localStorage.setItem('MINDVAULT_DREAM_JOURNALS', JSON.stringify(dreams));
 
-        this.showToast('Catatan cerita mimpi berhasil dihapus! 🗑️', 'info');
+        this.showToast('Catatan cerita mimpi berhasil dihapus.', 'info');
         this.renderDreamJournalsList();
       }
     });
@@ -2894,7 +2894,7 @@ const MindVaultApp = {
     if (dreams.length === 0) {
       container.innerHTML = `
         <div style="text-align: center; padding: 40px; background: white; border-radius: 20px; border: 1px dashed var(--card-border);">
-          <p style="color: var(--text-muted); font-size: 14px;">Belum ada alur cerita mimpi yang dicatat. Klik <strong>Log Cerita Mimpi 🌙</strong> untuk mencatat mimpi pertamamu!</p>
+          <p style="color: var(--text-muted); font-size: 14px;">Belum ada alur cerita mimpi yang dicatat. Klik <strong>Log Cerita Mimpi</strong> untuk mencatat mimpi pertamamu!</p>
         </div>`;
       return;
     }
@@ -2903,15 +2903,15 @@ const MindVaultApp = {
       <div class="glass-card" style="margin-bottom: 16px; background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(243,232,255,0.6) 100%); border: 1px solid rgba(139,92,246,0.2);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
           <div style="display: flex; align-items: center; gap: 10px;">
-            <span style="font-size: 24px;">🌙</span>
+            <i class="fa-solid fa-moon" style="font-size: 18px; color: #8B5CF6;"></i>
             <div>
               <h4 style="font-size: 16px; font-weight: 800; color: #5B21B6;">${dream.title}</h4>
               <span style="font-size: 12px; color: var(--text-muted);">Tokoh: <strong>${dream.characters || 'Self'}</strong></span>
             </div>
           </div>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 11px; font-weight: 700; background: rgba(139,92,246,0.15); color: #6D28D9; padding: 4px 12px; border-radius: 14px;">${dream.type || '🌌 Dream'}</span>
-            <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">📅 ${dream.date}</span>
+            <span style="font-size: 11px; font-weight: 700; background: rgba(139,92,246,0.15); color: #6D28D9; padding: 4px 12px; border-radius: 14px;">${dream.type || 'Dream'}</span>
+            <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">${dream.date}</span>
             <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="MindVaultApp.openEditDreamModal('${dream.id}')">
               <i class="fa-solid fa-pen-to-square" style="color: #6D28D9;"></i> Edit
             </button>
@@ -2925,7 +2925,7 @@ const MindVaultApp = {
 
         ${dream.reflection ? `
           <div style="padding: 8px 12px; background: rgba(255,255,255,0.7); border-radius: 10px; border-left: 3px solid #8B5CF6; font-size: 12px; color: #4C1D95;">
-            💭 <strong>Refleksi Saat Terbangun:</strong> ${dream.reflection}
+            <strong>Refleksi Saat Terbangun:</strong> ${dream.reflection}
           </div>
         ` : ''}
       </div>
@@ -2941,7 +2941,7 @@ const MindVaultApp = {
     }
 
     const titleEl = document.getElementById('modal-add-milestone-title');
-    if (titleEl) titleEl.innerText = '🎉 Tambah Acara & Momen Spesial Teman';
+    if (titleEl) titleEl.innerText = 'Tambah Acara & Momen Spesial Teman';
     const idEl = document.getElementById('edit-milestone-id');
     if (idEl) idEl.value = '';
     const fIdEl = document.getElementById('edit-milestone-friend-id');
@@ -2955,7 +2955,7 @@ const MindVaultApp = {
     if (notesInput) notesInput.value = '';
 
     const btnEl = document.getElementById('btn-save-milestone');
-    if (btnEl) btnEl.innerText = 'Simpan Momen Spesial 🎉';
+    if (btnEl) btnEl.innerText = 'Simpan Momen Spesial';
 
     const modal = document.getElementById('modal-add-milestone');
     if (modal) modal.classList.add('active');
@@ -2970,14 +2970,14 @@ const MindVaultApp = {
 
     const milestone = friend.milestones[mIdx];
     const titleEl = document.getElementById('modal-add-milestone-title');
-    if (titleEl) titleEl.innerText = `✏️ Edit Momen Spesial: ${milestone.title}`;
+    if (titleEl) titleEl.innerText = `Edit Momen Spesial: ${milestone.title}`;
     const idEl = document.getElementById('edit-milestone-id');
     if (idEl) idEl.value = mIdx;
     const fIdEl = document.getElementById('edit-milestone-friend-id');
     if (fIdEl) fIdEl.value = friendId;
 
     const typeSelect = document.getElementById('add-milestone-type');
-    if (typeSelect) typeSelect.value = milestone.type || '🎓 Wisuda / Graduation';
+    if (typeSelect) typeSelect.value = milestone.type || 'Wisuda / Graduation';
     const titleInput = document.getElementById('add-milestone-title');
     if (titleInput) titleInput.value = milestone.title || '';
     const dateInput = document.getElementById('add-milestone-date');
@@ -2986,7 +2986,7 @@ const MindVaultApp = {
     if (notesInput) notesInput.value = milestone.notes || '';
 
     const btnEl = document.getElementById('btn-save-milestone');
-    if (btnEl) btnEl.innerText = 'Update Momen Spesial ✏️';
+    if (btnEl) btnEl.innerText = 'Update Momen Spesial';
 
     const modal = document.getElementById('modal-add-milestone');
     if (modal) modal.classList.add('active');
@@ -2995,7 +2995,7 @@ const MindVaultApp = {
   async saveMilestoneFromModal() {
     const editMIdx = document.getElementById('edit-milestone-id')?.value;
     const friendId = document.getElementById('edit-milestone-friend-id')?.value;
-    const type = document.getElementById('add-milestone-type')?.value || '✨ Momen Spesial';
+    const type = document.getElementById('add-milestone-type')?.value || 'Momen Spesial';
     const title = document.getElementById('add-milestone-title')?.value?.trim();
     const date = document.getElementById('add-milestone-date')?.value;
     const notes = document.getElementById('add-milestone-notes')?.value?.trim();
@@ -3023,10 +3023,10 @@ const MindVaultApp = {
 
     if (editMIdx !== '' && editMIdx !== undefined) {
       friend.milestones[parseInt(editMIdx, 10)] = milestoneObj;
-      this.showToast(`Momen "${title}" berhasil diperbarui! ✏️🎉`, 'success');
+      this.showToast(`Momen "${title}" berhasil diperbarui.`, 'success');
     } else {
       friend.milestones.push(milestoneObj);
-      this.showToast(`Momen spesial "${title}" berhasil dicatat! 🎉✨`, 'success');
+      this.showToast(`Momen spesial "${title}" berhasil dicatat.`, 'success');
     }
 
     await MindVaultSupabase.updateFriend(friend);
@@ -3052,7 +3052,7 @@ const MindVaultApp = {
         friend.milestones.splice(mIdx, 1);
         await MindVaultSupabase.updateFriend(friend);
 
-        this.showToast('Momen spesial berhasil dihapus 🗑️', 'info');
+        this.showToast('Momen spesial berhasil dihapus.', 'info');
         this.renderFriendProfile(friend.id);
         this.renderRemindersList();
       }

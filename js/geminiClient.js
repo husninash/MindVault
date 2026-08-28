@@ -168,15 +168,15 @@ User merujuk pada jurnal/percakapan di atas. Bacalah isi catatan jurnal tersebut
       const friendsCount = friendsData.length;
       const recentNames = friendsData.slice(0, 3).map(f => f.name).join(', ');
 
-      return `Halo! 👋 Saya **MindVault Assistant**, asisten kecerdasan relasi pribadi Anda.
+      return `Halo! Saya **MindVault Assistant**, asisten kecerdasan relasi pribadi Anda.
       
 Ada yang bisa saya bantu hari ini? Kamu bisa bertanya tentang:
-* 👥 **Profil & Minat Teman** ${friendsCount > 0 ? `(misal: *${recentNames}*)` : ''}
-* 💡 **Ide Obrolan / Topik Hari Ini** (RAG Engine)
-* 📖 **Analisis Jurnal Memori Percakapan**
-* 🎁 **Rekomendasi Kado & Persiapan Pertemuan (Meeting Prep)**
+* **Profil & Minat Teman** ${friendsCount > 0 ? `(misal: *${recentNames}*)` : ''}
+* **Ide Obrolan / Topik Hari Ini** (RAG Engine)
+* **Analisis Jurnal Memori Percakapan**
+* **Rekomendasi Kado & Persiapan Pertemuan (Meeting Prep)**
 
-Ketik pertanyaanmu dengan santai! 😊✨`;
+Ketik pertanyaan Anda tentang relasi dan memori pertemanan.`;
     }
 
     // 2. Check if user is asking about topics / starters / reflections
@@ -188,18 +188,18 @@ Ketik pertanyaanmu dengan santai! 😊✨`;
         ? liveTopicsData.reflections
         : ["Great relationships aren't built on grand gestures, but on remembering the small details that matter."];
 
-      return `💡 **Today's Topics & RAG Insights**
+      return `**Today's Topics & RAG Insights**
 
 Berikut adalah topik & ide pemantik obrolan yang tersimpan di RAG Database kamu:
 
-* **💡 AI Suggested Starters:**
+* **AI Suggested Starters:**
 ${starters.map(s => `  * "${s}"`).join('\n')}
 
-* **📝 Relationship Reflections:**
+* **Relationship Reflections:**
 ${reflections.map(r => `  * "${r}"`).join('\n')}
 
 ---
-🌱 **Saran AI:** Gunakan ide pemantik di atas untuk mencairkan suasana saat mengobrol dengan teman-temanmu hari ini!`;
+**Saran AI:** Gunakan ide pemantik di atas untuk mencairkan suasana saat mengobrol dengan teman-temanmu hari ini!`;
     }
 
     // 3. Match friend by name mentioned in query
@@ -215,52 +215,52 @@ ${reflections.map(r => `  * "${r}"`).join('\n')}
 
       if (/kado|hadiah|gift/i.test(query)) {
         const giftList = matchedFriend.giftIdeas || [];
-        return `🎁 **Rekomendasi Hadiah untuk ${matchedFriend.name}**
+        return `**Rekomendasi Hadiah untuk ${matchedFriend.name}**
 
 Berdasarkan profil & kesukaan ${matchedFriend.name}:
 * **Minat / Hal yang Disukai:** ${likesStr}
 * **Ide Hadiah Tercatat:**
-${giftList.length > 0 ? giftList.map(g => `  * 🎁 **${g.item}** ${g.price ? `(${g.price})` : ''}`).join('\n') : '  * Belum ada ide hadiah spesifik, coba barang terkait hobinya!'}
+${giftList.length > 0 ? giftList.map(g => `  * **${g.item}** ${g.price ? `(${g.price})` : ''}`).join('\n') : '  * Belum ada ide hadiah spesifik, coba barang terkait hobinya!'}
 
-💡 **Tips AI:** Berikan kado yang berkaitan dengan kesukaannya atau momen spesial terdekatnya!`;
+**Tips AI:** Berikan kado yang berkaitan dengan kesukaannya atau momen spesial terdekatnya!`;
       }
 
       if (/ultah|ulang tahun|birthday|wisuda|lahiran|acara|momen|jadwal/i.test(query)) {
-        return `📅 **Jadwal & Momen Spesial ${matchedFriend.name}**
+        return `**Jadwal & Momen Spesial ${matchedFriend.name}**
 
 * **Tanggal Lahir:** ${matchedFriend.birthday || 'Belum diisi'}
 * **Momen Mendatang:**
-${milestones.length > 0 ? milestones.map(m => `  * ${m.type || '✨'}: **${m.title}** (📅 ${m.date}) ${m.notes ? `- *"${m.notes}"*` : ''}`).join('\n') : '  * Belum ada momen spesial tambahan yang dicatat.'}
+${milestones.length > 0 ? milestones.map(m => `  * ${m.type || "Momen Spesial"}: **${m.title}** (${m.date}) ${m.notes ? `- *"${m.notes}"*` : ''}`).join('\n') : '  * Belum ada momen spesial tambahan yang dicatat.'}
 
-🌱 **Saran AI:** Kamu bisa memanfaatkan fitur *Meeting Prep* untuk menyiapkan topik obrolan saat momen tersebut tiba!`;
+**Saran AI:** Anda bisa memanfaatkan fitur *Meeting Prep* untuk menyiapkan topik obrolan saat momen tersebut tiba!`;
       }
 
-      return `👤 **Profil Relasi: ${matchedFriend.name} (${matchedFriend.relation || 'Friend'})**
+      return `**Profil Relasi: ${matchedFriend.name} (${matchedFriend.relation || 'Friend'})**
 
 * **Skor Hubungan:** ${matchedFriend.score || 85}% (Tier: ${matchedFriend.tier || 'Friend'})
 * **Kabar Terkini:** ${matchedFriend.currentLife || 'Belum ada update'}
-* **Topik Obrolan Aman 🟢:** ${safeStr}
-* **Topik yang Dihindari 🔴:** ${avoidStr}
+* **Topik Obrolan Aman:** ${safeStr}
+* **Topik yang Dihindari:** ${avoidStr}
 * **Riwayat Percakapan Tercatat:** ${friendDiaries.length} memori log
 
-${friendDiaries.length > 0 ? `📖 **Log Terakhir:** "${friendDiaries[0].title}" (${friendDiaries[0].date})` : 'Belum ada catatan memori khusus dengan teman ini.'}`;
+${friendDiaries.length > 0 ? `**Log Terakhir:** "${friendDiaries[0].title}" (${friendDiaries[0].date})` : 'Belum ada catatan memori khusus dengan teman ini.'}`;
     }
 
     // 4. Checking general relationship questions or memory evaluation
     if (diariesData.length > 0 && (/jurnal|memori|percakapan|obrolan|terakhir|evaluasi/i.test(query))) {
       const latest = diariesData[0];
-      return `📖 **Analisis Jurnal Memori Terakhir: "${latest.title}"**
+      return `**Analisis Jurnal Memori Terakhir: "${latest.title}"**
 
 * **Teman:** ${latest.friendName || 'Teman'}
 * **Tanggal:** ${latest.date || 'Tercatat'}
 * **Mood:** ${latest.mood || 'Reflektif'}
 * **Rangkuman Isi:** "${latest.content}"
 
-💡 **Saran AI:** Jaga komunikasi yang konsisten dan catat hal-hal penting berikutnya saat kamu mengobrol lagi dengan ${latest.friendName || 'mereka'}!`;
+**Saran AI:** Jaga komunikasi yang konsisten dan catat hal-hal penting berikutnya saat kamu mengobrol lagi dengan ${latest.friendName || 'mereka'}!`;
     }
 
     // 5. Default natural helpful response
-    return `✨ **MindVault Intelligence Assistant**
+    return `**MindVault Intelligence Assistant**
 
 Saya siap membantu menganalisis hubungan dan memberikan saran obrolan!
 Kamu dapat:
@@ -268,7 +268,7 @@ Kamu dapat:
 2. Bertanya tentang *"Topik hari ini"* untuk rekomendasi ide pemantik obrolan.
 3. Bertanya tentang evaluasi percakapan atau momen penting yang sedang kamu hadapi.
 
-*Tip: Tambahkan Google Gemini API Key di **Admin Console** untuk analisis AI generatif ultra-cerdas tanpa batas!* 🚀`;
+*Tip: Tambahkan Google Gemini API Key di **Admin Console** untuk analisis AI generatif.`;
   },
 
   // Simulator Roleplay Prompt for a specific friend
