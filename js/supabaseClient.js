@@ -325,12 +325,62 @@ const MindVaultSupabase = {
     return friendObj;
   },
 
+  async fetchUserProfile() {
+    if (!this.isConfigured || !this.client) {
+      const local = localStorage.getItem('MINDVAULT_USER_PROFILE');
+      return local ? JSON.parse(local) : MindVaultData.user;
+    }
+    try {
+      const { data, error } = await this.client.from('user_profiles').select('*').limit(1).maybeSingle();
+      if (!error && data) {
+        return {
+          name: data.name || MindVaultData.user.name,
+          email: data.email || MindVaultData.user.email,
+          quote: data.quote || MindVaultData.user.quote,
+          avatar: data.avatar || MindVaultData.user.avatar
+        };
+      }
+    } catch (e) {}
+    const local = localStorage.getItem('MINDVAULT_USER_PROFILE');
+    return local ? JSON.parse(local) : MindVaultData.user;
+  },
+
+  async saveUserProfile(userObj) {
+    if (!userObj) return;
+    localStorage.setItem('MINDVAULT_USER_PROFILE', JSON.stringify(userObj));
+    if (this.isConfigured && this.client) {
+      try {
+        const payload = {
+          user_id: 'default_user',
+          name: userObj.name || 'User',
+          email: userObj.email || '',
+          quote: userObj.quote || '',
+          avatar: userObj.avatar || '',
+          updated_at: new Date().toISOString()
+        };
+        await this.client.from('user_profiles').upsert(payload, { onConflict: 'user_id' });
+      } catch (e) {
+        console.warn('Sync user profile exception:', e);
+      }
+    }
+  },
+
   async fetchReminders() {
     return MindVaultData.reminders || [];
   },
 
   async fetchTopics() {
     return MindVaultData.todaysTopics || [];
+  },
+
+  async fetchDailyJournals() {
+    const local = localStorage.getItem('MINDVAULT_LOCAL_DAILY_JOURNALS');
+    return local ? JSON.parse(local) : (MindVaultData.dailyJournals || []);
+  },
+
+  async fetchDreamJournals() {
+    const local = localStorage.getItem('MINDVAULT_DREAM_JOURNALS');
+    return local ? JSON.parse(local) : (MindVaultData.dreamJournals || []);
   },
 
   async fetchKnowledgeGraph() {

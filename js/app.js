@@ -18,6 +18,16 @@ const MindVaultApp = {
     // Async fetch from Supabase if connected
     if (typeof MindVaultSupabase !== 'undefined') {
       MindVaultSupabase.init();
+      try {
+        const profile = await MindVaultSupabase.fetchUserProfile();
+        if (profile && profile.name) {
+          MindVaultData.user.name = profile.name;
+          if (profile.email) MindVaultData.user.email = profile.email;
+          if (profile.quote) MindVaultData.user.quote = profile.quote;
+          if (profile.avatar) MindVaultData.user.avatar = profile.avatar;
+        }
+      } catch (e) {}
+
       MindVaultData.friends = await MindVaultSupabase.fetchFriends();
       MindVaultData.diaries = await MindVaultSupabase.fetchDiaries();
       MindVaultData.reminders = await MindVaultSupabase.fetchReminders();
@@ -896,7 +906,7 @@ const MindVaultApp = {
     select.innerHTML = MindVaultData.friends.map(f => `<option value="${f.name}">${f.name}</option>`).join('');
   },
 
-  saveUserProfileSettings() {
+  async saveUserProfileSettings() {
     const newName = document.getElementById('user-setting-name')?.value.trim();
     const newEmail = document.getElementById('user-setting-email')?.value.trim();
     const newQuote = document.getElementById('user-setting-quote')?.value.trim();
@@ -913,14 +923,20 @@ const MindVaultApp = {
       if (newEmail) this.currentUser.email = newEmail;
     }
 
-    if (newQuote) {
-      MindVaultData.user.quote = newQuote;
-    }
+    MindVaultData.user.name = newName;
+    if (newEmail) MindVaultData.user.email = newEmail;
+    if (newQuote) MindVaultData.user.quote = newQuote;
 
     localStorage.setItem('MINDVAULT_AUTH_SESSION', JSON.stringify(this.currentUser));
+    localStorage.setItem('MINDVAULT_USER_PROFILE', JSON.stringify(MindVaultData.user));
+
+    if (typeof MindVaultSupabase !== 'undefined') {
+      await MindVaultSupabase.saveUserProfile(MindVaultData.user);
+    }
+
     this.updateUserSidebar();
     this.renderDashboard();
-    this.showToast('Profile settings updated successfully! ✨', 'success');
+    this.showToast('Profile settings updated & synced across devices! ✨', 'success');
   },
 
   saveSupabaseConfig() {
@@ -2364,24 +2380,6 @@ const MindVaultApp = {
     if (!badge) return;
     const count = MindVaultData.friends ? MindVaultData.friends.length : 0;
     badge.innerText = count;
-  },
-
-  saveUserProfileSettings() {
-    const name = document.getElementById('user-setting-name')?.value.trim();
-    const email = document.getElementById('user-setting-email')?.value.trim();
-    const quote = document.getElementById('user-setting-quote')?.value.trim();
-
-    if (name) {
-      MindVaultData.user.name = name;
-      if (this.currentUser) this.currentUser.name = name;
-      const nameEl = document.getElementById('sidebar-user-name');
-      if (nameEl) nameEl.innerText = name;
-    }
-    if (email) MindVaultData.user.email = email;
-    if (quote) MindVaultData.user.quote = quote;
-
-    localStorage.setItem('MINDVAULT_USER_PROFILE', JSON.stringify(MindVaultData.user));
-    this.showToast('User profile settings updated! ✨', 'success');
   },
 
   clearLocalCache() {

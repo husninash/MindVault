@@ -69,6 +69,18 @@ CREATE TABLE IF NOT EXISTS knowledge_edges (
   label TEXT NOT NULL
 );
 
+-- 7. USER PROFILES TABLE (Cloud Sync for User Settings)
+CREATE TABLE IF NOT EXISTS user_profiles (
+  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  user_id TEXT UNIQUE DEFAULT 'default_user',
+  name TEXT NOT NULL,
+  email TEXT,
+  quote TEXT,
+  avatar TEXT,
+  role TEXT DEFAULT 'user',
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Enable Row Level Security (RLS) & Full CRUD Policies
 ALTER TABLE friends ENABLE ROW LEVEL SECURITY;
 ALTER TABLE diaries ENABLE ROW LEVEL SECURITY;
@@ -76,6 +88,10 @@ ALTER TABLE reminders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE todays_topics ENABLE ROW LEVEL SECURITY;
 ALTER TABLE knowledge_nodes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE knowledge_edges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+
+-- User Profiles CRUD Policies
+CREATE POLICY "Allow public all access on user_profiles" ON user_profiles FOR ALL USING (true) WITH CHECK (true);
 
 -- Friends CRUD Policies
 CREATE POLICY "Allow public read access on friends" ON friends FOR SELECT USING (true);

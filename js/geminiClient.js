@@ -1,9 +1,9 @@
 // MindVault Google Gemini AI Integration Client
 const MindVaultGemini = {
   getApiKey() {
-    return (window.ENV && window.ENV.GEMINI_API_KEY) || 
-           localStorage.getItem('MINDVAULT_GEMINI_KEY') || 
-           '';
+    return (window.ENV && window.ENV.GEMINI_API_KEY) ||
+      localStorage.getItem('MINDVAULT_GEMINI_KEY') ||
+      '';
   },
 
   async askGemini(prompt, systemInstruction = '') {
@@ -12,7 +12,7 @@ const MindVaultGemini = {
       console.log('ℹ️ Gemini API key not configured. Using local intelligence fallback.');
       return null;
     }
-    
+
     // Primary model: gemini-2.5-flash
     let endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
@@ -88,7 +88,7 @@ const MindVaultGemini = {
 
     const activeFriend = (friendsData || []).find(f => f.id === activeFriendId) || (friendsData || [])[0];
     const targetFriendName = (diariesData && diariesData[0] && diariesData[0].friendName) ? diariesData[0].friendName : (activeFriend ? activeFriend.name : 'Ethan');
-    
+
     const latestDiary = (diariesData && diariesData.length > 0) ? diariesData[0] : null;
 
     const systemInstruction = `YOU ARE MINDVAULT AI, A COMPREHENSIVE RAG-POWERED RELATIONSHIP INTELLIGENCE ASSISTANT.
@@ -162,12 +162,12 @@ User merujuk pada jurnal/percakapan di atas. Bacalah isi catatan jurnal tersebut
   // Smart Contextual Local Analysis Engine (Dynamic & Adaptive)
   localSmartAnalysisFallback(userQuery, friendsData = [], diariesData = [], dailyJournalsData = [], liveTopicsData = {}) {
     const query = (userQuery || '').toLowerCase().trim();
-    
+
     // 1. Handling Greetings & Casual Chat
     if (/^(halo|hai|hi|hey|hello|pagi|siang|sore|malam|assalamualaikum|tes|test)\b/i.test(query)) {
       const friendsCount = friendsData.length;
       const recentNames = friendsData.slice(0, 3).map(f => f.name).join(', ');
-      
+
       return `Halo! 👋 Saya **MindVault Assistant**, asisten kecerdasan relasi pribadi Anda.
       
 Ada yang bisa saya bantu hari ini? Kamu bisa bertanya tentang:
@@ -181,11 +181,11 @@ Ketik pertanyaanmu dengan santai! 😊✨`;
 
     // 2. Check if user is asking about topics / starters / reflections
     if (/topik|topic|starter|pemantik|renungan|thought|ide obrolan|bahan ngobrol/i.test(query)) {
-      const starters = (liveTopicsData && liveTopicsData.starters && liveTopicsData.starters.length > 0) 
-        ? liveTopicsData.starters 
+      const starters = (liveTopicsData && liveTopicsData.starters && liveTopicsData.starters.length > 0)
+        ? liveTopicsData.starters
         : ["Ask Sophia about Mochi's Friday vet checkup", "Congratulate Liam on his 45km marathon training run"];
-      const reflections = (liveTopicsData && liveTopicsData.reflections && liveTopicsData.reflections.length > 0) 
-        ? liveTopicsData.reflections 
+      const reflections = (liveTopicsData && liveTopicsData.reflections && liveTopicsData.reflections.length > 0)
+        ? liveTopicsData.reflections
         : ["Great relationships aren't built on grand gestures, but on remembering the small details that matter."];
 
       return `💡 **Today's Topics & RAG Insights**
@@ -204,7 +204,7 @@ ${reflections.map(r => `  * "${r}"`).join('\n')}
 
     // 3. Match friend by name mentioned in query
     let matchedFriend = friendsData.find(f => f.name && query.includes(f.name.toLowerCase()));
-    
+
     // If friend is mentioned
     if (matchedFriend) {
       const friendDiaries = diariesData.filter(d => String(d.friendId) === String(matchedFriend.id) || (d.friendName && d.friendName.toLowerCase() === matchedFriend.name.toLowerCase()));
