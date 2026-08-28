@@ -1130,6 +1130,8 @@ const MindVaultApp = {
       this.renderTopicsPage();
     } else if (viewName === 'diaries') {
       this.renderDiariesList();
+      this.renderDailyJournalsList();
+      this.renderDreamJournalsList();
     } else if (viewName === 'friends') {
       this.renderFriendsGrid();
     }
@@ -2432,7 +2434,12 @@ const MindVaultApp = {
               <span style="font-size: 12px; color: var(--text-muted);">${j.date} • Mood: <strong>${j.mood || 'Reflective'}</strong></span>
             </div>
           </div>
-          <span style="font-size: 11px; font-weight: 700; background: #ECFDF5; color: #059669; padding: 4px 12px; border-radius: 14px;">Refleksi Diri</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 11px; font-weight: 700; background: #ECFDF5; color: #059669; padding: 4px 12px; border-radius: 14px;">Refleksi Diri</span>
+            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px; color: #DC2626; border-color: rgba(220,38,38,0.2);" onclick="MindVaultApp.deleteDailyJournal('${j.id}')" title="Hapus Jurnal">
+              <i class="fa-solid fa-trash-can"></i> Hapus
+            </button>
+          </div>
         </div>
         <p style="font-size: 13.5px; color: var(--text-dark); line-height: 1.6; margin-bottom: 12px;">${j.content}</p>
         ${j.gratitude ? `
@@ -2442,6 +2449,24 @@ const MindVaultApp = {
         ` : ''}
       </div>
     `).join('');
+  },
+
+  deleteDailyJournal(journalId) {
+    this.showCustomConfirm({
+      title: 'Hapus Jurnal Harian',
+      message: 'Apakah Anda yakin ingin menghapus catatan refleksi harian ini?',
+      icon: '<i class="fa-solid fa-trash-can" style="color: #DC2626;"></i>',
+      confirmText: 'Ya, Hapus',
+      cancelText: 'Batal',
+      onConfirm: () => {
+        MindVaultData.dailyJournals = (MindVaultData.dailyJournals || []).filter(j => String(j.id) !== String(journalId));
+        localStorage.setItem('MINDVAULT_LOCAL_DAILY_JOURNALS', JSON.stringify(MindVaultData.dailyJournals));
+
+        this.showToast('Jurnal harian berhasil dihapus! 🗑️', 'info');
+        this.renderDailyJournalsList();
+        this.renderDashboard();
+      }
+    });
   },
 
   async saveNewDailyJournal() {
@@ -2478,6 +2503,7 @@ const MindVaultApp = {
     if (document.getElementById('add-daily-gratitude')) document.getElementById('add-daily-gratitude').value = '';
 
     this.switchDiaryTab('daily');
+    this.renderDailyJournalsList();
     this.renderDashboard();
   },
 
@@ -2498,7 +2524,11 @@ const MindVaultApp = {
     if (dailyContent) dailyContent.style.display = tabName === 'daily' ? 'block' : 'none';
     if (dreamContent) dreamContent.style.display = tabName === 'dream' ? 'block' : 'none';
 
-    if (tabName === 'dream') {
+    if (tabName === 'memories') {
+      this.renderDiariesList();
+    } else if (tabName === 'daily') {
+      this.renderDailyJournalsList();
+    } else if (tabName === 'dream') {
       this.renderDreamJournalsList();
     }
   },
@@ -2958,5 +2988,6 @@ window.openEditMilestoneModal = (fId, idx) => MindVaultApp.openEditMilestoneModa
 window.saveMilestoneFromModal = () => MindVaultApp.saveMilestoneFromModal();
 window.deleteMilestone = (fId, idx) => MindVaultApp.deleteMilestone(fId, idx);
 window.deleteFriend = (fId) => MindVaultApp.deleteFriend(fId);
+window.deleteDailyJournal = (id) => MindVaultApp.deleteDailyJournal(id);
 window.toggleNotificationDropdown = (state) => MindVaultApp.toggleNotificationDropdown(state);
 window.handleLogout = () => MindVaultApp.handleLogout();
