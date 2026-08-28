@@ -26,6 +26,7 @@ const MindVaultApp = {
           if (profile.quote) MindVaultData.user.quote = profile.quote;
           if (profile.avatar) MindVaultData.user.avatar = profile.avatar;
         }
+        await MindVaultSupabase.fetchGeminiKey();
       } catch (e) {}
 
       MindVaultData.friends = await MindVaultSupabase.fetchFriends();
@@ -955,14 +956,17 @@ const MindVaultApp = {
     }
   },
 
-  saveGeminiConfig() {
+  async saveGeminiConfig() {
     const key = document.getElementById('setting-gemini-key')?.value;
     if (!key) {
       this.showToast('Please enter a valid API Key.', 'warning');
       return;
     }
     localStorage.setItem('MINDVAULT_GEMINI_KEY', key.trim());
-    this.showToast('API Key saved successfully! ✨', 'success');
+    if (typeof MindVaultSupabase !== 'undefined') {
+      await MindVaultSupabase.saveGeminiKey(key.trim());
+    }
+    this.showToast('API Key saved & synced to all devices! ✨', 'success');
     this.testAIKeyConnection();
   },
 
@@ -993,11 +997,11 @@ const MindVaultApp = {
   testAIKeyConnection() {
     const dot = document.getElementById('admin-ai-dot');
     const title = document.getElementById('admin-ai-status-title');
-    const key = localStorage.getItem('MINDVAULT_GEMINI_KEY');
+    const key = MindVaultGemini.getApiKey();
     if (key) {
       if (dot) dot.className = 'status-dot status-dot-active';
       if (title) title.innerText = 'Gemini AI Ready';
-      this.showToast('AI API Key verified & active! ⚡', 'success');
+      this.showToast('AI API Key verified & active across devices! ⚡', 'success');
     } else {
       if (dot) dot.className = 'status-dot status-dot-warning';
       if (title) title.innerText = 'Rule-based AI';

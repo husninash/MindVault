@@ -333,11 +333,15 @@ const MindVaultSupabase = {
     try {
       const { data, error } = await this.client.from('user_profiles').select('*').limit(1).maybeSingle();
       if (!error && data) {
+        if (data.gemini_key && !localStorage.getItem('MINDVAULT_GEMINI_KEY')) {
+          localStorage.setItem('MINDVAULT_GEMINI_KEY', data.gemini_key);
+        }
         return {
           name: data.name || MindVaultData.user.name,
           email: data.email || MindVaultData.user.email,
           quote: data.quote || MindVaultData.user.quote,
-          avatar: data.avatar || MindVaultData.user.avatar
+          avatar: data.avatar || MindVaultData.user.avatar,
+          geminiKey: data.gemini_key || ''
         };
       }
     } catch (e) {}
@@ -361,6 +365,38 @@ const MindVaultSupabase = {
         await this.client.from('user_profiles').upsert(payload, { onConflict: 'user_id' });
       } catch (e) {
         console.warn('Sync user profile exception:', e);
+      }
+    }
+  },
+
+  async fetchGeminiKey() {
+    if (!this.isConfigured || !this.client) {
+      return localStorage.getItem('MINDVAULT_GEMINI_KEY') || '';
+    }
+    try {
+      const { data, error } = await this.client.from('user_profiles').select('gemini_key').limit(1).maybeSingle();
+      if (!error && data && data.gemini_key) {
+        localStorage.setItem('MINDVAULT_GEMINI_KEY', data.gemini_key);
+        return data.gemini_key;
+      }
+    } catch (e) {}
+    return localStorage.getItem('MINDVAULT_GEMINI_KEY') || '';
+  },
+
+  async saveGeminiKey(key) {
+    if (!key) return;
+    localStorage.setItem('MINDVAULT_GEMINI_KEY', key.trim());
+    if (this.isConfigured && this.client) {
+      try {
+        const payload = {
+          user_id: 'default_user',
+          name: MindVaultData.user.name || 'User',
+          gemini_key: key.trim(),
+          updated_at: new Date().toISOString()
+        };
+        await this.client.from('user_profiles').upsert(payload, { onConflict: 'user_id' });
+      } catch (e) {
+        console.warn('Sync gemini key exception:', e);
       }
     }
   },
