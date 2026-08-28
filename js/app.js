@@ -859,6 +859,33 @@ const MindVaultApp = {
     this.renderDashboard();
   },
 
+  async deleteFriend(friendId) {
+    const friend = (MindVaultData.friends || []).find(f => String(f.id) === String(friendId));
+    const friendName = friend ? friend.name : 'teman ini';
+
+    this.showCustomConfirm({
+      title: 'Hapus Profil Teman',
+      message: `Apakah Anda yakin ingin menghapus <strong>${friendName}</strong>? Data profil beserta relasinya akan dihapus dari Supabase.`,
+      icon: '<i class="fa-solid fa-user-xmark" style="color: #DC2626;"></i>',
+      confirmText: 'Ya, Hapus',
+      cancelText: 'Batal',
+      onConfirm: async () => {
+        await MindVaultSupabase.deleteFriend(friendId);
+        this.showToast(`Profil ${friendName} berhasil dihapus dari Supabase! 🗑️`, 'info');
+
+        this.renderFriendsGrid();
+        this.populateDiaryFriendOptions();
+        this.updateFriendsCountBadge();
+        this.renderDashboard();
+        if (this.activeView === 'profile') {
+          this.switchView('friends');
+        } else if (this.activeView === 'graph') {
+          this.renderKnowledgeGraph();
+        }
+      }
+    });
+  },
+
   populateDiaryFriendOptions() {
     const select = document.getElementById('add-diary-friend');
     if (!select) return;
@@ -1326,6 +1353,9 @@ const MindVaultApp = {
 
       return `
         <div class="friend-card">
+          <button class="friend-card-delete-btn" onclick="event.stopPropagation(); MindVaultApp.deleteFriend('${friend.id}')" title="Hapus Teman">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
           <div class="friend-card-avatar-wrapper">
             <img src="${friend.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80'}" class="friend-card-avatar" alt="${friend.name}">
             <span class="tier-badge" style="background: ${badgeBg}; color: ${badgeColor}; font-weight: 700;">${friend.tier || friend.relation || 'Friend'}</span>
@@ -2929,5 +2959,6 @@ window.openAddMilestoneModal = (fId) => MindVaultApp.openAddMilestoneModal(fId);
 window.openEditMilestoneModal = (fId, idx) => MindVaultApp.openEditMilestoneModal(fId, idx);
 window.saveMilestoneFromModal = () => MindVaultApp.saveMilestoneFromModal();
 window.deleteMilestone = (fId, idx) => MindVaultApp.deleteMilestone(fId, idx);
+window.deleteFriend = (fId) => MindVaultApp.deleteFriend(fId);
 window.toggleNotificationDropdown = (state) => MindVaultApp.toggleNotificationDropdown(state);
 window.handleLogout = () => MindVaultApp.handleLogout();

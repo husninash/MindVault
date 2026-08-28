@@ -222,6 +222,28 @@ const MindVaultSupabase = {
     return true;
   },
 
+  async deleteFriend(friendId) {
+    if (!MindVaultData.friends) MindVaultData.friends = [];
+    MindVaultData.friends = MindVaultData.friends.filter(f => String(f.id) !== String(friendId));
+    localStorage.setItem('MINDVAULT_LOCAL_FRIENDS', JSON.stringify(MindVaultData.friends));
+
+    // Also remove associated diaries
+    if (MindVaultData.diaries) {
+      MindVaultData.diaries = MindVaultData.diaries.filter(d => String(d.friendId) !== String(friendId));
+      localStorage.setItem('MINDVAULT_LOCAL_DIARIES', JSON.stringify(MindVaultData.diaries));
+    }
+
+    if (this.isConfigured && this.client) {
+      try {
+        const { error } = await this.client.from('friends').delete().eq('id', friendId);
+        if (error) console.error('Delete friend error:', error);
+      } catch (err) {
+        console.error('Delete friend exception:', err);
+      }
+    }
+    return true;
+  },
+
   async insertFriend(friendObj) {
     if (!friendObj.id) friendObj.id = Date.now();
     if (!MindVaultData.friends) MindVaultData.friends = [];
