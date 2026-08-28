@@ -334,3 +334,6 @@ const MindVaultSupabase = {
     }
   }
 };
+
+// Auto-initialize immediately on script load
+MindVaultSupabase.init();

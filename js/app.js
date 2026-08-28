@@ -17,6 +17,7 @@ const MindVaultApp = {
     
     // Async fetch from Supabase if connected
     if (typeof MindVaultSupabase !== 'undefined') {
+      MindVaultSupabase.init();
       MindVaultData.friends = await MindVaultSupabase.fetchFriends();
       MindVaultData.diaries = await MindVaultSupabase.fetchDiaries();
       MindVaultData.reminders = await MindVaultSupabase.fetchReminders();
