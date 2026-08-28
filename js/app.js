@@ -2034,7 +2034,8 @@ const MindVaultApp = {
       return;
     }
 
-    if (typingEl) typingEl.innerText = typeof aiResponse === 'string' ? aiResponse : JSON.stringify(aiResponse);
+    const simText = typeof aiResponse === 'string' ? aiResponse : (aiResponse.text || JSON.stringify(aiResponse));
+    if (typingEl) typingEl.innerHTML = this.formatMarkdown(simText);
     log.scrollTop = log.scrollHeight;
   },
 
@@ -2328,14 +2329,97 @@ const MindVaultApp = {
         MindVaultData.dailyJournals,
         liveTopics
       );
-      if (typingEl) typingEl.innerHTML = typeof fallbackMsg === 'string' ? fallbackMsg.replace(/\n/g, '<br>') : fallbackMsg;
+      if (typingEl) typingEl.innerHTML = this.formatMarkdown(typeof fallbackMsg === 'string' ? fallbackMsg : JSON.stringify(fallbackMsg));
       log.scrollTop = log.scrollHeight;
       return;
     }
 
-    const formattedText = typeof response === 'string' ? response.replace(/\n/g, '<br>') : JSON.stringify(response);
-    if (typingEl) typingEl.innerHTML = formattedText;
+    const rawOutput = typeof response === 'string' ? response : (response.text || JSON.stringify(response));
+    if (typingEl) typingEl.innerHTML = this.formatMarkdown(rawOutput);
     log.scrollTop = log.scrollHeight;
+  },
+
+  formatMarkdown(text) {
+    if (!text || typeof text !== 'string') return '';
+
+    let clean = text.trim();
+
+    // 1. Code blocks
+    clean = clean.replace(/```([a-z]*)\n([\s\S]*?)```/gi, (match, lang, code) => {
+      return `<pre style="background: #1E293B; color: #F8FAFC; padding: 10px 14px; border-radius: 10px; font-size: 12px; overflow-x: auto; margin: 8px 0;"><code>${code.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>`;
+    });
+
+    // 2. Inline code
+    clean = clean.replace(/`([^`]+)`/g, '<code style="background: rgba(0,0,0,0.06); padding: 2px 6px; border-radius: 6px; font-family: monospace; font-size: 12px; color: #E11D48;">$1</code>');
+
+    // 3. Process line by line for Headings and Lists
+    const rawLines = clean.split('\n');
+    const processed = [];
+    let inList = false;
+    let listTag = 'ul';
+
+    rawLines.forEach(line => {
+      let trimmed = line.trim();
+
+      // Check bullet list item (starts with * or - followed by space)
+      const bulletMatch = trimmed.match(/^[\*\-]\s+(.*)$/);
+      // Check numbered list item (starts with 1., 2., etc)
+      const numberMatch = trimmed.match(/^\d+\.\s+(.*)$/);
+      // Check heading (###, ##, #)
+      const h3Match = trimmed.match(/^###\s+(.*)$/);
+      const h2Match = trimmed.match(/^##\s+(.*)$/);
+      const h1Match = trimmed.match(/^#\s+(.*)$/);
+
+      if (bulletMatch) {
+        if (!inList || listTag !== 'ul') {
+          if (inList) processed.push(`</${listTag}>`);
+          processed.push('<ul>');
+          inList = true;
+          listTag = 'ul';
+        }
+        let itemText = bulletMatch[1];
+        itemText = itemText.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        itemText = itemText.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+        processed.push(`<li>${itemText}</li>`);
+      } else if (numberMatch) {
+        if (!inList || listTag !== 'ol') {
+          if (inList) processed.push(`</${listTag}>`);
+          processed.push('<ol>');
+          inList = true;
+          listTag = 'ol';
+        }
+        let itemText = numberMatch[1];
+        itemText = itemText.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        itemText = itemText.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+        processed.push(`<li>${itemText}</li>`);
+      } else {
+        if (inList) {
+          processed.push(`</${listTag}>`);
+          inList = false;
+        }
+
+        if (h3Match) {
+          let hText = h3Match[1].replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+          processed.push(`<h4>${hText}</h4>`);
+        } else if (h2Match) {
+          let hText = h2Match[1].replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+          processed.push(`<h3>${hText}</h3>`);
+        } else if (h1Match) {
+          let hText = h1Match[1].replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+          processed.push(`<h2>${hText}</h2>`);
+        } else if (trimmed) {
+          let pText = trimmed.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+          pText = pText.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+          processed.push(`<p>${pText}</p>`);
+        }
+      }
+    });
+
+    if (inList) {
+      processed.push(`</${listTag}>`);
+    }
+
+    return processed.join('');
   },
 
   bindModals() {

@@ -970,6 +970,61 @@ body {
   box-shadow: 0 4px 12px rgba(248, 187, 217, 0.15);
   align-self: flex-start;
   border: 1px solid rgba(248, 187, 217, 0.3);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.chat-bubble.ai h2,
+.chat-bubble.ai h3,
+.chat-bubble.ai h4 {
+  color: #1E293B;
+  font-weight: 700;
+  margin-top: 14px;
+  margin-bottom: 6px;
+  line-height: 1.35;
+}
+
+.chat-bubble.ai h2:first-child,
+.chat-bubble.ai h3:first-child,
+.chat-bubble.ai h4:first-child {
+  margin-top: 0;
+}
+
+.chat-bubble.ai h4 {
+  font-size: 14px;
+}
+
+.chat-bubble.ai h3 {
+  font-size: 15px;
+}
+
+.chat-bubble.ai h2 {
+  font-size: 16px;
+}
+
+.chat-bubble.ai p {
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+
+.chat-bubble.ai p:last-child {
+  margin-bottom: 0;
+}
+
+.chat-bubble.ai ul,
+.chat-bubble.ai ol {
+  margin: 6px 0 10px 18px;
+  padding: 0;
+}
+
+.chat-bubble.ai li {
+  margin-bottom: 6px;
+  line-height: 1.55;
+}
+
+.chat-bubble.ai strong {
+  color: #0F172A;
+  font-weight: 700;
 }
 
 .chat-bubble.user {
