@@ -227,16 +227,29 @@ const MindVaultSupabase = {
     MindVaultData.friends = MindVaultData.friends.filter(f => String(f.id) !== String(friendId));
     localStorage.setItem('MINDVAULT_LOCAL_FRIENDS', JSON.stringify(MindVaultData.friends));
 
-    // Also remove associated diaries
+    // Also remove associated diaries & reminders locally
     if (MindVaultData.diaries) {
       MindVaultData.diaries = MindVaultData.diaries.filter(d => String(d.friendId) !== String(friendId));
       localStorage.setItem('MINDVAULT_LOCAL_DIARIES', JSON.stringify(MindVaultData.diaries));
     }
+    if (MindVaultData.reminders) {
+      MindVaultData.reminders = MindVaultData.reminders.filter(r => String(r.friendId) !== String(friendId));
+      localStorage.setItem('MINDVAULT_LOCAL_REMINDERS', JSON.stringify(MindVaultData.reminders));
+    }
 
     if (this.isConfigured && this.client) {
       try {
-        const { error } = await this.client.from('friends').delete().eq('id', friendId);
-        if (error) console.error('Delete friend error:', error);
+        const numId = Number(friendId);
+        const matchFilter = isNaN(numId) ? `friend_id.eq.${friendId}` : `friend_id.eq.${numId}`;
+        const matchIdFilter = isNaN(numId) ? `id.eq.${friendId}` : `id.eq.${numId}`;
+
+        // Clean up linked rows to ensure no FK block
+        try { await this.client.from('diaries').delete().or(matchFilter); } catch (e) {}
+        try { await this.client.from('reminders').delete().or(matchFilter); } catch (e) {}
+        try { await this.client.from('todays_topics').delete().or(matchFilter); } catch (e) {}
+
+        const { error } = await this.client.from('friends').delete().or(matchIdFilter);
+        if (error) console.error('Delete friend error from Supabase:', error);
       } catch (err) {
         console.error('Delete friend exception:', err);
       }

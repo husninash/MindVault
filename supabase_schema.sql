@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS knowledge_edges (
   label TEXT NOT NULL
 );
 
--- Enable Row Level Security (RLS) & Public Read Access Policy
+-- Enable Row Level Security (RLS) & Full CRUD Policies
 ALTER TABLE friends ENABLE ROW LEVEL SECURITY;
 ALTER TABLE diaries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reminders ENABLE ROW LEVEL SECURITY;
@@ -77,20 +77,35 @@ ALTER TABLE todays_topics ENABLE ROW LEVEL SECURITY;
 ALTER TABLE knowledge_nodes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE knowledge_edges ENABLE ROW LEVEL SECURITY;
 
+-- Friends CRUD Policies
 CREATE POLICY "Allow public read access on friends" ON friends FOR SELECT USING (true);
 CREATE POLICY "Allow public insert access on friends" ON friends FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update access on friends" ON friends FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public delete access on friends" ON friends FOR DELETE USING (true);
 
+-- Diaries CRUD Policies
 CREATE POLICY "Allow public read access on diaries" ON diaries FOR SELECT USING (true);
 CREATE POLICY "Allow public insert access on diaries" ON diaries FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update access on diaries" ON diaries FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public delete access on diaries" ON diaries FOR DELETE USING (true);
 
+-- Reminders CRUD Policies
 CREATE POLICY "Allow public read access on reminders" ON reminders FOR SELECT USING (true);
 CREATE POLICY "Allow public insert access on reminders" ON reminders FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update access on reminders" ON reminders FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public delete access on reminders" ON reminders FOR DELETE USING (true);
 
+-- Topics CRUD Policies
 CREATE POLICY "Allow public read access on todays_topics" ON todays_topics FOR SELECT USING (true);
 CREATE POLICY "Allow public insert access on todays_topics" ON todays_topics FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update access on todays_topics" ON todays_topics FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public delete access on todays_topics" ON todays_topics FOR DELETE USING (true);
 
+-- Knowledge Graph CRUD Policies
 CREATE POLICY "Allow public read access on knowledge_nodes" ON knowledge_nodes FOR SELECT USING (true);
+CREATE POLICY "Allow public all access on knowledge_nodes" ON knowledge_nodes FOR ALL USING (true);
 CREATE POLICY "Allow public read access on knowledge_edges" ON knowledge_edges FOR SELECT USING (true);
+CREATE POLICY "Allow public all access on knowledge_edges" ON knowledge_edges FOR ALL USING (true);
 
 
 -- SEED DATA INSERTION
