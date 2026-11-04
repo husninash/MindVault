@@ -3,7 +3,10 @@ const MindVaultSupabase = {
   client: null,
   isConfigured: false,
 
-  init() {
+  init(force = false) {
+    // Already connected: avoid creating a second client (duplicate auth/realtime listeners)
+    if (this.client && !force) return;
+
     // Default Supabase Cloud Project Credentials
     const defaultUrl = 'https://dlryqgpucgkcgnocnvqn.supabase.co';
     const defaultKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRscnlxZ3B1Y2drY2dub2NudnFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3OTExNTIsImV4cCI6MjEwMTM2NzE1Mn0.PmFztvjPlmUI2nTVHpDJnOKF_wVN0GtydjdJy79vhEA';
@@ -31,7 +34,7 @@ const MindVaultSupabase = {
     if (!url || !key) return false;
     localStorage.setItem('MINDVAULT_SUPABASE_URL', url.trim());
     localStorage.setItem('MINDVAULT_SUPABASE_ANON_KEY', key.trim());
-    this.init();
+    this.init(true);
     return this.isConfigured;
   },
 
@@ -103,7 +106,8 @@ const MindVaultSupabase = {
         avoidTopics: f.avoid_topics || [],
         currentLife: f.current_life || '',
         aiSummary: f.ai_summary || '',
-        giftIdeas: f.gift_ideas || []
+        giftIdeas: f.gift_ideas || [],
+        milestones: f.milestones || []
       }));
       MindVaultData.friends = friends;
       localStorage.setItem('MINDVAULT_LOCAL_FRIENDS', JSON.stringify(friends));
@@ -169,7 +173,13 @@ const MindVaultSupabase = {
           tags: diaryObj.tags
         };
         const { data, error } = await this.client.from('diaries').insert([payload]).select();
-        if (error) console.error('Failed inserting diary to Supabase:', error);
+        if (error) {
+          console.error('Failed inserting diary to Supabase:', error);
+        } else if (data && data[0]) {
+          // Adopt the database id so later edits/deletes hit the same row
+          diaryObj.id = data[0].id;
+          localStorage.setItem('MINDVAULT_LOCAL_DIARIES', JSON.stringify(MindVaultData.diaries));
+        }
       } catch (err) {
         console.error('Insert diary exception:', err);
       }
@@ -280,9 +290,22 @@ const MindVaultSupabase = {
           avoid_topics: friendObj.avoidTopics || [],
           current_life: friendObj.currentLife || '',
           ai_summary: friendObj.aiSummary || '',
-          gift_ideas: friendObj.giftIdeas || []
+          gift_ideas: friendObj.giftIdeas || [],
+          milestones: friendObj.milestones || []
         };
-        await this.client.from('friends').insert([payload]);
+        let { data, error } = await this.client.from('friends').insert([payload]).select();
+        if (error && error.code === 'PGRST204') {
+          // Older schema without the milestones column
+          delete payload.milestones;
+          ({ data, error } = await this.client.from('friends').insert([payload]).select());
+        }
+        if (error) {
+          console.error('Insert friend error from Supabase:', error);
+        } else if (data && data[0]) {
+          // Adopt the database id so later edits/deletes hit the same row
+          friendObj.id = data[0].id;
+          localStorage.setItem('MINDVAULT_LOCAL_FRIENDS', JSON.stringify(MindVaultData.friends));
+        }
       } catch (err) {
         console.error('Insert friend exception:', err);
       }
@@ -315,9 +338,16 @@ const MindVaultSupabase = {
           avoid_topics: friendObj.avoidTopics,
           current_life: friendObj.currentLife,
           ai_summary: friendObj.aiSummary,
-          gift_ideas: friendObj.giftIdeas
+          gift_ideas: friendObj.giftIdeas,
+          milestones: friendObj.milestones || []
         };
-        await this.client.from('friends').update(payload).eq('id', friendObj.id);
+        let { error } = await this.client.from('friends').update(payload).eq('id', friendObj.id);
+        if (error && error.code === 'PGRST204') {
+          // Older schema without the milestones column
+          delete payload.milestones;
+          ({ error } = await this.client.from('friends').update(payload).eq('id', friendObj.id));
+        }
+        if (error) console.error('Update friend error from Supabase:', error);
       } catch (err) {
         console.error('Update friend exception:', err);
       }
@@ -341,7 +371,9 @@ const MindVaultSupabase = {
           email: data.email || MindVaultData.user.email,
           quote: data.quote || MindVaultData.user.quote,
           avatar: data.avatar || MindVaultData.user.avatar,
-          geminiKey: data.gemini_key || ''
+          geminiKey: data.gemini_key || '',
+          topicStarters: Array.isArray(data.topic_starters) ? data.topic_starters : null,
+          topicReflections: Array.isArray(data.topic_reflections) ? data.topic_reflections : null
         };
       }
     } catch (e) {}
@@ -401,6 +433,26 @@ const MindVaultSupabase = {
     }
   },
 
+  async saveTopics(starters, reflections) {
+    localStorage.setItem('MINDVAULT_LOCAL_TOPIC_STARTERS', JSON.stringify(starters));
+    localStorage.setItem('MINDVAULT_LOCAL_TOPIC_REFLECTIONS', JSON.stringify(reflections));
+    if (this.isConfigured && this.client) {
+      try {
+        const payload = {
+          user_id: 'default_user',
+          name: MindVaultData.user.name || 'User',
+          topic_starters: starters,
+          topic_reflections: reflections,
+          updated_at: new Date().toISOString()
+        };
+        const { error } = await this.client.from('user_profiles').upsert(payload, { onConflict: 'user_id' });
+        if (error) console.warn('Sync topics error:', error);
+      } catch (e) {
+        console.warn('Sync topics exception:', e);
+      }
+    }
+  },
+
   async fetchReminders() {
     return MindVaultData.reminders || [];
   },
@@ -409,14 +461,72 @@ const MindVaultSupabase = {
     return MindVaultData.todaysTopics || [];
   },
 
+  // Journal tables share their row shape with the app objects, and ids are generated client-side
+  journalTables: {
+    daily_journals: { localKey: 'MINDVAULT_LOCAL_DAILY_JOURNALS', columns: ['id', 'title', 'date', 'mood', 'content', 'gratitude'] },
+    dream_journals: { localKey: 'MINDVAULT_DREAM_JOURNALS', columns: ['id', 'title', 'date', 'type', 'characters', 'content', 'reflection'] }
+  },
+
+  async fetchJournalRows(table) {
+    const { localKey } = this.journalTables[table];
+    const readLocal = () => {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(localKey) || 'null');
+        return Array.isArray(parsed) ? parsed : null;
+      } catch (e) {
+        return null;
+      }
+    };
+    if (!this.isConfigured || !this.client) return readLocal();
+    try {
+      const { data, error } = await this.client.from(table).select('*').order('date', { ascending: false });
+      if (error) {
+        console.warn(`Supabase fetch ${table} error:`, error);
+        return readLocal();
+      }
+      const local = readLocal();
+      if ((!data || data.length === 0) && local && local.length > 0) {
+        // First sync from a device that only had local entries: upload them instead of wiping them
+        await Promise.all(local.map(row => this.upsertJournalRow(table, row)));
+        return local;
+      }
+      localStorage.setItem(localKey, JSON.stringify(data || []));
+      return data || [];
+    } catch (e) {
+      return readLocal();
+    }
+  },
+
+  async upsertJournalRow(table, row) {
+    if (!this.isConfigured || !this.client || !row) return;
+    const payload = {};
+    this.journalTables[table].columns.forEach(c => { payload[c] = row[c] ?? null; });
+    payload.id = Math.floor(Number(row.id));
+    try {
+      const { error } = await this.client.from(table).upsert(payload, { onConflict: 'id' });
+      if (error) console.warn(`Sync ${table} error:`, error);
+    } catch (e) {
+      console.warn(`Sync ${table} exception:`, e);
+    }
+  },
+
+  async deleteJournalRow(table, id) {
+    if (!this.isConfigured || !this.client) return;
+    try {
+      const { error } = await this.client.from(table).delete().eq('id', Math.floor(Number(id)));
+      if (error) console.warn(`Delete ${table} error:`, error);
+    } catch (e) {
+      console.warn(`Delete ${table} exception:`, e);
+    }
+  },
+
   async fetchDailyJournals() {
-    const local = localStorage.getItem('MINDVAULT_LOCAL_DAILY_JOURNALS');
-    return local ? JSON.parse(local) : (MindVaultData.dailyJournals || []);
+    return (await this.fetchJournalRows('daily_journals')) || MindVaultData.dailyJournals || [];
   },
 
   async fetchDreamJournals() {
-    const local = localStorage.getItem('MINDVAULT_DREAM_JOURNALS');
-    return local ? JSON.parse(local) : (MindVaultData.dreamJournals || []);
+    // null means "nothing stored yet", letting the app seed its sample dream
+    return await this.fetchJournalRows('dream_journals');
   },
 
   async fetchKnowledgeGraph() {
@@ -445,6 +555,32 @@ const MindVaultSupabase = {
             console.log('⚡ [Realtime] Diaries table updated:', payload);
             await MindVaultSupabase.fetchDiaries();
             if (onUpdateCallback) onUpdateCallback('diaries', payload);
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'daily_journals' },
+          async (payload) => {
+            MindVaultData.dailyJournals = await MindVaultSupabase.fetchDailyJournals();
+            if (onUpdateCallback) onUpdateCallback('daily_journals', payload);
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'dream_journals' },
+          async (payload) => {
+            MindVaultData.dreamJournals = (await MindVaultSupabase.fetchDreamJournals()) || [];
+            if (onUpdateCallback) onUpdateCallback('dream_journals', payload);
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'user_profiles' },
+          async (payload) => {
+            const row = payload.new || {};
+            if (Array.isArray(row.topic_starters)) localStorage.setItem('MINDVAULT_LOCAL_TOPIC_STARTERS', JSON.stringify(row.topic_starters));
+            if (Array.isArray(row.topic_reflections)) localStorage.setItem('MINDVAULT_LOCAL_TOPIC_REFLECTIONS', JSON.stringify(row.topic_reflections));
+            if (onUpdateCallback) onUpdateCallback('user_profiles', payload);
           }
         )
         .subscribe((status) => {

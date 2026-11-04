@@ -26,32 +26,57 @@ const MindVaultApp = {
           if (profile.quote) MindVaultData.user.quote = profile.quote;
           if (profile.avatar) MindVaultData.user.avatar = profile.avatar;
         }
+        if (profile && profile.topicStarters && profile.topicReflections) {
+          localStorage.setItem('MINDVAULT_LOCAL_TOPIC_STARTERS', JSON.stringify(profile.topicStarters));
+          localStorage.setItem('MINDVAULT_LOCAL_TOPIC_REFLECTIONS', JSON.stringify(profile.topicReflections));
+        } else if (MindVaultSupabase.isConfigured && localStorage.getItem('MINDVAULT_LOCAL_TOPIC_STARTERS') !== null) {
+          // Cloud has no topics yet: upload this device's list
+          const { starters, reflections } = this.getLiveTopicsContext();
+          await MindVaultSupabase.saveTopics(starters, reflections);
+        }
         await MindVaultSupabase.fetchGeminiKey();
       } catch (e) {}
 
       MindVaultData.friends = await MindVaultSupabase.fetchFriends();
       MindVaultData.diaries = await MindVaultSupabase.fetchDiaries();
+      MindVaultData.dailyJournals = await MindVaultSupabase.fetchDailyJournals();
+      const dreams = await MindVaultSupabase.fetchDreamJournals();
+      if (dreams && dreams.length > 0) MindVaultData.dreamJournals = dreams;
       MindVaultData.reminders = await MindVaultSupabase.fetchReminders();
       MindVaultData.todaysTopics = await MindVaultSupabase.fetchTopics();
       MindVaultData.knowledgeGraph = await MindVaultSupabase.fetchKnowledgeGraph();
 
-      // Subscribe to Realtime Cloud DB updates across all tabs & devices
-      MindVaultSupabase.subscribeRealtime((type, payload) => {
-        if (type === 'friends') {
-          this.renderFriendsGrid();
-          this.populateDiaryFriendOptions();
-          this.updateFriendsCountBadge();
-          this.renderDashboard();
-          if (this.activeView === 'graph') this.renderKnowledgeGraph();
-          if (this.activeView === 'profile' && this.selectedFriendId) this.renderFriendProfile(this.selectedFriendId);
-        } else if (type === 'diaries') {
-          this.renderDiariesList();
-          this.renderDashboard();
-        }
-      });
+      // Subscribe to Realtime Cloud DB updates across all tabs & devices (once, even if init re-runs)
+      if (!this.realtimeSubscribed) {
+        this.realtimeSubscribed = true;
+        MindVaultSupabase.subscribeRealtime((type, payload) => {
+          if (type === 'friends') {
+            this.renderFriendsGrid();
+            this.populateDiaryFriendOptions();
+            this.updateFriendsCountBadge();
+            this.renderDashboard();
+            if (this.activeView === 'graph') this.renderKnowledgeGraph();
+            if (this.activeView === 'profile' && this.selectedFriendId) this.renderFriendProfile(this.selectedFriendId);
+          } else if (type === 'diaries') {
+            this.renderDiariesList();
+            this.renderDashboard();
+          } else if (type === 'daily_journals') {
+            this.renderDailyJournalsList();
+            this.renderDashboard();
+          } else if (type === 'dream_journals') {
+            this.renderDreamJournalsList();
+          } else if (type === 'user_profiles') {
+            this.renderTopicsPage();
+          }
+        });
+      }
     }
 
     await this.checkAuthSession();
+    this.renderAfterSync();
+  },
+
+  renderAfterSync() {
     this.getDreamJournals();
     this.renderDashboard();
     this.renderFriendsGrid();
@@ -2267,6 +2292,7 @@ const MindVaultApp = {
         this.showToast('Renungan hubungan baru tersimpan ke RAG Database.', 'success');
       }
     }
+    MindVaultSupabase.saveTopics(starters, reflections);
 
     const modal = document.getElementById('modal-add-topic');
     if (modal) modal.classList.remove('active');
@@ -2277,9 +2303,9 @@ const MindVaultApp = {
   },
 
   deleteTopicStarter(idx) {
-    const { starters } = this.getLiveTopicsContext();
+    const { starters, reflections } = this.getLiveTopicsContext();
     starters.splice(idx, 1);
-    localStorage.setItem('MINDVAULT_LOCAL_TOPIC_STARTERS', JSON.stringify(starters));
+    MindVaultSupabase.saveTopics(starters, reflections);
     MindVaultData.todaysTopics = starters;
     this.showToast('Pemantik obrolan berhasil dihapus.', 'info');
     this.renderTopicsPage();
@@ -2287,9 +2313,9 @@ const MindVaultApp = {
   },
 
   deleteTopicReflection(idx) {
-    const { reflections } = this.getLiveTopicsContext();
+    const { starters, reflections } = this.getLiveTopicsContext();
     reflections.splice(idx, 1);
-    localStorage.setItem('MINDVAULT_LOCAL_TOPIC_REFLECTIONS', JSON.stringify(reflections));
+    MindVaultSupabase.saveTopics(starters, reflections);
     MindVaultData.todaysThoughts = reflections;
     this.showToast('Renungan hubungan berhasil dihapus.', 'info');
     this.renderTopicsPage();
@@ -2549,6 +2575,7 @@ const MindVaultApp = {
       onConfirm: () => {
         MindVaultData.dailyJournals = (MindVaultData.dailyJournals || []).filter(j => String(j.id) !== String(journalId));
         localStorage.setItem('MINDVAULT_LOCAL_DAILY_JOURNALS', JSON.stringify(MindVaultData.dailyJournals));
+        MindVaultSupabase.deleteJournalRow('daily_journals', journalId);
 
         this.showToast('Jurnal harian berhasil dihapus.', 'info');
         this.renderDailyJournalsList();
@@ -2581,6 +2608,7 @@ const MindVaultApp = {
     if (!MindVaultData.dailyJournals) MindVaultData.dailyJournals = [];
     MindVaultData.dailyJournals.unshift(newJournal);
     localStorage.setItem('MINDVAULT_LOCAL_DAILY_JOURNALS', JSON.stringify(MindVaultData.dailyJournals));
+    await MindVaultSupabase.upsertJournalRow('daily_journals', newJournal);
 
     this.showToast('Jurnal Harian berhasil disimpan.', 'success');
     document.getElementById('modal-add-daily-journal')?.classList.remove('active');
@@ -2739,6 +2767,7 @@ const MindVaultApp = {
 
     dreams.unshift(newDream);
     localStorage.setItem('MINDVAULT_DREAM_JOURNALS', JSON.stringify(dreams));
+    MindVaultSupabase.upsertJournalRow('dream_journals', newDream);
     this.showToast('Cerita mimpi berhasil disimpan.', 'success');
     document.getElementById('modal-add-dream-journal')?.classList.remove('active');
 
@@ -2777,6 +2806,7 @@ const MindVaultApp = {
     };
 
     localStorage.setItem('MINDVAULT_DREAM_JOURNALS', JSON.stringify(dreams));
+    MindVaultSupabase.upsertJournalRow('dream_journals', dreams[idx]);
     this.showToast(`Cerita mimpi "${title}" berhasil diperbarui.`, 'success');
     document.getElementById('modal-add-dream-journal')?.classList.remove('active');
 
@@ -2796,6 +2826,7 @@ const MindVaultApp = {
         dreams = dreams.filter(d => String(d.id) !== String(dreamId));
         MindVaultData.dreamJournals = dreams;
         localStorage.setItem('MINDVAULT_DREAM_JOURNALS', JSON.stringify(dreams));
+        MindVaultSupabase.deleteJournalRow('dream_journals', dreamId);
 
         this.showToast('Catatan cerita mimpi berhasil dihapus.', 'info');
         this.renderDreamJournalsList();

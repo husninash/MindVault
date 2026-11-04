@@ -81,6 +81,35 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 8. DAILY JOURNALS TABLE (id is generated client-side so every device shares it)
+CREATE TABLE IF NOT EXISTS daily_journals (
+  id BIGINT PRIMARY KEY,
+  title TEXT NOT NULL,
+  date DATE NOT NULL,
+  mood TEXT,
+  content TEXT NOT NULL,
+  gratitude TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 9. DREAM JOURNALS TABLE (id is generated client-side so every device shares it)
+CREATE TABLE IF NOT EXISTS dream_journals (
+  id BIGINT PRIMARY KEY,
+  title TEXT NOT NULL,
+  date DATE NOT NULL,
+  type TEXT,
+  characters TEXT,
+  content TEXT NOT NULL,
+  reflection TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- MIGRATIONS for databases created from an older version of this file (safe to re-run)
+ALTER TABLE friends ADD COLUMN IF NOT EXISTS milestones JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS gemini_key TEXT;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS topic_starters JSONB;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS topic_reflections JSONB;
+
 -- Enable Row Level Security (RLS) & Full CRUD Policies
 ALTER TABLE friends ENABLE ROW LEVEL SECURITY;
 ALTER TABLE diaries ENABLE ROW LEVEL SECURITY;
@@ -89,9 +118,28 @@ ALTER TABLE todays_topics ENABLE ROW LEVEL SECURITY;
 ALTER TABLE knowledge_nodes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE knowledge_edges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_journals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE dream_journals ENABLE ROW LEVEL SECURITY;
 
 -- User Profiles CRUD Policies
 CREATE POLICY "Allow public all access on user_profiles" ON user_profiles FOR ALL USING (true) WITH CHECK (true);
+
+-- Journal CRUD Policies
+DROP POLICY IF EXISTS "Allow public all access on daily_journals" ON daily_journals;
+CREATE POLICY "Allow public all access on daily_journals" ON daily_journals FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public all access on dream_journals" ON dream_journals;
+CREATE POLICY "Allow public all access on dream_journals" ON dream_journals FOR ALL USING (true) WITH CHECK (true);
+
+-- Realtime: broadcast changes on synced tables to every open tab/device
+DO $$
+DECLARE t TEXT;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['friends', 'diaries', 'user_profiles', 'daily_journals', 'dream_journals'] LOOP
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = t) THEN
+      EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE %I', t);
+    END IF;
+  END LOOP;
+END $$;
 
 -- Friends CRUD Policies
 CREATE POLICY "Allow public read access on friends" ON friends FOR SELECT USING (true);
