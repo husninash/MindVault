@@ -55,7 +55,9 @@ const MindVaultSupabase = {
     const result = await this.client.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName } }
+      // Send the confirmation link back to the site the user signed up on
+      // (must also be listed under Authentication > URL Configuration > Redirect URLs)
+      options: { data: { full_name: fullName }, emailRedirectTo: window.location.origin }
     });
     // No session yet when the project requires email confirmation
     this.userId = result.data?.session?.user?.id || null;
