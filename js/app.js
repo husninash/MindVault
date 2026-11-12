@@ -137,8 +137,17 @@ const MindVaultApp = {
       this.hideAuthScreen();
     } else if (localSession) {
       try {
-        // Offline/demo sessions live only in this browser, so they never get admin rights
+        // Offline/demo sessions live only in this browser, so they never get admin rights.
+        // While Supabase is available, only an explicit demo session skips the login screen;
+        // leftovers from older versions are discarded.
         this.currentUser = JSON.parse(localSession);
+        const cloud = typeof MindVaultSupabase !== 'undefined' && MindVaultSupabase.isConfigured;
+        if (cloud && !this.currentUser.demo) {
+          localStorage.removeItem('MINDVAULT_AUTH_SESSION');
+          this.currentUser = null;
+          this.showAuthScreen();
+          return;
+        }
         this.currentUser.role = 'user';
         this.currentUser.canAdmin = false;
         delete this.currentUser.password;
@@ -370,6 +379,7 @@ const MindVaultApp = {
       email: MindVaultData.user.email,
       role: 'user',
       canAdmin: false,
+      demo: true,
       avatar: MindVaultData.user.avatar
     };
     localStorage.setItem('MINDVAULT_AUTH_SESSION', JSON.stringify(this.currentUser));
