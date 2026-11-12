@@ -1,6 +1,11 @@
 [build]
   publish = "."
 
+[build.environment]
+  # The Supabase URL and anon key are public by design (data is protected by RLS),
+  # so they are allowed to appear in the shipped JS.
+  SECRETS_SCAN_OMIT_KEYS = "SUPABASE_ANON_KEY,SUPABASE_URL"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
