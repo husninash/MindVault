@@ -79,7 +79,7 @@ const MindVaultSupabase = {
       // Don't leave this account's cached cloud data for the next person on this browser
       ['MINDVAULT_LOCAL_FRIENDS', 'MINDVAULT_LOCAL_DIARIES', 'MINDVAULT_LOCAL_REMINDERS', 'MINDVAULT_LOCAL_DAILY_JOURNALS',
         'MINDVAULT_DREAM_JOURNALS', 'MINDVAULT_LOCAL_TOPIC_STARTERS', 'MINDVAULT_LOCAL_TOPIC_REFLECTIONS',
-        'MINDVAULT_USER_PROFILE', 'MINDVAULT_GEMINI_KEY'].forEach(k => localStorage.removeItem(k));
+        'MINDVAULT_USER_PROFILE', 'MINDVAULT_GEMINI_KEY', 'MINDVAULT_NEWS_TOPICS'].forEach(k => localStorage.removeItem(k));
     }
     this.userId = null;
     if (this.realtimeChannel) {

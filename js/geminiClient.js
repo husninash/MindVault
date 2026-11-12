@@ -54,6 +54,66 @@ const MindVaultGemini = {
     }
   },
 
+  // Conversation topics grounded in today's news via Gemini's Google Search tool.
+  // Returns { topics: [{ headline, topic, friend, why }], sources: [{ title, uri }], searchEntryHtml }
+  // or { error: true, message }.
+  async fetchNewsTopics(friends) {
+    const apiKey = this.getApiKey();
+    if (!apiKey) return { error: true, message: 'Gemini API key belum diatur. Isi di menu Settings.' };
+
+    const today = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const interests = (friends || []).slice(0, 12).map(f => {
+      const likes = [...(f.likes || []), ...(f.favorites?.hobby ? [f.favorites.hobby] : [])].slice(0, 6).join(', ');
+      return `- ${f.name}: ${likes || f.bio || 'minat belum dicatat'}`;
+    }).join('\n');
+
+    const prompt = `Hari ini ${today}. Cari berita terbaru (maksimal 3 hari terakhir) dengan Google Search, utamakan Indonesia lalu dunia.
+${interests ? `Pilih berita yang nyambung dengan minat teman-teman berikut:\n${interests}\n` : 'Pilih berita umum yang enak dijadikan bahan obrolan santai.\n'}
+Buat 4 topik obrolan. Balas HANYA dengan JSON array tanpa teks lain, format:
+[{"headline": "judul berita singkat", "topic": "kalimat pembuka obrolan dalam Bahasa Indonesia santai", "friend": "nama teman yang cocok atau null", "why": "alasan singkat kenapa relevan"}]`;
+
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          tools: [{ google_search: {} }]
+        })
+      });
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        return { error: true, message: errJson.error?.message || `HTTP ${response.status}` };
+      }
+
+      const data = await response.json();
+      const candidate = data.candidates?.[0] || {};
+      const text = (candidate.content?.parts || []).map(p => p.text || '').join('');
+      // Search grounding can't be combined with JSON mode, so pull the array out of the text
+      const match = text.match(/\[[\s\S]*\]/);
+      let topics = [];
+      try {
+        topics = match ? JSON.parse(match[0]) : [];
+      } catch (e) {
+        topics = [];
+      }
+      topics = (Array.isArray(topics) ? topics : []).filter(t => t && t.topic).slice(0, 4);
+      if (topics.length === 0) return { error: true, message: 'AI tidak mengembalikan topik. Coba lagi.' };
+
+      const meta = candidate.groundingMetadata || {};
+      const seen = new Set();
+      const sources = (meta.groundingChunks || [])
+        .map(c => c.web)
+        .filter(w => w && w.uri && !seen.has(w.uri) && seen.add(w.uri))
+        .slice(0, 6)
+        .map(w => ({ title: w.title || w.uri, uri: w.uri }));
+
+      return { topics, sources, searchEntryHtml: meta.searchEntryPoint?.renderedContent || '' };
+    } catch (err) {
+      return { error: true, message: err.message || 'Gagal menghubungi Gemini API.' };
+    }
+  },
+
   // Deep Relationship Intelligence Assistant Prompt with Full RAG Database
   async chatWithAssistant(userQuery, friendsData, diariesData, dailyJournalsData, activeFriendId, liveTopicsData) {
     const friendsContext = (friendsData || []).map(f => `

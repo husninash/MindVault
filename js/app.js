@@ -82,6 +82,87 @@ const MindVaultApp = {
     }
   },
 
+  escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  },
+
+  // News-grounded topics are cached per day so the dashboard doesn't call Gemini on every render
+  getNewsTopicsCache() {
+    try {
+      const cache = JSON.parse(localStorage.getItem('MINDVAULT_NEWS_TOPICS') || 'null');
+      return cache && cache.date === new Date().toISOString().split('T')[0] ? cache : null;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  async refreshNewsTopics(force) {
+    if (this.newsTopicsLoading) return;
+    if (!force && (this.getNewsTopicsCache() || this.newsTopicsError)) return;
+    if (!MindVaultGemini.getApiKey()) {
+      if (force) this.showToast('Isi Gemini API key di Settings dulu.', 'warning');
+      return;
+    }
+
+    this.newsTopicsLoading = true;
+    this.newsTopicsError = '';
+    this.renderNewsTopics();
+    const result = await MindVaultGemini.fetchNewsTopics(MindVaultData.friends);
+    this.newsTopicsLoading = false;
+
+    if (result.error) {
+      this.newsTopicsError = result.message;
+    } else {
+      localStorage.setItem('MINDVAULT_NEWS_TOPICS', JSON.stringify({ date: new Date().toISOString().split('T')[0], ...result }));
+    }
+    this.renderNewsTopics();
+  },
+
+  renderNewsTopics() {
+    const container = document.getElementById('dash-topics-list');
+    if (!container) return;
+    const esc = s => this.escapeHtml(s);
+    const btn = document.getElementById('dash-topics-refresh');
+    if (btn) {
+      btn.disabled = !!this.newsTopicsLoading;
+      btn.innerHTML = this.newsTopicsLoading
+        ? '<i class="fa-solid fa-spinner fa-spin"></i> Mencari...'
+        : '<i class="fa-solid fa-rotate"></i> Perbarui';
+    }
+
+    let html = '';
+    const cache = this.getNewsTopicsCache();
+    if (this.newsTopicsLoading && !cache) {
+      html = '<p class="empty-note">Mencari berita terbaru untuk bahan obrolan...</p>';
+    } else if (cache) {
+      html = `<ol class="news-topics">${cache.topics.map(t => `
+        <li class="news-topic">
+          <p class="news-topic-text">${esc(t.topic)}</p>
+          <p class="news-topic-meta">${esc(t.headline || '')}${t.friend && t.friend !== 'null' ? ` · cocok untuk <strong>${esc(t.friend)}</strong>` : ''}</p>
+        </li>`).join('')}</ol>`;
+      if (cache.sources && cache.sources.length) {
+        html += `<div class="news-sources"><span>Sumber</span>${cache.sources.map(s =>
+          `<a href="${esc(s.uri)}" target="_blank" rel="noopener noreferrer">${esc(s.title)}</a>`).join('')}</div>`;
+      }
+      if (cache.searchEntryHtml) html += '<div class="news-search-entry"></div>';
+    } else if (!MindVaultGemini.getApiKey()) {
+      html = '<p class="empty-note">Isi <strong>Gemini API key</strong> di Settings supaya topik obrolan diambil dari berita terbaru.</p>';
+    } else if (this.newsTopicsError) {
+      html = `<p class="empty-note">Gagal mengambil berita: ${esc(this.newsTopicsError)}</p>`;
+    }
+
+    const { starters } = this.getLiveTopicsContext();
+    if (starters.length) {
+      html += `<p class="subsection-label">Topik simpananmu</p><ul class="saved-topics">${starters.slice(0, 3).map(s => `<li>${esc(s)}</li>`).join('')}</ul>`;
+    }
+    container.innerHTML = html || '<p class="empty-note">Belum ada topik hari ini.</p>';
+
+    // Google requires showing the search suggestions that came with grounded results;
+    // a shadow root keeps their bundled styles from leaking into the page.
+    const entry = container.querySelector('.news-search-entry');
+    if (entry && cache) entry.attachShadow({ mode: 'open' }).innerHTML = cache.searchEntryHtml;
+  },
+
   renderAfterSync() {
     this.getDreamJournals();
     this.renderDashboard();
@@ -227,10 +308,7 @@ const MindVaultApp = {
     if (settingEmailInput) settingEmailInput.value = this.currentUser.email || '';
 
     // Update dashboard hero greeting
-    const greetingHeading = document.getElementById('dash-greeting-heading');
-    if (greetingHeading) {
-      greetingHeading.innerHTML = `Good morning, ${this.currentUser.name || 'User'}!`;
-    }
+    this.renderDashboardHeader();
   },
 
   applyRolePermissions() {
@@ -1014,6 +1092,8 @@ const MindVaultApp = {
     }
     this.showToast('API Key saved & synced.', 'success');
     this.testAIKeyConnection();
+    this.newsTopicsError = '';
+    this.refreshNewsTopics(false);
   },
 
   updateSupabaseStatusUI() {
@@ -1226,12 +1306,52 @@ const MindVaultApp = {
     });
   },
 
-  renderDashboard() {
-    const greetingHeading = document.getElementById('dash-greeting-heading');
-    if (greetingHeading) {
-      const userName = this.currentUser ? (this.currentUser.name || 'User') : 'Friend';
-      greetingHeading.innerHTML = `Good morning, ${userName}!`;
+  greetingForNow() {
+    const hour = new Date().getHours();
+    if (hour < 11) return 'Selamat pagi';
+    if (hour < 15) return 'Selamat siang';
+    if (hour < 18) return 'Selamat sore';
+    return 'Selamat malam';
+  },
+
+  renderDashboardHeader() {
+    const esc = s => this.escapeHtml(s);
+    const name = this.currentUser?.name;
+    const heading = document.getElementById('dash-greeting-heading');
+    if (heading) heading.textContent = name ? `${this.greetingForNow()}, ${name}` : this.greetingForNow();
+
+    const dateEl = document.getElementById('dash-date');
+    if (dateEl) dateEl.textContent = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+    const friends = MindVaultData.friends || [];
+    const upcoming = this.getSmartReminders().filter(r => r.diffDays <= 30);
+    const summary = document.getElementById('dash-summary');
+    if (summary) {
+      if (friends.length === 0) {
+        summary.innerHTML = 'Belum ada teman yang dicatat. <a href="#" onclick="MindVaultApp.openAddFriendModal(); return false;">Tambahkan teman pertamamu</a> untuk mulai.';
+      } else if (upcoming.length) {
+        const next = upcoming[0];
+        const when = next.diffDays === 0 ? 'hari ini' : next.diffDays === 1 ? 'besok' : `${next.diffDays} hari lagi`;
+        summary.innerHTML = `Berikutnya: <strong>${esc(next.title)}</strong>, ${when}.`;
+      } else {
+        summary.textContent = `Kamu mencatat ${friends.length} teman. Tidak ada acara dalam 30 hari ke depan.`;
+      }
     }
+
+    const upcomingEl = document.getElementById('dash-upcoming');
+    if (upcomingEl) {
+      upcomingEl.innerHTML = upcoming.length
+        ? `<ul class="upcoming-list">${upcoming.slice(0, 4).map(r => `
+            <li>
+              <span class="upcoming-when">${esc(r.diffDays === 0 ? 'Hari ini' : r.diffDays === 1 ? 'Besok' : `${r.diffDays} hari`)}</span>
+              <span class="upcoming-what">${esc(r.title)}</span>
+            </li>`).join('')}</ul>`
+        : '<p class="empty-note">Tidak ada ulang tahun atau momen spesial dalam 30 hari ke depan.</p>';
+    }
+  },
+
+  renderDashboard() {
+    this.renderDashboardHeader();
 
     this.recalculateAllFriendScores();
 
@@ -1278,7 +1398,7 @@ const MindVaultApp = {
     const aiInsightsEl = document.getElementById('dash-ai-insights');
     if (aiInsightsEl) {
       const { starters } = this.getLiveTopicsContext();
-      const insightsCount = (starters ? starters.length : 0) + (totalDiaries > 0 ? 2 : 0);
+      const insightsCount = starters ? starters.length : 0;
       aiInsightsEl.innerText = `${insightsCount}`;
     }
 
@@ -1291,8 +1411,8 @@ const MindVaultApp = {
     if (gaugeScoreEl) gaugeScoreEl.innerText = hasRelationshipData ? healthScore : '–';
 
     let gaugeLabel = 'EXCELLENT';
-    let gaugeColor = '#EC4899';
-    let gaugeBg = '#FDF2F8';
+    let gaugeColor = '#B14F69';
+    let gaugeBg = '#F3E4E8';
     let gaugeDesc = 'Hubungan sangat harmonis & interaksi berjalan positif bulan ini.';
 
     if (!hasRelationshipData) {
@@ -1302,23 +1422,23 @@ const MindVaultApp = {
       gaugeDesc = 'Tambahkan teman atau tulis catatan pertama untuk mulai melihat skor hubunganmu.';
     } else if (healthScore >= 80) {
       gaugeLabel = 'EXCELLENT';
-      gaugeColor = '#EC4899';
-      gaugeBg = '#FDF2F8';
+      gaugeColor = '#B14F69';
+      gaugeBg = '#F3E4E8';
       gaugeDesc = 'Hubungan harmonis dan interaksi berjalan sangat positif.';
     } else if (healthScore >= 65) {
       gaugeLabel = 'GOOD';
-      gaugeColor = '#8B5CF6';
-      gaugeBg = '#F3E8FF';
+      gaugeColor = '#6E5D80';
+      gaugeBg = '#EEE9F2';
       gaugeDesc = 'Koneksi stabil dan komunikasi terjalin secara aktif.';
     } else if (healthScore >= 45) {
       gaugeLabel = 'COOLING DOWN';
-      gaugeColor = '#F59E0B';
-      gaugeBg = '#FEF3C7';
+      gaugeColor = '#B7791F';
+      gaugeBg = '#F7EEDC';
       gaugeDesc = 'Ada sedikit ketegangan atau interaksi mulai renggang.';
     } else {
       gaugeLabel = 'IN CONFLICT';
-      gaugeColor = '#EF4444';
-      gaugeBg = '#FEE2E2';
+      gaugeColor = '#B42318';
+      gaugeBg = '#F8E4E1';
       gaugeDesc = 'Terdeteksi konflik / ketegangan emosional dari catatan terbaru.';
     }
 
@@ -1337,39 +1457,25 @@ const MindVaultApp = {
       gaugeCircleEl.style.boxShadow = `0 8px 24px ${gaugeColor}33`;
     }
 
-    // Today's topics list
-    const topicsContainer = document.getElementById('dash-topics-list');
-    if (topicsContainer) {
-      const { starters } = this.getLiveTopicsContext();
-      if (!starters || starters.length === 0) {
-        topicsContainer.innerHTML = '<p style="font-size: 13px; color: var(--text-muted); padding: 8px;">Belum ada topik hari ini.</p>';
-      } else {
-        topicsContainer.innerHTML = starters.slice(0, 3).map(topic => `
-          <div style="padding: 12px 14px; background: rgba(255,255,255,0.7); border-radius: 12px; margin-bottom: 8px; border: 1px solid rgba(248,187,217,0.3); display: flex; align-items: center; justify-content: space-between;">
-            <span style="font-size: 13px; font-weight: 600; color: var(--text-dark);">"${topic}"</span>
-            <span style="font-size: 10px; font-weight: 700; background: var(--secondary); color: var(--accent-hover); padding: 4px 10px; border-radius: 10px;">RAG Active</span>
-          </div>
-        `).join('');
-      }
-    }
+    // Today's topics: grounded in the latest news, plus the user's own saved starters
+    this.renderNewsTopics();
+    this.refreshNewsTopics(false);
 
     // Recent Diary Logs
     const dashDiaryContainer = document.getElementById('dash-recent-diaries');
     if (dashDiaryContainer) {
       if (!MindVaultData.diaries || MindVaultData.diaries.length === 0) {
-        dashDiaryContainer.innerHTML = '<p style="font-size: 13px; color: var(--text-muted); padding: 8px;">Belum ada jurnal percakapan.</p>';
+        dashDiaryContainer.innerHTML = '<p class="empty-note">Belum ada catatan. Setelah ngobrol dengan teman, klik <strong>Log Memory</strong> untuk mencatatnya.</p>';
       } else {
-        dashDiaryContainer.innerHTML = MindVaultData.diaries.slice(0, 2).map(diary => `
-          <div style="background: white; border-radius: 16px; padding: 16px; margin-bottom: 12px; border: 1px solid var(--card-border); box-shadow: 0 4px 12px rgba(248,187,217,0.1);">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-              <strong style="font-size: 14px; color: var(--text-dark);">${diary.title}</strong>
-              <span style="font-size: 11px; color: var(--text-muted);">${diary.date}</span>
+        const esc = v => this.escapeHtml(v);
+        dashDiaryContainer.innerHTML = MindVaultData.diaries.slice(0, 3).map(diary => `
+          <article class="memory-item">
+            <div class="memory-head">
+              <strong>${esc(diary.title)}</strong>
+              <span>${esc(diary.friendName || '')}${diary.friendName ? ' · ' : ''}${esc(diary.date)}</span>
             </div>
-            <p style="font-size: 12px; color: var(--text-medium); margin-bottom: 10px;">${diary.content}</p>
-            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-              ${(diary.tags || []).map(t => `<span class="tag-chip">#${t}</span>`).join('')}
-            </div>
-          </div>
+            <p>${esc(diary.content)}</p>
+          </article>
         `).join('');
       }
     }
@@ -1996,6 +2102,10 @@ const MindVaultApp = {
   // Meeting Prep Modal
   openPrepModal(friendId) {
     const friend = MindVaultData.friends.find(f => f.id === friendId) || MindVaultData.friends[0];
+    if (!friend) {
+      this.showToast('Tambahkan teman dulu di Friends Directory.', 'info');
+      return;
+    }
     const modal = document.getElementById('modal-meeting-prep');
     
     document.getElementById('prep-friend-name').innerText = friend.name;
@@ -2011,6 +2121,10 @@ const MindVaultApp = {
   // Conversation Simulator trigger
   openSimulatorModal(friendId) {
     const friend = MindVaultData.friends.find(f => f.id === friendId) || MindVaultData.friends[0];
+    if (!friend) {
+      this.showToast('Tambahkan teman dulu di Friends Directory.', 'info');
+      return;
+    }
     const modal = document.getElementById('modal-sim-chat');
     
     document.getElementById('sim-friend-name').innerText = friend.name;
