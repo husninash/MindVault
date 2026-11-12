@@ -181,12 +181,12 @@ Ketik pertanyaan Anda tentang relasi dan memori pertemanan.`;
 
     // 2. Check if user is asking about topics / starters / reflections
     if (/topik|topic|starter|pemantik|renungan|thought|ide obrolan|bahan ngobrol/i.test(query)) {
-      const starters = (liveTopicsData && liveTopicsData.starters && liveTopicsData.starters.length > 0)
-        ? liveTopicsData.starters
-        : ["Ask Sophia about Mochi's Friday vet checkup", "Congratulate Liam on his 45km marathon training run"];
-      const reflections = (liveTopicsData && liveTopicsData.reflections && liveTopicsData.reflections.length > 0)
-        ? liveTopicsData.reflections
-        : ["Great relationships aren't built on grand gestures, but on remembering the small details that matter."];
+      const starters = (liveTopicsData && liveTopicsData.starters) || [];
+      const reflections = (liveTopicsData && liveTopicsData.reflections) || [];
+
+      if (starters.length === 0 && reflections.length === 0) {
+        return `Belum ada topik atau renungan yang tersimpan. Buka menu **Today's Topics** dan klik **+ Tambah Topik / Renungan** untuk menambahkan yang pertama.`;
+      }
 
       return `**Today's Topics & RAG Insights**
 

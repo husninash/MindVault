@@ -1262,13 +1262,12 @@ const MindVaultApp = {
       } else {
         healthScore = 75;
       }
-    } else {
-      healthScore = 85;
     }
+    const hasRelationshipData = friendsCount > 0 || totalDiaries > 0;
 
     // Update Top Stat Widgets
     const scoreVal = document.getElementById('dash-health-score');
-    if (scoreVal) scoreVal.innerText = `${healthScore}%`;
+    if (scoreVal) scoreVal.innerText = hasRelationshipData ? `${healthScore}%` : '–';
 
     const activeFriendsEl = document.getElementById('dash-active-friends');
     if (activeFriendsEl) activeFriendsEl.innerText = `${friendsCount}`;
@@ -1289,14 +1288,19 @@ const MindVaultApp = {
     const gaugeDescEl = document.getElementById('dash-gauge-desc');
     const gaugeCircleEl = document.getElementById('dash-gauge-circle');
 
-    if (gaugeScoreEl) gaugeScoreEl.innerText = healthScore;
+    if (gaugeScoreEl) gaugeScoreEl.innerText = hasRelationshipData ? healthScore : '–';
 
     let gaugeLabel = 'EXCELLENT';
     let gaugeColor = '#EC4899';
     let gaugeBg = '#FDF2F8';
     let gaugeDesc = 'Hubungan sangat harmonis & interaksi berjalan positif bulan ini.';
 
-    if (healthScore >= 80) {
+    if (!hasRelationshipData) {
+      gaugeLabel = 'BELUM ADA DATA';
+      gaugeColor = '#9CA3AF';
+      gaugeBg = '#F3F4F6';
+      gaugeDesc = 'Tambahkan teman atau tulis catatan pertama untuk mulai melihat skor hubunganmu.';
+    } else if (healthScore >= 80) {
       gaugeLabel = 'EXCELLENT';
       gaugeColor = '#EC4899';
       gaugeBg = '#FDF2F8';
@@ -2012,7 +2016,7 @@ const MindVaultApp = {
     document.getElementById('sim-friend-name').innerText = friend.name;
     document.getElementById('sim-chat-log').innerHTML = `
       <div class="chat-bubble ai">
-        Hi Aria, great to catch up. How are things with you?
+        Hi ${(this.currentUser && this.currentUser.name) || 'there'}, great to catch up. How are things with you?
       </div>
     `;
 
@@ -2106,7 +2110,7 @@ const MindVaultApp = {
       const title = card.querySelector('h4')?.innerText.trim();
       const content = card.querySelector('p')?.innerText.trim();
       const friendSpan = card.querySelector('span')?.innerText;
-      let friendName = 'Ethan';
+      let friendName = 'Teman';
       if (friendSpan && friendSpan.includes('With')) {
         const match = friendSpan.match(/With\s+<strong>(.*?)<\/strong>|With\s+([^\s•]+)/);
         if (match) friendName = match[1] || match[2];
@@ -2130,13 +2134,8 @@ const MindVaultApp = {
   },
 
   getLiveTopicsContext() {
-    let starters = [
-      "Ask Sophia about Mochi's Friday vet checkup",
-      "Congratulate Liam on his 45km marathon training run"
-    ];
-    let reflections = [
-      "Great relationships aren't built on grand gestures, but on remembering the small details that matter."
-    ];
+    let starters = [];
+    let reflections = [];
 
     try {
       const storedS = localStorage.getItem('MINDVAULT_LOCAL_TOPIC_STARTERS');
@@ -2150,6 +2149,15 @@ const MindVaultApp = {
         if (Array.isArray(parsed)) reflections = parsed;
       }
     } catch (e) {}
+
+    // Drop sample entries that older versions saved as defaults
+    const samples = [
+      "Ask Sophia about Mochi's Friday vet checkup",
+      "Congratulate Liam on his 45km marathon training run",
+      "Great relationships aren't built on grand gestures, but on remembering the small details that matter."
+    ];
+    starters = starters.filter(s => !samples.includes(s));
+    reflections = reflections.filter(s => !samples.includes(s));
 
     return { starters, reflections };
   },
@@ -2708,21 +2716,14 @@ const MindVaultApp = {
         stored = JSON.parse(localStorage.getItem('MINDVAULT_DREAM_JOURNALS') || '[]');
       } catch (e) {}
 
-      if (stored.length === 0) {
-        stored = [
-          {
-            id: 1,
-            title: 'Terbang di Atas Kota Kaca & Bertemu Kucing Bicara',
-            date: new Date().toISOString().split('T')[0],
-            type: 'Lucid Dream (Sadar Bermimpi)',
-            characters: 'Ethan, Kucing Putih',
-            content: 'Saya bermimpi sedang berjalan di atas jembatan kaca raksasa melayang di atas awan. Di tengah jembatan ada kucing putih besar yang memberi petunjuk jalan...',
-            reflection: 'Bangun dengan perasaan takjub dan penasaran.'
-          }
-        ];
-        localStorage.setItem('MINDVAULT_DREAM_JOURNALS', JSON.stringify(stored));
-      }
       MindVaultData.dreamJournals = stored;
+    }
+    // Remove the sample dream that older versions seeded (and may have synced to the cloud)
+    const sample = MindVaultData.dreamJournals.find(d => String(d.id) === '1' && /Kota Kaca/.test(d.title || ''));
+    if (sample) {
+      MindVaultData.dreamJournals = MindVaultData.dreamJournals.filter(d => d !== sample);
+      localStorage.setItem('MINDVAULT_DREAM_JOURNALS', JSON.stringify(MindVaultData.dreamJournals));
+      MindVaultSupabase.deleteJournalRow('dream_journals', 1);
     }
     return MindVaultData.dreamJournals;
   },
