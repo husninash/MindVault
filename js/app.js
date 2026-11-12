@@ -15,9 +15,21 @@ const MindVaultApp = {
     this.bindModals();
     this.bindAIChat();
     
-    // Async fetch from Supabase if connected
     if (typeof MindVaultSupabase !== 'undefined') {
       MindVaultSupabase.init();
+      // Resolve the signed-in user first: cloud data is only readable by its owner
+      try {
+        await MindVaultSupabase.getSessionUser();
+      } catch (e) {}
+    }
+
+    await this.checkAuthSession();
+    await this.loadCloudData();
+    this.renderAfterSync();
+  },
+
+  async loadCloudData() {
+    if (typeof MindVaultSupabase !== 'undefined') {
       try {
         const profile = await MindVaultSupabase.fetchUserProfile();
         if (profile && profile.name) {
@@ -29,7 +41,7 @@ const MindVaultApp = {
         if (profile && profile.topicStarters && profile.topicReflections) {
           localStorage.setItem('MINDVAULT_LOCAL_TOPIC_STARTERS', JSON.stringify(profile.topicStarters));
           localStorage.setItem('MINDVAULT_LOCAL_TOPIC_REFLECTIONS', JSON.stringify(profile.topicReflections));
-        } else if (MindVaultSupabase.isConfigured && localStorage.getItem('MINDVAULT_LOCAL_TOPIC_STARTERS') !== null) {
+        } else if (MindVaultSupabase.canSync() && localStorage.getItem('MINDVAULT_LOCAL_TOPIC_STARTERS') !== null) {
           // Cloud has no topics yet: upload this device's list
           const { starters, reflections } = this.getLiveTopicsContext();
           await MindVaultSupabase.saveTopics(starters, reflections);
@@ -46,34 +58,28 @@ const MindVaultApp = {
       MindVaultData.todaysTopics = await MindVaultSupabase.fetchTopics();
       MindVaultData.knowledgeGraph = await MindVaultSupabase.fetchKnowledgeGraph();
 
-      // Subscribe to Realtime Cloud DB updates across all tabs & devices (once, even if init re-runs)
-      if (!this.realtimeSubscribed) {
-        this.realtimeSubscribed = true;
-        MindVaultSupabase.subscribeRealtime((type, payload) => {
-          if (type === 'friends') {
-            this.renderFriendsGrid();
-            this.populateDiaryFriendOptions();
-            this.updateFriendsCountBadge();
-            this.renderDashboard();
-            if (this.activeView === 'graph') this.renderKnowledgeGraph();
-            if (this.activeView === 'profile' && this.selectedFriendId) this.renderFriendProfile(this.selectedFriendId);
-          } else if (type === 'diaries') {
-            this.renderDiariesList();
-            this.renderDashboard();
-          } else if (type === 'daily_journals') {
-            this.renderDailyJournalsList();
-            this.renderDashboard();
-          } else if (type === 'dream_journals') {
-            this.renderDreamJournalsList();
-          } else if (type === 'user_profiles') {
-            this.renderTopicsPage();
-          }
-        });
-      }
+      // Subscribe to Realtime Cloud DB updates across all tabs & devices (the client subscribes only once)
+      MindVaultSupabase.subscribeRealtime((type, payload) => {
+        if (type === 'friends') {
+          this.renderFriendsGrid();
+          this.populateDiaryFriendOptions();
+          this.updateFriendsCountBadge();
+          this.renderDashboard();
+          if (this.activeView === 'graph') this.renderKnowledgeGraph();
+          if (this.activeView === 'profile' && this.selectedFriendId) this.renderFriendProfile(this.selectedFriendId);
+        } else if (type === 'diaries') {
+          this.renderDiariesList();
+          this.renderDashboard();
+        } else if (type === 'daily_journals') {
+          this.renderDailyJournalsList();
+          this.renderDashboard();
+        } else if (type === 'dream_journals') {
+          this.renderDreamJournalsList();
+        } else if (type === 'user_profiles') {
+          this.renderTopicsPage();
+        }
+      });
     }
-
-    await this.checkAuthSession();
-    this.renderAfterSync();
   },
 
   renderAfterSync() {
@@ -127,17 +133,15 @@ const MindVaultApp = {
     }
 
     if (supabaseUser) {
-      this.currentUser = {
-        name: supabaseUser.user_metadata?.full_name || supabaseUser.email.split('@')[0],
-        email: supabaseUser.email,
-        role: supabaseUser.user_metadata?.role || 'user',
-        avatar: MindVaultData.user.avatar
-      };
+      this.currentUser = this.userFromSupabase(supabaseUser);
       this.hideAuthScreen();
     } else if (localSession) {
       try {
+        // Offline/demo sessions live only in this browser, so they never get admin rights
         this.currentUser = JSON.parse(localSession);
-        if (!this.currentUser.role) this.currentUser.role = 'user';
+        this.currentUser.role = 'user';
+        this.currentUser.canAdmin = false;
+        delete this.currentUser.password;
         this.hideAuthScreen();
       } catch (e) {
         this.showAuthScreen();
@@ -145,6 +149,19 @@ const MindVaultApp = {
     } else {
       this.showAuthScreen();
     }
+  },
+
+  // Admin rights come from app_metadata, which only the Supabase dashboard / service role can set
+  userFromSupabase(user) {
+    const canAdmin = user.app_metadata?.role === 'admin';
+    return {
+      id: user.id,
+      name: user.user_metadata?.full_name || user.email.split('@')[0],
+      email: user.email,
+      role: canAdmin ? 'admin' : 'user',
+      canAdmin,
+      avatar: MindVaultData.user.avatar
+    };
   },
 
   showAuthScreen() {
@@ -246,23 +263,12 @@ const MindVaultApp = {
   },
 
   switchRole(newRole) {
-    if (!this.currentUser) {
-      this.currentUser = {
-        name: newRole === 'admin' ? 'System Administrator' : 'Aria Chen',
-        email: newRole === 'admin' ? 'admin@mindvault.ai' : 'aria@mindvault.ai',
-        role: newRole,
-        avatar: MindVaultData.user.avatar
-      };
-    } else {
-      this.currentUser.role = newRole;
-      if (newRole === 'admin') {
-        this.currentUser.name = 'System Administrator';
-        this.currentUser.email = 'admin@mindvault.ai';
-      } else {
-        this.currentUser.name = 'Aria Chen';
-        this.currentUser.email = 'aria@mindvault.ai';
-      }
+    if (!this.currentUser) return;
+    if (newRole === 'admin' && !this.currentUser.canAdmin) {
+      this.showToast('Akun ini tidak punya akses Admin.', 'warning');
+      return;
     }
+    this.currentUser.role = newRole;
     localStorage.setItem('MINDVAULT_AUTH_SESSION', JSON.stringify(this.currentUser));
     this.updateUserSidebar();
     this.applyRolePermissions();
@@ -310,113 +316,62 @@ const MindVaultApp = {
       return;
     }
 
-    // Check for hardcoded Admin Credentials: username "admincantik", password "husnicantik594$"
-    if (usernameInput === 'admincantik' || usernameInput === 'admincantik@mindvault.ai') {
-      if (passwordInput === 'husnicantik594$') {
-        this.currentUser = {
-          name: 'Admin Cantik',
-          email: 'admincantik@mindvault.ai',
-          username: 'admincantik',
-          role: 'admin',
-          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80'
-        };
-        localStorage.setItem('MINDVAULT_AUTH_SESSION', JSON.stringify(this.currentUser));
-        this.showToast('Logged in as Administrator (Admin Mode).', 'success');
-        this.hideAuthScreen();
-        this.switchView('admin');
-        return;
-      } else {
-        this.showToast('Invalid Admin Password! Please check your credentials.', 'error');
+    const cloud = typeof MindVaultSupabase !== 'undefined' && MindVaultSupabase.isConfigured;
+
+    if (cloud) {
+      if (!usernameInput.includes('@')) {
+        this.showToast('Gunakan alamat email untuk login.', 'warning');
         return;
       }
-    }
-
-    // Regular User Login / Registration Logic
-    if (this.authMode === 'register') {
-      if (typeof MindVaultSupabase !== 'undefined' && MindVaultSupabase.isConfigured) {
-        const { data, error } = await MindVaultSupabase.signUp(usernameInput, passwordInput, name || 'User');
-        if (error) {
-          this.showToast('Sign Up Error: ' + error.message, 'error');
-          return;
-        }
-        this.showToast('Account created successfully! Logged in.', 'success');
+      const { data, error } = this.authMode === 'register'
+        ? await MindVaultSupabase.signUp(usernameInput, passwordInput, name || 'User')
+        : await MindVaultSupabase.signIn(usernameInput, passwordInput);
+      if (error) {
+        this.showToast((this.authMode === 'register' ? 'Sign Up Error: ' : 'Login Failed: ') + error.message, 'error');
+        return;
       }
-
-      // Save user credential locally so admin can inspect
-      const newUser = {
+      if (!data.session) {
+        this.showToast('Akun dibuat. Cek email kamu untuk konfirmasi, lalu login.', 'info');
+        this.switchAuthTab('login');
+        return;
+      }
+      this.currentUser = this.userFromSupabase(data.user);
+    } else {
+      // Offline mode: profile is kept only in this browser and the password is never stored
+      this.currentUser = {
         name: name || usernameInput.split('@')[0],
         email: usernameInput.includes('@') ? usernameInput : `${usernameInput}@mindvault.ai`,
         username: usernameInput,
-        password: passwordInput,
         role: 'user',
+        canAdmin: false,
         avatar: MindVaultData.user.avatar
       };
-
-      let registered = [];
-      try {
-        registered = JSON.parse(localStorage.getItem('MINDVAULT_ALL_USERS') || '[]');
-      } catch (e) {}
-      registered.push(newUser);
-      localStorage.setItem('MINDVAULT_ALL_USERS', JSON.stringify(registered));
-
-      this.currentUser = newUser;
-    } else {
-      if (typeof MindVaultSupabase !== 'undefined' && MindVaultSupabase.isConfigured) {
-        const { data, error } = await MindVaultSupabase.signIn(usernameInput, passwordInput);
-        if (error) {
-          this.showToast('Login Failed: ' + error.message, 'error');
-          return;
-        }
-        const user = data.user;
-        this.currentUser = {
-          name: user.user_metadata?.full_name || usernameInput.split('@')[0],
-          email: user.email,
-          role: 'user',
-          avatar: MindVaultData.user.avatar
-        };
-      } else {
-        this.currentUser = {
-          name: usernameInput.split('@')[0],
-          email: usernameInput.includes('@') ? usernameInput : `${usernameInput}@mindvault.ai`,
-          username: usernameInput,
-          password: passwordInput,
-          role: 'user',
-          avatar: MindVaultData.user.avatar
-        };
-
-        // Save / update in registered users list
-        let registered = [];
-        try {
-          registered = JSON.parse(localStorage.getItem('MINDVAULT_ALL_USERS') || '[]');
-        } catch (e) {}
-        if (!registered.some(u => u.email === this.currentUser.email || u.username === usernameInput)) {
-          registered.push(this.currentUser);
-          localStorage.setItem('MINDVAULT_ALL_USERS', JSON.stringify(registered));
-        }
-      }
     }
+
+    let registered = [];
+    try {
+      registered = JSON.parse(localStorage.getItem('MINDVAULT_ALL_USERS') || '[]');
+    } catch (e) {}
+    registered = registered.filter(u => u.email !== this.currentUser.email);
+    registered.push({ name: this.currentUser.name, email: this.currentUser.email, role: this.currentUser.role, avatar: this.currentUser.avatar });
+    localStorage.setItem('MINDVAULT_ALL_USERS', JSON.stringify(registered));
 
     localStorage.setItem('MINDVAULT_AUTH_SESSION', JSON.stringify(this.currentUser));
     this.showToast(`Welcome back, ${this.currentUser.name}!`, 'success');
     this.hideAuthScreen();
+    await this.loadCloudData();
+    this.renderAfterSync();
   },
 
-  demoLogin(role = 'user') {
-    if (role === 'admin') {
-      this.currentUser = {
-        name: 'System Administrator',
-        email: 'admin@mindvault.ai',
-        role: 'admin',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80'
-      };
-    } else {
-      this.currentUser = {
-        name: MindVaultData.user.name,
-        email: MindVaultData.user.email,
-        role: 'user',
-        avatar: MindVaultData.user.avatar
-      };
-    }
+  demoLogin() {
+    // Demo runs offline in this browser only; it never reaches cloud data or admin tools
+    this.currentUser = {
+      name: MindVaultData.user.name,
+      email: MindVaultData.user.email,
+      role: 'user',
+      canAdmin: false,
+      avatar: MindVaultData.user.avatar
+    };
     localStorage.setItem('MINDVAULT_AUTH_SESSION', JSON.stringify(this.currentUser));
     this.hideAuthScreen();
   },
@@ -473,6 +428,13 @@ const MindVaultApp = {
 
         localStorage.removeItem('MINDVAULT_AUTH_SESSION');
         this.currentUser = null;
+
+        // Drop the previous account's data from memory and the screen
+        MindVaultData.friends = [];
+        MindVaultData.diaries = [];
+        MindVaultData.dailyJournals = [];
+        MindVaultData.dreamJournals = null;
+        this.renderAfterSync();
 
         // Clear input fields
         if (document.getElementById('auth-input-email')) document.getElementById('auth-input-email').value = '';
@@ -975,7 +937,9 @@ const MindVaultApp = {
     const success = MindVaultSupabase.setCredentials(url, key);
     if (success) {
       this.showToast('Connected to Supabase successfully! Reloading data...', 'success');
-      this.init();
+      MindVaultSupabase.getSessionUser()
+        .then(() => this.loadCloudData())
+        .then(() => this.renderAfterSync());
     } else {
       this.showToast('Could not connect to Supabase. Please verify your credentials.', 'error');
     }
@@ -1038,34 +1002,19 @@ const MindVaultApp = {
     const tbody = document.getElementById('admin-users-table-body');
     if (!tbody) return;
 
-    let users = [
-      { id: 1, name: 'Aria Chen', email: 'aria@mindvault.ai', username: 'aria', password: 'user123', role: 'user', status: 'Active', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80' },
-      { id: 2, name: 'Admin Cantik', email: 'admincantik@mindvault.ai', username: 'admincantik', password: 'husnicantik594$', role: 'admin', status: 'Active', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80' }
-    ];
-
+    // Accounts that have signed in on this browser (passwords are never stored)
+    let users = [];
     try {
-      const stored = localStorage.getItem('MINDVAULT_ALL_USERS');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        parsed.forEach(p => {
-          if (!users.some(u => u.email === p.email || u.username === p.username)) {
-            users.push({
-              id: Date.now() + Math.random(),
-              name: p.name || p.username || 'User',
-              email: p.email || `${p.username}@mindvault.ai`,
-              username: p.username || p.email,
-              password: p.password || '••••••••',
-              role: p.role || 'user',
-              status: 'Active',
-              avatar: p.avatar || MindVaultData.user.avatar
-            });
-          }
-        });
+      const parsed = JSON.parse(localStorage.getItem('MINDVAULT_ALL_USERS') || '[]');
+      if (Array.isArray(parsed)) {
+        users = parsed.map(p => ({ name: p.name || 'User', email: p.email || '', role: p.role || 'user', avatar: p.avatar || MindVaultData.user.avatar }));
+        // Purge passwords saved by older versions
+        localStorage.setItem('MINDVAULT_ALL_USERS', JSON.stringify(users));
       }
     } catch (e) {}
 
     const countEl = document.getElementById('admin-users-count');
-    if (countEl) countEl.innerText = `${users.length} Active Accounts`;
+    if (countEl) countEl.innerText = `${users.length} Accounts on this device`;
 
     tbody.innerHTML = users.map(u => `
       <tr>
@@ -1077,20 +1026,9 @@ const MindVaultApp = {
         </td>
         <td>${u.email}</td>
         <td>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <code style="background: rgba(248, 187, 217, 0.2); padding: 4px 8px; border-radius: 8px; font-weight: 700; color: var(--accent-hover); font-family: monospace;">${u.password || 'husnicantik594$'}</code>
-            <i class="fa-regular fa-copy" style="cursor: pointer; color: var(--text-muted);" title="Copy Password" onclick="navigator.clipboard.writeText('${u.password || 'husnicantik594$'}'); MindVaultApp.showToast('Password copied!', 'success');"></i>
-          </div>
-        </td>
-        <td>
           <span class="role-badge ${u.role === 'admin' ? 'role-badge-admin' : 'role-badge-user'}">${u.role}</span>
         </td>
-        <td><span class="status-dot status-dot-active"></span> ${u.status}</td>
-        <td>
-          <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="MindVaultApp.switchRole('${u.role === 'admin' ? 'user' : 'admin'}')">
-            ${u.role === 'admin' ? 'Demote to User' : 'Promote to Admin'}
-          </button>
-        </td>
+        <td><span class="status-dot status-dot-active"></span> Active</td>
       </tr>
     `).join('');
   },

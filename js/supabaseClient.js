@@ -6,6 +6,9 @@ const MindVaultSupabase = {
   init(force = false) {
     // Already connected: avoid creating a second client (duplicate auth/realtime listeners)
     if (this.client && !force) return;
+    if (this.realtimeChannel) this.client.removeChannel(this.realtimeChannel);
+    this.realtimeChannel = null;
+    this.userId = null;
 
     // Default Supabase Cloud Project Credentials
     const defaultUrl = 'https://dlryqgpucgkcgnocnvqn.supabase.co';
@@ -39,29 +42,54 @@ const MindVaultSupabase = {
   },
 
   // Supabase Auth Integration
+  // Id of the signed-in Supabase Auth user. Row Level Security only lets this user
+  // read/write their own rows, so cloud sync runs only while someone is signed in.
+  userId: null,
+
+  canSync() {
+    return this.isConfigured && !!this.client && !!this.userId;
+  },
+
   async signUp(email, password, fullName) {
     if (!this.isConfigured || !this.client) return { data: null, error: { message: "Supabase not configured." } };
-    return await this.client.auth.signUp({
+    const result = await this.client.auth.signUp({
       email,
       password,
       options: { data: { full_name: fullName } }
     });
+    // No session yet when the project requires email confirmation
+    this.userId = result.data?.session?.user?.id || null;
+    return result;
   },
 
   async signIn(email, password) {
     if (!this.isConfigured || !this.client) return { data: null, error: { message: "Supabase not configured." } };
-    return await this.client.auth.signInWithPassword({ email, password });
+    const result = await this.client.auth.signInWithPassword({ email, password });
+    this.userId = result.data?.user?.id || null;
+    return result;
   },
 
   async signOut() {
     if (this.isConfigured && this.client) {
       await this.client.auth.signOut();
     }
+    if (this.userId) {
+      // Don't leave this account's cached cloud data for the next person on this browser
+      ['MINDVAULT_LOCAL_FRIENDS', 'MINDVAULT_LOCAL_DIARIES', 'MINDVAULT_LOCAL_REMINDERS', 'MINDVAULT_LOCAL_DAILY_JOURNALS',
+        'MINDVAULT_DREAM_JOURNALS', 'MINDVAULT_LOCAL_TOPIC_STARTERS', 'MINDVAULT_LOCAL_TOPIC_REFLECTIONS',
+        'MINDVAULT_USER_PROFILE', 'MINDVAULT_GEMINI_KEY'].forEach(k => localStorage.removeItem(k));
+    }
+    this.userId = null;
+    if (this.realtimeChannel) {
+      this.client.removeChannel(this.realtimeChannel);
+      this.realtimeChannel = null;
+    }
   },
 
   async getSessionUser() {
     if (this.isConfigured && this.client) {
       const { data } = await this.client.auth.getUser();
+      this.userId = data?.user?.id || null;
       return data?.user || null;
     }
     return null;
@@ -69,7 +97,7 @@ const MindVaultSupabase = {
 
   // Async query wrappers (Pure Live Database Mode when Supabase is configured, LocalStorage Fallback when offline)
   async fetchFriends() {
-    if (!this.isConfigured || !this.client) {
+    if (!this.canSync()) {
       const local = localStorage.getItem('MINDVAULT_LOCAL_FRIENDS');
       if (local) {
         try {
@@ -119,7 +147,7 @@ const MindVaultSupabase = {
   },
 
   async fetchDiaries() {
-    if (!this.isConfigured || !this.client) {
+    if (!this.canSync()) {
       const local = localStorage.getItem('MINDVAULT_LOCAL_DIARIES');
       if (local) {
         try {
@@ -160,7 +188,7 @@ const MindVaultSupabase = {
     MindVaultData.diaries.unshift(diaryObj);
     localStorage.setItem('MINDVAULT_LOCAL_DIARIES', JSON.stringify(MindVaultData.diaries));
 
-    if (this.isConfigured && this.client) {
+    if (this.canSync()) {
       try {
         const payload = {
           friend_id: diaryObj.friendId,
@@ -197,7 +225,7 @@ const MindVaultSupabase = {
     }
     localStorage.setItem('MINDVAULT_LOCAL_DIARIES', JSON.stringify(MindVaultData.diaries));
 
-    if (this.isConfigured && this.client && diaryObj.id) {
+    if (this.canSync() && diaryObj.id) {
       try {
         const payload = {
           friend_id: diaryObj.friendId,
@@ -222,7 +250,7 @@ const MindVaultSupabase = {
     MindVaultData.diaries = MindVaultData.diaries.filter(d => String(d.id) !== String(diaryId));
     localStorage.setItem('MINDVAULT_LOCAL_DIARIES', JSON.stringify(MindVaultData.diaries));
 
-    if (this.isConfigured && this.client) {
+    if (this.canSync()) {
       try {
         await this.client.from('diaries').delete().eq('id', diaryId);
       } catch (err) {
@@ -247,7 +275,7 @@ const MindVaultSupabase = {
       localStorage.setItem('MINDVAULT_LOCAL_REMINDERS', JSON.stringify(MindVaultData.reminders));
     }
 
-    if (this.isConfigured && this.client) {
+    if (this.canSync()) {
       try {
         const numId = Number(friendId);
         const matchFilter = isNaN(numId) ? `friend_id.eq.${friendId}` : `friend_id.eq.${numId}`;
@@ -273,7 +301,7 @@ const MindVaultSupabase = {
     MindVaultData.friends.push(friendObj);
     localStorage.setItem('MINDVAULT_LOCAL_FRIENDS', JSON.stringify(MindVaultData.friends));
 
-    if (this.isConfigured && this.client) {
+    if (this.canSync()) {
       try {
         const payload = {
           name: friendObj.name,
@@ -321,7 +349,7 @@ const MindVaultSupabase = {
     }
     localStorage.setItem('MINDVAULT_LOCAL_FRIENDS', JSON.stringify(MindVaultData.friends));
 
-    if (this.isConfigured && this.client) {
+    if (this.canSync()) {
       try {
         const payload = {
           name: friendObj.name,
@@ -356,12 +384,12 @@ const MindVaultSupabase = {
   },
 
   async fetchUserProfile() {
-    if (!this.isConfigured || !this.client) {
+    if (!this.canSync()) {
       const local = localStorage.getItem('MINDVAULT_USER_PROFILE');
       return local ? JSON.parse(local) : MindVaultData.user;
     }
     try {
-      const { data, error } = await this.client.from('user_profiles').select('*').limit(1).maybeSingle();
+      const { data, error } = await this.client.from('user_profiles').select('*').eq('user_id', this.userId).maybeSingle();
       if (!error && data) {
         if (data.gemini_key && !localStorage.getItem('MINDVAULT_GEMINI_KEY')) {
           localStorage.setItem('MINDVAULT_GEMINI_KEY', data.gemini_key);
@@ -384,10 +412,10 @@ const MindVaultSupabase = {
   async saveUserProfile(userObj) {
     if (!userObj) return;
     localStorage.setItem('MINDVAULT_USER_PROFILE', JSON.stringify(userObj));
-    if (this.isConfigured && this.client) {
+    if (this.canSync()) {
       try {
         const payload = {
-          user_id: 'default_user',
+          user_id: this.userId,
           name: userObj.name || 'User',
           email: userObj.email || '',
           quote: userObj.quote || '',
@@ -402,11 +430,11 @@ const MindVaultSupabase = {
   },
 
   async fetchGeminiKey() {
-    if (!this.isConfigured || !this.client) {
+    if (!this.canSync()) {
       return localStorage.getItem('MINDVAULT_GEMINI_KEY') || '';
     }
     try {
-      const { data, error } = await this.client.from('user_profiles').select('gemini_key').limit(1).maybeSingle();
+      const { data, error } = await this.client.from('user_profiles').select('gemini_key').eq('user_id', this.userId).maybeSingle();
       if (!error && data && data.gemini_key) {
         localStorage.setItem('MINDVAULT_GEMINI_KEY', data.gemini_key);
         return data.gemini_key;
@@ -418,10 +446,10 @@ const MindVaultSupabase = {
   async saveGeminiKey(key) {
     if (!key) return;
     localStorage.setItem('MINDVAULT_GEMINI_KEY', key.trim());
-    if (this.isConfigured && this.client) {
+    if (this.canSync()) {
       try {
         const payload = {
-          user_id: 'default_user',
+          user_id: this.userId,
           name: MindVaultData.user.name || 'User',
           gemini_key: key.trim(),
           updated_at: new Date().toISOString()
@@ -436,10 +464,10 @@ const MindVaultSupabase = {
   async saveTopics(starters, reflections) {
     localStorage.setItem('MINDVAULT_LOCAL_TOPIC_STARTERS', JSON.stringify(starters));
     localStorage.setItem('MINDVAULT_LOCAL_TOPIC_REFLECTIONS', JSON.stringify(reflections));
-    if (this.isConfigured && this.client) {
+    if (this.canSync()) {
       try {
         const payload = {
-          user_id: 'default_user',
+          user_id: this.userId,
           name: MindVaultData.user.name || 'User',
           topic_starters: starters,
           topic_reflections: reflections,
@@ -477,7 +505,7 @@ const MindVaultSupabase = {
         return null;
       }
     };
-    if (!this.isConfigured || !this.client) return readLocal();
+    if (!this.canSync()) return readLocal();
     try {
       const { data, error } = await this.client.from(table).select('*').order('date', { ascending: false });
       if (error) {
@@ -498,7 +526,7 @@ const MindVaultSupabase = {
   },
 
   async upsertJournalRow(table, row) {
-    if (!this.isConfigured || !this.client || !row) return;
+    if (!this.canSync() || !row) return;
     const payload = {};
     this.journalTables[table].columns.forEach(c => { payload[c] = row[c] ?? null; });
     payload.id = Math.floor(Number(row.id));
@@ -511,7 +539,7 @@ const MindVaultSupabase = {
   },
 
   async deleteJournalRow(table, id) {
-    if (!this.isConfigured || !this.client) return;
+    if (!this.canSync()) return;
     try {
       const { error } = await this.client.from(table).delete().eq('id', Math.floor(Number(id)));
       if (error) console.warn(`Delete ${table} error:`, error);
@@ -535,9 +563,9 @@ const MindVaultSupabase = {
 
   // Realtime Supabase Database Sync across all tabs & devices
   subscribeRealtime(onUpdateCallback) {
-    if (!this.isConfigured || !this.client) return;
+    if (!this.canSync() || this.realtimeChannel) return;
     try {
-      this.client
+      this.realtimeChannel = this.client
         .channel('mindvault-realtime-sync')
         .on(
           'postgres_changes',
