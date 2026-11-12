@@ -2,6 +2,8 @@
 const MindVaultSupabase = {
   client: null,
   isConfigured: false,
+  // A password-reset link lands here with type=recovery in the URL hash
+  isPasswordRecovery: /type=recovery/.test(window.location.hash),
 
   init(force = false) {
     // Already connected: avoid creating a second client (duplicate auth/realtime listeners)
@@ -22,6 +24,13 @@ const MindVaultSupabase = {
       try {
         this.client = window.supabase.createClient(supabaseUrl, supabaseKey);
         this.isConfigured = true;
+        // Opening a password-reset link signs the user in with a recovery session
+        this.client.auth.onAuthStateChange((event) => {
+          if (event === 'PASSWORD_RECOVERY') {
+            this.isPasswordRecovery = true;
+            window.dispatchEvent(new Event('mindvault:password-recovery'));
+          }
+        });
         console.log('✅ Supabase Client initialized successfully.');
       } catch (err) {
         console.warn('⚠️ Supabase initialization error:', err);
@@ -68,6 +77,19 @@ const MindVaultSupabase = {
     if (!this.isConfigured || !this.client) return { data: null, error: { message: "Supabase not configured." } };
     const result = await this.client.auth.signInWithPassword({ email, password });
     this.userId = result.data?.user?.id || null;
+    return result;
+  },
+
+  async requestPasswordReset(email) {
+    if (!this.isConfigured || !this.client) return { data: null, error: { message: "Supabase not configured." } };
+    // The link returns to this site (must be listed under Authentication > URL Configuration > Redirect URLs)
+    return await this.client.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+  },
+
+  async updatePassword(newPassword) {
+    if (!this.isConfigured || !this.client) return { data: null, error: { message: "Supabase not configured." } };
+    const result = await this.client.auth.updateUser({ password: newPassword });
+    if (!result.error) this.isPasswordRecovery = false;
     return result;
   },
 

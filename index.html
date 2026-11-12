@@ -10,7 +10,7 @@
   
   <!-- FontAwesome & Custom CSS -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="css/styles.css?v=15.0">
+  <link rel="stylesheet" href="css/styles.css?v=16.0">
 </head>
 <body>
 
@@ -1088,8 +1088,8 @@
 </div>
 
 <!-- AUTHENTICATION SCREEN OVERLAY -->
-<div id="auth-modal-screen" class="auth-overlay active" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 999999; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at top right, rgba(248, 187, 217, 0.5), transparent 60%), radial-gradient(circle at bottom left, rgba(233, 213, 255, 0.5), transparent 60%), rgba(255, 245, 249, 0.98); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);">
-  <div class="auth-card" style="background: rgba(255, 255, 255, 0.96); border: 1px solid var(--card-border); border-radius: 28px; box-shadow: 0 24px 60px rgba(248, 187, 217, 0.4); max-width: 440px; width: 90%; padding: 36px 32px; text-align: center; box-sizing: border-box;">
+<div id="auth-modal-screen" class="auth-overlay active" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 999999; display: flex; align-items: center; justify-content: center; background: var(--bg-main);">
+  <div class="auth-card" style="background: #FFFFFF; border: 1px solid var(--card-border); border-radius: 20px; box-shadow: var(--shadow-hover); max-width: 440px; width: 90%; padding: 36px 32px; text-align: center; box-sizing: border-box;">
     <div class="auth-header">
       <div class="auth-brand-icon">
         <i class="fa-solid fa-brain"></i>
@@ -1099,7 +1099,7 @@
     </div>
 
     <!-- Auth Tabs -->
-    <div class="auth-nav-tabs">
+    <div class="auth-nav-tabs" id="auth-tabs">
       <button type="button" class="auth-tab-btn active" id="auth-tab-login" onclick="MindVaultApp.switchAuthTab('login')">Log In</button>
       <button type="button" class="auth-tab-btn" id="auth-tab-register" onclick="MindVaultApp.switchAuthTab('register')">Sign Up</button>
     </div>
@@ -1111,14 +1111,21 @@
         <input type="text" id="auth-input-name" class="form-control auth-input" placeholder="Full Name">
       </div>
 
-      <div class="auth-input-wrapper">
-        <i class="fa-solid fa-user auth-input-icon"></i>
-        <input type="text" id="auth-input-email" class="form-control auth-input" placeholder="Email Address" required>
+      <p id="auth-mode-hint" class="auth-mode-hint" hidden></p>
+
+      <div id="auth-email-group" class="auth-input-wrapper">
+        <i class="fa-solid fa-envelope auth-input-icon"></i>
+        <input type="email" id="auth-input-email" class="form-control auth-input" placeholder="Email Address" required>
       </div>
 
-      <div class="auth-input-wrapper">
+      <div id="auth-password-group" class="auth-input-wrapper">
         <i class="fa-solid fa-lock auth-input-icon"></i>
         <input type="password" id="auth-input-password" class="form-control auth-input" placeholder="Password" required>
+      </div>
+
+      <div class="auth-links">
+        <button type="button" id="auth-forgot-link" class="auth-link" onclick="MindVaultApp.switchAuthTab('reset')">Lupa password?</button>
+        <button type="button" id="auth-back-link" class="auth-link" onclick="MindVaultApp.switchAuthTab('login')" hidden>&larr; Kembali ke Log In</button>
       </div>
 
       <div id="auth-message" class="auth-message" role="alert" hidden></div>
@@ -1128,7 +1135,7 @@
       </button>
 
       <!-- Quick Demo Login Helpers -->
-      <div style="margin-top: 20px; padding-top: 16px; border-top: 1px dashed rgba(248, 187, 217, 0.4);">
+      <div id="auth-demo" style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--card-border);">
         <p style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 10px; font-weight: 600;">Coba tanpa akun (data hanya tersimpan di browser ini):</p>
         <div style="display: flex; gap: 8px; justify-content: center;">
           <button type="button" class="btn btn-secondary" style="font-size: 12px; padding: 7px 12px; border-radius: 10px;" onclick="MindVaultApp.demoLogin('user')">
@@ -1186,11 +1193,11 @@
 
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/data.js?v=28.0"></script>
-<script src="js/supabaseClient.js?v=28.0"></script>
-<script src="js/geminiClient.js?v=28.0"></script>
-<script src="js/graph.js?v=28.0"></script>
-<script src="js/app.js?v=28.0"></script>
+<script src="js/data.js?v=29.0"></script>
+<script src="js/supabaseClient.js?v=29.0"></script>
+<script src="js/geminiClient.js?v=29.0"></script>
+<script src="js/graph.js?v=29.0"></script>
+<script src="js/app.js?v=29.0"></script>
 
 </body>
 </html>

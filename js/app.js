@@ -11,6 +11,10 @@ const MindVaultApp = {
   currentUser: null,
 
   async init() {
+    // Arrived from a password-reset email: ask for the new password before anything else
+    window.addEventListener('mindvault:password-recovery', () => this.showPasswordRecovery());
+    if (typeof MindVaultSupabase !== 'undefined' && MindVaultSupabase.isPasswordRecovery) this.showPasswordRecovery();
+
     this.bindNavigation();
     this.bindModals();
     this.bindAIChat();
@@ -24,6 +28,8 @@ const MindVaultApp = {
     }
 
     await this.checkAuthSession();
+    // A recovery session counts as signed in, but the new password must be set first
+    if (MindVaultSupabase?.isPasswordRecovery) this.showPasswordRecovery();
     await this.loadCloudData();
     this.renderAfterSync();
   },
@@ -373,6 +379,71 @@ const MindVaultApp = {
     this.switchRole(nextRole);
   },
 
+  async handlePasswordReset(email, newPassword) {
+    const submitBtn = document.getElementById('auth-submit-btn');
+    const btnHtml = submitBtn ? submitBtn.innerHTML : '';
+    if (this.authMode === 'reset' && !email.includes('@')) {
+      this.setAuthMessage('Masukkan alamat email yang valid.');
+      return;
+    }
+    if (this.authMode === 'newpassword' && newPassword.length < 6) {
+      this.setAuthMessage('Password minimal 6 karakter.');
+      return;
+    }
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memproses...';
+    }
+    let error = null;
+    try {
+      const request = this.authMode === 'reset'
+        ? MindVaultSupabase.requestPasswordReset(email)
+        : MindVaultSupabase.updatePassword(newPassword);
+      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000));
+      ({ error } = await Promise.race([request, timeout]));
+    } catch (e) {
+      error = e;
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = btnHtml;
+      }
+    }
+
+    if (error) {
+      this.setAuthMessage(this.describeAuthError(error));
+      return;
+    }
+
+    if (this.authMode === 'reset') {
+      // Same message whether or not the email exists, so accounts can't be probed
+      this.setAuthMessage('Kalau email itu terdaftar, link reset sudah dikirim. Cek inbox (dan folder Spam), lalu klik link-nya.', 'info');
+      return;
+    }
+
+    document.getElementById('auth-input-password').value = '';
+    history.replaceState(null, '', window.location.pathname);
+    this.showToast('Password berhasil diganti. Kamu sudah masuk.', 'success');
+    const user = await MindVaultSupabase.getSessionUser();
+    if (user) {
+      this.currentUser = this.userFromSupabase(user);
+      localStorage.setItem('MINDVAULT_AUTH_SESSION', JSON.stringify(this.currentUser));
+      this.switchAuthTab('login');
+      this.hideAuthScreen();
+      await this.loadCloudData();
+      this.renderAfterSync();
+    } else {
+      this.switchAuthTab('login');
+      this.setAuthMessage('Password berhasil diganti. Silakan login dengan password baru.', 'info');
+    }
+  },
+
+  showPasswordRecovery() {
+    this.showAuthScreen();
+    this.switchAuthTab('newpassword');
+  },
+
   // Shown inside the login card so it can't be hidden behind the overlay
   setAuthMessage(text, type = 'error') {
     const el = document.getElementById('auth-message');
@@ -391,29 +462,59 @@ const MindVaultApp = {
     if (/email not confirmed/i.test(msg)) return 'Email belum dikonfirmasi. Cek inbox (atau folder Spam) dan klik link konfirmasi, lalu coba login lagi.';
     if (/already registered|already been registered/i.test(msg)) return 'Email ini sudah terdaftar. Silakan pilih tab "Log In".';
     if (/password should be at least/i.test(msg)) return 'Password minimal 6 karakter.';
+    if (/should be different/i.test(msg)) return 'Password baru harus berbeda dari password lama.';
+    if (/session missing|expired|invalid.*(token|link)/i.test(msg)) return 'Link reset sudah kedaluwarsa. Klik "Kembali ke Log In" lalu "Lupa password?" untuk minta link baru.';
     if (/rate limit|too many/i.test(msg)) return 'Terlalu banyak percobaan. Tunggu beberapa menit lalu coba lagi.';
     if (/timeout|fetch|network/i.test(msg)) return 'Tidak bisa terhubung ke server. Cek koneksi internet lalu coba lagi.';
     return 'Gagal: ' + (msg || 'terjadi kesalahan, coba lagi.');
   },
 
+  // Modes: 'login', 'register', 'reset' (ask for a reset email), 'newpassword' (after opening the reset link)
   switchAuthTab(tab) {
     this.authMode = tab;
     this.setAuthMessage('');
-    const loginBtn = document.getElementById('auth-tab-login');
-    const regBtn = document.getElementById('auth-tab-register');
-    const nameGroup = document.getElementById('auth-name-group');
-    const submitBtn = document.getElementById('auth-submit-btn');
+    const show = (id, visible) => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = visible ? '' : 'none';
+    };
+    const isAccountTab = tab === 'login' || tab === 'register';
 
-    if (tab === 'login') {
-      if (loginBtn) loginBtn.classList.add('active');
-      if (regBtn) regBtn.classList.remove('active');
-      if (nameGroup) nameGroup.style.display = 'none';
-      if (submitBtn) submitBtn.innerHTML = `<i class="fa-solid fa-right-to-bracket"></i> Log In to MindVault`;
-    } else {
-      if (regBtn) regBtn.classList.add('active');
-      if (loginBtn) loginBtn.classList.remove('active');
-      if (nameGroup) nameGroup.style.display = 'block';
-      if (submitBtn) submitBtn.innerHTML = `<i class="fa-solid fa-user-plus"></i> Create Account`;
+    document.getElementById('auth-tab-login')?.classList.toggle('active', tab === 'login');
+    document.getElementById('auth-tab-register')?.classList.toggle('active', tab === 'register');
+    show('auth-tabs', isAccountTab);
+    show('auth-demo', isAccountTab);
+    show('auth-name-group', tab === 'register');
+    show('auth-email-group', tab !== 'newpassword');
+    show('auth-password-group', tab !== 'reset');
+    show('auth-forgot-link', tab === 'login');
+    const back = document.getElementById('auth-back-link');
+    if (back) back.hidden = isAccountTab;
+
+    const email = document.getElementById('auth-input-email');
+    const password = document.getElementById('auth-input-password');
+    if (email) email.required = tab !== 'newpassword';
+    if (password) {
+      password.required = tab !== 'reset';
+      password.placeholder = tab === 'newpassword' ? 'Password baru (minimal 6 karakter)' : 'Password';
+      password.autocomplete = tab === 'login' ? 'current-password' : 'new-password';
+    }
+
+    const hint = document.getElementById('auth-mode-hint');
+    if (hint) {
+      hint.hidden = isAccountTab;
+      hint.textContent = tab === 'reset'
+        ? 'Masukkan email akunmu. Kami akan mengirim link untuk membuat password baru.'
+        : 'Buat password baru untuk akunmu.';
+    }
+
+    const submitBtn = document.getElementById('auth-submit-btn');
+    if (submitBtn) {
+      submitBtn.innerHTML = {
+        login: '<i class="fa-solid fa-right-to-bracket"></i> Log In to MindVault',
+        register: '<i class="fa-solid fa-user-plus"></i> Create Account',
+        reset: '<i class="fa-solid fa-paper-plane"></i> Kirim link reset',
+        newpassword: '<i class="fa-solid fa-key"></i> Simpan password baru'
+      }[tab];
     }
   },
 
@@ -423,6 +524,10 @@ const MindVaultApp = {
     const name = document.getElementById('auth-input-name')?.value.trim();
 
     this.setAuthMessage('');
+    if (this.authMode === 'reset' || this.authMode === 'newpassword') {
+      await this.handlePasswordReset(usernameInput, passwordInput);
+      return;
+    }
     if (!usernameInput || !passwordInput) {
       this.setAuthMessage('Isi email dan password dulu.');
       return;
