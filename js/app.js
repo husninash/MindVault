@@ -295,8 +295,32 @@ const MindVaultApp = {
     this.switchRole(nextRole);
   },
 
+  // Shown inside the login card so it can't be hidden behind the overlay
+  setAuthMessage(text, type = 'error') {
+    const el = document.getElementById('auth-message');
+    if (!el) {
+      if (text) this.showToast(text, type);
+      return;
+    }
+    el.hidden = !text;
+    el.textContent = text;
+    el.className = `auth-message auth-message-${type}`;
+  },
+
+  describeAuthError(error) {
+    const msg = (error && error.message) || '';
+    if (/invalid login credentials/i.test(msg)) return 'Email atau password salah. Belum punya akun? Klik tab "Sign Up" dulu.';
+    if (/email not confirmed/i.test(msg)) return 'Email belum dikonfirmasi. Cek inbox (atau folder Spam) dan klik link konfirmasi, lalu coba login lagi.';
+    if (/already registered|already been registered/i.test(msg)) return 'Email ini sudah terdaftar. Silakan pilih tab "Log In".';
+    if (/password should be at least/i.test(msg)) return 'Password minimal 6 karakter.';
+    if (/rate limit|too many/i.test(msg)) return 'Terlalu banyak percobaan. Tunggu beberapa menit lalu coba lagi.';
+    if (/timeout|fetch|network/i.test(msg)) return 'Tidak bisa terhubung ke server. Cek koneksi internet lalu coba lagi.';
+    return 'Gagal: ' + (msg || 'terjadi kesalahan, coba lagi.');
+  },
+
   switchAuthTab(tab) {
     this.authMode = tab;
+    this.setAuthMessage('');
     const loginBtn = document.getElementById('auth-tab-login');
     const regBtn = document.getElementById('auth-tab-register');
     const nameGroup = document.getElementById('auth-name-group');
@@ -320,8 +344,9 @@ const MindVaultApp = {
     const passwordInput = document.getElementById('auth-input-password')?.value.trim();
     const name = document.getElementById('auth-input-name')?.value.trim();
 
+    this.setAuthMessage('');
     if (!usernameInput || !passwordInput) {
-      this.showToast('Please enter both username/email and password.', 'warning');
+      this.setAuthMessage('Isi email dan password dulu.');
       return;
     }
 
@@ -329,19 +354,41 @@ const MindVaultApp = {
 
     if (cloud) {
       if (!usernameInput.includes('@')) {
-        this.showToast('Gunakan alamat email untuk login.', 'warning');
+        this.setAuthMessage('Gunakan alamat email untuk login.');
         return;
       }
-      const { data, error } = this.authMode === 'register'
-        ? await MindVaultSupabase.signUp(usernameInput, passwordInput, name || 'User')
-        : await MindVaultSupabase.signIn(usernameInput, passwordInput);
+
+      const submitBtn = document.getElementById('auth-submit-btn');
+      const btnHtml = submitBtn ? submitBtn.innerHTML : '';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memproses...';
+      }
+
+      let data = null;
+      let error = null;
+      try {
+        const request = this.authMode === 'register'
+          ? MindVaultSupabase.signUp(usernameInput, passwordInput, name || 'User')
+          : MindVaultSupabase.signIn(usernameInput, passwordInput);
+        const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000));
+        ({ data, error } = await Promise.race([request, timeout]));
+      } catch (e) {
+        error = e;
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = btnHtml;
+        }
+      }
+
       if (error) {
-        this.showToast((this.authMode === 'register' ? 'Sign Up Error: ' : 'Login Failed: ') + error.message, 'error');
+        this.setAuthMessage(this.describeAuthError(error));
         return;
       }
       if (!data.session) {
-        this.showToast('Akun dibuat. Cek email kamu untuk konfirmasi, lalu login.', 'info');
         this.switchAuthTab('login');
+        this.setAuthMessage('Akun berhasil dibuat! Cek email kamu (termasuk folder Spam) dan klik link konfirmasi, lalu login di sini.', 'info');
         return;
       }
       this.currentUser = this.userFromSupabase(data.user);
