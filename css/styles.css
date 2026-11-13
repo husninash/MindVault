@@ -2128,3 +2128,6 @@ body { background: var(--bg-main); }
   .vocab-two { grid-template-columns: 1fr; gap: 0; }
   .vocab-word { font-size: 28px; }
 }
+.vocab-none { font-size: 13px; color: var(--text-muted); font-style: italic; }
+.vocab-alt { margin-top: 3px; font-size: 14px; color: var(--text-medium); }
+.vocab-alt strong { color: var(--text-dark); }

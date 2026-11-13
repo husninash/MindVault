@@ -1514,12 +1514,33 @@ const MindVaultApp = {
     return `<p class="empty-note">Belum ada kata. Coba ketik kata yang barusan kamu dengar, misalnya <a href="#" data-vocab-word="overwhelming">overwhelming</a> atau <a href="#" data-vocab-word="figure out">figure out</a>.</p>`;
   },
 
+  // Always show verb, noun, adjective and adverb (in that order), marking the ones a word doesn't have
+  normalizeVocabForms(forms) {
+    const core = ['verb', 'noun', 'adjective', 'adverb'];
+    const rank = (pos) => {
+      const i = core.indexOf(String(pos || '').trim().toLowerCase());
+      return i === -1 ? core.length : i;
+    };
+    const rows = forms
+      .filter(f => f && f.pos)
+      .map(f => ({ ...f, pos: String(f.pos).trim().toLowerCase(), none: !!f.none || !String(f.word || '').trim() }));
+    core.forEach(pos => {
+      if (!rows.some(f => f.pos === pos)) rows.push({ pos, none: true });
+    });
+    // A real form beats a "none" placeholder for the same type
+    const filtered = rows.filter(f => !f.none || !rows.some(o => o.pos === f.pos && !o.none));
+    return filtered
+      .map((f, i) => ({ f, i }))
+      .sort((a, b) => rank(a.f.pos) - rank(b.f.pos) || a.i - b.i)
+      .map(x => x.f);
+  },
+
   vocabCardHtml(row) {
     const e = (v) => this.escapeHtml(v);
     const d = row.data || {};
     const list = (v) => (Array.isArray(v) ? v : []);
     const wordLink = (w) => `<button type="button" class="vocab-chip" data-vocab-word="${e(w.word)}" title="Analisis kata ini">${e(w.word)}${w.meaning ? `<span>${e(w.meaning)}</span>` : ''}</button>`;
-    const forms = list(d.forms);
+    const forms = this.normalizeVocabForms(list(d.forms));
     const vf = d.verb_forms && typeof d.verb_forms === 'object' && d.verb_forms.base ? d.verb_forms : null;
     const syn = list(d.synonyms);
     const ant = list(d.antonyms);
@@ -1555,7 +1576,20 @@ const MindVaultApp = {
         <div class="subsection-label">Bentuk kata</div>
         <table class="vocab-forms">
           <tbody>
-            ${forms.map(f => `
+            ${forms.map(f => f.none ? `
+              <tr class="vocab-form-none">
+                <td class="vocab-pos">${e(f.pos)}</td>
+                <td>
+                  <span class="vocab-none">Tidak ada bentuk ${e(f.pos)} yang umum</span>
+                  ${f.alternative ? `
+                    <div class="vocab-alt">
+                      Pakai <strong>${e(f.alternative)}</strong>
+                      <button type="button" class="vocab-speak" data-speak="${e(f.alternative)}" title="Dengarkan"><i class="fa-solid fa-volume-low"></i></button>
+                      ${f.meaning ? `<span class="vocab-form-meaning">= ${e(f.meaning)}</span>` : ''}
+                    </div>
+                    ${f.example ? `<div class="vocab-form-example">${e(f.example)}</div>` : ''}` : ''}
+                </td>
+              </tr>` : `
               <tr>
                 <td class="vocab-pos">${e(f.pos)}</td>
                 <td>

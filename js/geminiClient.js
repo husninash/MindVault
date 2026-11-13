@@ -71,7 +71,8 @@ Balas HANYA dengan JSON (tanpa markdown) dengan struktur persis seperti ini:
   "meaning": "arti utama dalam bahasa Indonesia, singkat",
   "level": "perkiraan CEFR: A1/A2/B1/B2/C1/C2",
   "forms": [
-    { "pos": "verb|noun|adjective|adverb|...", "word": "bentuk kata", "meaning": "arti Indonesia", "example": "1 kalimat contoh pendek bahasa Inggris" }
+    { "pos": "verb|noun|adjective|adverb|...", "word": "bentuk kata", "meaning": "arti Indonesia", "example": "1 kalimat contoh pendek bahasa Inggris" },
+    { "pos": "adverb", "word": "", "none": true, "alternative": "frasa pengganti yang umum, misal 'in writing'", "meaning": "arti frasa pengganti", "example": "contoh kalimat pakai frasa pengganti" }
   ],
   "verb_forms": { "base": "", "past": "", "past_participle": "", "present_participle": "", "third_person": "" } atau null kalau tidak ada bentuk verb,
   "synonyms": [ { "word": "", "meaning": "arti Indonesia" } ],
@@ -80,7 +81,8 @@ Balas HANYA dengan JSON (tanpa markdown) dengan struktur persis seperti ini:
   "collocations": ["kombinasi kata yang umum, misal 'write a letter'"],
   "tip": "1-2 kalimat tips pemakaian/kesalahan umum dalam bahasa Indonesia"
 }
-Aturan: "forms" berisi SEMUA keluarga kata yang umum dipakai (verb, noun, adjective, adverb, dll — termasuk kata turunan seperti writer/writing/written), maksimal 8.
+Aturan: "forms" WAJIB memuat keempat jenis utama verb, noun, adjective, dan adverb (urut seperti itu), ditambah kata turunan lain yang umum (misal writer/writing/written), maksimal 10.
+Kalau salah satu jenis utama tidak punya bentuk yang umum dipakai, tetap tulis barisnya dengan "word": "" dan "none": true, lalu isi "alternative" dengan frasa pengganti yang umum (misal adverb dari write → "in writing") beserta arti dan contohnya; kalau benar-benar tidak ada pengganti, kosongkan "alternative". Jangan mengarang kata yang tidak ada di kamus.
 Synonyms dan antonyms masing-masing 3-6 (antonyms boleh kosong kalau memang tidak ada). Examples 3 kalimat dengan konteks berbeda, gaya percakapan seperti di film/serial. Collocations 3-5.`;
 
     try {
