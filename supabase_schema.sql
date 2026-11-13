@@ -104,6 +104,16 @@ CREATE TABLE IF NOT EXISTS dream_journals (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 10. ENGLISH VOCABULARY (AI breakdown of each word is stored as JSON in data)
+CREATE TABLE IF NOT EXISTS vocab_words (
+  id BIGINT PRIMARY KEY,
+  word TEXT NOT NULL,
+  date DATE NOT NULL,
+  data JSONB,
+  mastered BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- MIGRATIONS for databases created from an older version of this file (safe to re-run)
 ALTER TABLE friends ADD COLUMN IF NOT EXISTS milestones JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS gemini_key TEXT;
@@ -114,7 +124,7 @@ ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS topic_reflections JSONB;
 DO $$
 DECLARE t TEXT;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['friends', 'diaries', 'reminders', 'todays_topics', 'daily_journals', 'dream_journals'] LOOP
+  FOREACH t IN ARRAY ARRAY['friends', 'diaries', 'reminders', 'todays_topics', 'daily_journals', 'dream_journals', 'vocab_words'] LOOP
     EXECUTE format('ALTER TABLE %I ADD COLUMN IF NOT EXISTS owner_id UUID DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE', t);
     EXECUTE format('CREATE INDEX IF NOT EXISTS %I ON %I (owner_id)', t || '_owner_id_idx', t);
   END LOOP;
@@ -133,6 +143,7 @@ ALTER TABLE knowledge_edges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE daily_journals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE dream_journals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vocab_words ENABLE ROW LEVEL SECURITY;
 
 DO $$
 DECLARE p RECORD;
@@ -149,7 +160,7 @@ END $$;
 DO $$
 DECLARE t TEXT;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['friends', 'diaries', 'reminders', 'todays_topics', 'daily_journals', 'dream_journals'] LOOP
+  FOREACH t IN ARRAY ARRAY['friends', 'diaries', 'reminders', 'todays_topics', 'daily_journals', 'dream_journals', 'vocab_words'] LOOP
     EXECUTE format('DROP POLICY IF EXISTS "Owner full access" ON %I', t);
     EXECUTE format('CREATE POLICY "Owner full access" ON %I FOR ALL TO authenticated USING (owner_id = auth.uid()) WITH CHECK (owner_id = auth.uid())', t);
   END LOOP;
@@ -169,7 +180,7 @@ CREATE POLICY "Authenticated read" ON knowledge_edges FOR SELECT TO authenticate
 DO $$
 DECLARE t TEXT;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['friends', 'diaries', 'user_profiles', 'daily_journals', 'dream_journals'] LOOP
+  FOREACH t IN ARRAY ARRAY['friends', 'diaries', 'user_profiles', 'daily_journals', 'dream_journals', 'vocab_words'] LOOP
     IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = t) THEN
       EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE %I', t);
     END IF;

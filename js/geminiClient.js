@@ -54,6 +54,60 @@ const MindVaultGemini = {
     }
   },
 
+  // English vocabulary breakdown for a word or phrase the user picked up from shows/videos.
+  // Returns the parsed entry object or { error, message }.
+  async analyzeVocab(word) {
+    const apiKey = this.getApiKey();
+    if (!apiKey) return { error: true, message: 'Gemini API key belum diatur. Isi di menu Settings.' };
+
+    const prompt = `Kamu adalah guru bahasa Inggris untuk pelajar Indonesia. Analisis kata/frasa bahasa Inggris berikut: "${word}".
+Kalau ejaannya salah, perbaiki dan analisis bentuk yang benar. Kalau itu phrasal verb, idiom, atau slang, jelaskan sebagai frasa.
+
+Balas HANYA dengan JSON (tanpa markdown) dengan struktur persis seperti ini:
+{
+  "word": "bentuk dasar yang benar",
+  "corrected": true/false (true kalau input dikoreksi),
+  "phonetic": "IPA, misal /raɪt/",
+  "meaning": "arti utama dalam bahasa Indonesia, singkat",
+  "level": "perkiraan CEFR: A1/A2/B1/B2/C1/C2",
+  "forms": [
+    { "pos": "verb|noun|adjective|adverb|...", "word": "bentuk kata", "meaning": "arti Indonesia", "example": "1 kalimat contoh pendek bahasa Inggris" }
+  ],
+  "verb_forms": { "base": "", "past": "", "past_participle": "", "present_participle": "", "third_person": "" } atau null kalau tidak ada bentuk verb,
+  "synonyms": [ { "word": "", "meaning": "arti Indonesia" } ],
+  "antonyms": [ { "word": "", "meaning": "arti Indonesia" } ],
+  "examples": [ { "en": "kalimat contoh natural sehari-hari", "id": "terjemahan Indonesia" } ],
+  "collocations": ["kombinasi kata yang umum, misal 'write a letter'"],
+  "tip": "1-2 kalimat tips pemakaian/kesalahan umum dalam bahasa Indonesia"
+}
+Aturan: "forms" berisi SEMUA keluarga kata yang umum dipakai (verb, noun, adjective, adverb, dll — termasuk kata turunan seperti writer/writing/written), maksimal 8.
+Synonyms dan antonyms masing-masing 3-6 (antonyms boleh kosong kalau memang tidak ada). Examples 3 kalimat dengan konteks berbeda, gaya percakapan seperti di film/serial. Collocations 3-5.`;
+
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: 'application/json', temperature: 0.3 }
+        })
+      });
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        return { error: true, message: errJson.error?.message || `HTTP ${response.status}` };
+      }
+      const data = await response.json();
+      const text = (data.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
+      const match = text.match(/\{[\s\S]*\}/);
+      if (!match) return { error: true, message: 'Jawaban AI tidak bisa dibaca. Coba lagi.' };
+      const entry = JSON.parse(match[0]);
+      if (!entry.word) return { error: true, message: 'Kata tidak dikenali. Cek ejaannya.' };
+      return entry;
+    } catch (err) {
+      return { error: true, message: err.message || 'Gagal menghubungi Gemini.' };
+    }
+  },
+
   // Conversation topics grounded in today's news via Gemini's Google Search tool.
   // Returns { topics: [{ headline, topic, friend, why }], sources: [{ title, uri }], searchEntryHtml }
   // or { error: true, message }.

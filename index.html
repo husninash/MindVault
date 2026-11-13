@@ -10,7 +10,7 @@
   
   <!-- FontAwesome & Custom CSS -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="css/styles.css?v=16.0">
+  <link rel="stylesheet" href="css/styles.css?v=17.0">
 </head>
 <body>
 
@@ -67,6 +67,17 @@
           <button data-view="topics">
             <i class="fa-solid fa-comments nav-icon"></i>
             <span>Today's Topics</span>
+          </button>
+        </li>
+      </ul>
+
+      <div class="nav-section-label">Belajar</div>
+      <ul class="nav-menu">
+        <li class="nav-item">
+          <button data-view="vocab">
+            <i class="fa-solid fa-spell-check nav-icon"></i>
+            <span>English Vocab</span>
+            <span class="nav-badge" id="nav-vocab-count">0</span>
           </button>
         </li>
       </ul>
@@ -450,6 +461,41 @@
           <div id="topics-reflections-list">
             <!-- Dynamically rendered reflections -->
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAGE VIEW: ENGLISH VOCABULARY -->
+    <section id="view-vocab" class="page-view">
+      <div class="dash-header">
+        <h2 style="font-size: 24px; font-weight: 800;">English Vocab</h2>
+        <p class="dash-summary">Ketemu kata baru pas nonton? Ketik di sini. Jenis kata, perubahan bentuk, sinonim, antonim, dan contoh kalimat dibuat otomatis.</p>
+      </div>
+
+      <form class="vocab-search" onsubmit="event.preventDefault(); MindVaultApp.lookupVocab();">
+        <input type="text" id="vocab-input" class="form-control" placeholder="Contoh: write, overwhelming, figure out" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button type="submit" class="btn btn-primary" id="vocab-submit">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <span>Analisis</span>
+        </button>
+      </form>
+
+      <div class="vocab-layout">
+        <div class="glass-card vocab-result" id="vocab-result"></div>
+
+        <div class="glass-card vocab-saved">
+          <div class="card-title-row" style="display: flex; justify-content: space-between;">
+            <div>
+              <h3>Kosakataku</h3>
+              <p class="card-subtitle" id="vocab-saved-summary">Belum ada kata.</p>
+            </div>
+            <button class="btn btn-secondary btn-small" onclick="MindVaultApp.vocabRandom()" title="Buka kata acak untuk mengulang">
+              <i class="fa-solid fa-shuffle"></i>
+              <span>Acak</span>
+            </button>
+          </div>
+          <input type="text" id="vocab-filter" class="form-control" placeholder="Cari di daftar..." oninput="MindVaultApp.renderVocabList()" style="margin: 12px 0 8px;">
+          <ul class="vocab-list" id="vocab-list"></ul>
         </div>
       </div>
     </section>
@@ -1193,11 +1239,11 @@
 
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/data.js?v=29.0"></script>
-<script src="js/supabaseClient.js?v=29.0"></script>
-<script src="js/geminiClient.js?v=29.0"></script>
-<script src="js/graph.js?v=29.0"></script>
-<script src="js/app.js?v=29.0"></script>
+<script src="js/data.js?v=30.0"></script>
+<script src="js/supabaseClient.js?v=30.0"></script>
+<script src="js/geminiClient.js?v=30.0"></script>
+<script src="js/graph.js?v=30.0"></script>
+<script src="js/app.js?v=30.0"></script>
 
 </body>
 </html>

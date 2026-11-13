@@ -101,7 +101,7 @@ const MindVaultSupabase = {
       // Don't leave this account's cached cloud data for the next person on this browser
       ['MINDVAULT_LOCAL_FRIENDS', 'MINDVAULT_LOCAL_DIARIES', 'MINDVAULT_LOCAL_REMINDERS', 'MINDVAULT_LOCAL_DAILY_JOURNALS',
         'MINDVAULT_DREAM_JOURNALS', 'MINDVAULT_LOCAL_TOPIC_STARTERS', 'MINDVAULT_LOCAL_TOPIC_REFLECTIONS',
-        'MINDVAULT_USER_PROFILE', 'MINDVAULT_GEMINI_KEY', 'MINDVAULT_NEWS_TOPICS'].forEach(k => localStorage.removeItem(k));
+        'MINDVAULT_USER_PROFILE', 'MINDVAULT_GEMINI_KEY', 'MINDVAULT_NEWS_TOPICS', 'MINDVAULT_VOCAB_WORDS'].forEach(k => localStorage.removeItem(k));
     }
     this.userId = null;
     if (this.realtimeChannel) {
@@ -516,7 +516,8 @@ const MindVaultSupabase = {
   // Journal tables share their row shape with the app objects, and ids are generated client-side
   journalTables: {
     daily_journals: { localKey: 'MINDVAULT_LOCAL_DAILY_JOURNALS', columns: ['id', 'title', 'date', 'mood', 'content', 'gratitude'] },
-    dream_journals: { localKey: 'MINDVAULT_DREAM_JOURNALS', columns: ['id', 'title', 'date', 'type', 'characters', 'content', 'reflection'] }
+    dream_journals: { localKey: 'MINDVAULT_DREAM_JOURNALS', columns: ['id', 'title', 'date', 'type', 'characters', 'content', 'reflection'] },
+    vocab_words: { localKey: 'MINDVAULT_VOCAB_WORDS', columns: ['id', 'word', 'date', 'data', 'mastered'] }
   },
 
   async fetchJournalRows(table) {
@@ -572,6 +573,10 @@ const MindVaultSupabase = {
     }
   },
 
+  async fetchVocabWords() {
+    return (await this.fetchJournalRows('vocab_words')) || [];
+  },
+
   async fetchDailyJournals() {
     return (await this.fetchJournalRows('daily_journals')) || MindVaultData.dailyJournals || [];
   },
@@ -623,6 +628,14 @@ const MindVaultSupabase = {
           async (payload) => {
             MindVaultData.dreamJournals = (await MindVaultSupabase.fetchDreamJournals()) || [];
             if (onUpdateCallback) onUpdateCallback('dream_journals', payload);
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'vocab_words' },
+          async (payload) => {
+            MindVaultData.vocabWords = await MindVaultSupabase.fetchVocabWords();
+            if (onUpdateCallback) onUpdateCallback('vocab_words', payload);
           }
         )
         .on(
