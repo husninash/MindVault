@@ -88,15 +88,33 @@ Balas HANYA dengan JSON (tanpa markdown) dengan struktur persis seperti ini:
     { "pos": "adverb", "word": "", "none": true, "alternative": "frasa pengganti yang umum, misal 'in writing'", "meaning": "arti frasa pengganti", "example": "contoh kalimat pakai frasa pengganti" }
   ],
   "verb_forms": { "base": "", "past": "", "past_participle": "", "present_participle": "", "third_person": "" } atau null kalau tidak ada bentuk verb,
-  "synonyms": [ { "word": "", "meaning": "arti Indonesia" } ],
-  "antonyms": [ { "word": "", "meaning": "arti Indonesia" } ],
+  "senses": [
+    {
+      "pos": "verb|noun|adjective|adverb|phrase",
+      "grammar": "C|U|C,U|T|I|T,I atau \"\" (C=countable, U=uncountable untuk noun; T=transitive, I=intransitive untuk verb)",
+      "definition": "arti makna ini dalam bahasa Indonesia, singkat dan spesifik",
+      "example": { "en": "kalimat contoh natural untuk makna ini", "id": "terjemahan Indonesia" },
+      "synonyms": [ { "word": "", "meaning": "arti Indonesia", "register": "\"\" atau salah satu: formal, informal, spoken, slang, BrE, AmE, literary, law, technical" } ],
+      "antonyms": [ { "word": "", "meaning": "arti Indonesia" } ],
+      "patterns": ["pola kalimat siap pakai dengan preposisi, pakai sb/sth, misal 'pay attention to sb/sth', 'catch sb's attention'"]
+    }
+  ],
+  "compare": [
+    {
+      "title": "X or Y?",
+      "explanation": "beda kata ini dengan kata mirip yang sering tertukar, dalam bahasa Indonesia, 1-3 kalimat",
+      "correct": ["contoh kalimat yang BENAR"],
+      "wrong": ["contoh kalimat yang SALAH/tidak natural"]
+    }
+  ],
   "examples": [ { "en": "kalimat contoh natural sehari-hari", "id": "terjemahan Indonesia" } ],
-  "collocations": ["kombinasi kata yang umum, misal 'write a letter'"],
-  "tip": "1-2 kalimat tips pemakaian/kesalahan umum dalam bahasa Indonesia"
+  "tip": "1-2 kalimat tips pemakaian/kesalahan umum orang Indonesia, dalam bahasa Indonesia"
 }
 Aturan: "forms" WAJIB memuat keempat jenis utama verb, noun, adjective, dan adverb (urut seperti itu), ditambah kata turunan lain yang umum (misal writer/writing/written), maksimal 10.
 Kalau salah satu jenis utama tidak punya bentuk yang umum dipakai, tetap tulis barisnya dengan "word": "" dan "none": true, lalu isi "alternative" dengan frasa pengganti yang umum (misal adverb dari write → "in writing") beserta arti dan contohnya; kalau benar-benar tidak ada pengganti, kosongkan "alternative". Jangan mengarang kata yang tidak ada di kamus.
-Synonyms dan antonyms masing-masing 3-6 (antonyms boleh kosong kalau memang tidak ada). Examples 3 kalimat dengan konteks berbeda, gaya percakapan seperti di film/serial. Collocations 3-5.`;
+"senses": pisahkan per MAKNA yang benar-benar berbeda (seperti thesaurus untuk pelajar), maksimal 4, urut dari yang paling umum. Contoh: attack (noun) = serangan fisik / serangan militer / kritik keras / serangan penyakit. Setiap makna punya sinonim SENDIRI yang hanya cocok untuk makna itu (2-5), antonim kalau ada (boleh kosong), dan 1-3 pola kalimat. Isi "register" hanya kalau sinonim itu memang formal/informal/khas BrE/AmE dsb.
+"compare": 1-2 kata yang sering tertukar dengan kata ini (misal attempt vs effort, atmosphere vs mood), masing-masing 1-2 contoh benar dan 1-2 contoh salah. Kosongkan array kalau tidak ada yang relevan.
+"examples": 2 kalimat gaya percakapan seperti di film/serial.`;
 
     try {
       const res = await this.generate({

@@ -2131,3 +2131,42 @@ body { background: var(--bg-main); }
 .vocab-none { font-size: 13px; color: var(--text-muted); font-style: italic; }
 .vocab-alt { margin-top: 3px; font-size: 14px; color: var(--text-medium); }
 .vocab-alt strong { color: var(--text-dark); }
+
+/* Vocab senses (one block per meaning, thesaurus style) */
+.vocab-senses { display: flex; flex-direction: column; }
+.vocab-sense { padding: 14px 0; border-bottom: 1px solid var(--card-border); }
+.vocab-sense:first-child { padding-top: 4px; }
+.vocab-sense:last-child { border-bottom: none; }
+.vocab-sense-head { display: flex; gap: 12px; align-items: flex-start; }
+.vocab-sense-num { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #FFFFFF; font-size: 12.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+.vocab-sense-tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 3px; }
+.vocab-pos-tag { font-size: 12px; font-weight: 700; color: var(--accent); }
+.vocab-grammar { font-size: 11.5px; color: var(--text-muted); border: 1px solid var(--card-border); border-radius: 6px; padding: 0 6px; cursor: help; }
+.vocab-sense-def { font-size: 15px; font-weight: 600; color: var(--text-dark); line-height: 1.4; }
+.vocab-sense-example { margin: 8px 0 0 36px; padding-left: 12px; border-left: 2px solid var(--primary-light); }
+.vocab-sense-example p { font-size: 14px; color: var(--text-dark); font-style: italic; line-height: 1.5; }
+.vocab-sense-example .vocab-speak { font-size: 12px; font-style: normal; }
+.vocab-sense-example span { font-size: 12.5px; color: var(--text-muted); }
+.vocab-sense-row { display: flex; gap: 10px; align-items: flex-start; margin: 10px 0 0 36px; }
+.vocab-row-label { flex: none; width: 58px; font-size: 11.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; padding-top: 7px; }
+.vocab-opp { color: #2563A8; }
+.vocab-chip b { font-weight: 600; }
+.vocab-register { font-style: normal; font-size: 10.5px; font-weight: 600; color: #6E5D80; background: #F1ECF6; border-radius: 4px; padding: 0 5px; margin-left: 3px; vertical-align: 1px; }
+.vocab-patterns { list-style: none; display: flex; flex-direction: column; gap: 4px; padding-top: 5px; }
+.vocab-patterns li { font-size: 13.5px; color: var(--text-dark); }
+.vocab-patterns li::before { content: '▸'; color: var(--accent); margin-right: 6px; }
+
+.vocab-compare { margin-top: 16px; padding: 14px 16px; border-radius: 12px; background: #EEF4FB; border: 1px solid #D6E4F5; }
+.vocab-compare-title { font-size: 13px; font-weight: 800; color: #2563A8; text-transform: uppercase; letter-spacing: .3px; }
+.vocab-compare p { font-size: 13.5px; color: var(--text-medium); line-height: 1.55; margin-top: 6px; }
+.vocab-compare ul { list-style: none; margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+.vocab-compare li { font-size: 13.5px; font-style: italic; }
+.vocab-compare li i { font-style: normal; width: 14px; }
+.vocab-compare li.ok { color: #276749; }
+.vocab-compare li.bad { color: #9B2C2C; }
+
+@media (max-width: 900px) {
+  .vocab-sense-row, .vocab-sense-example { margin-left: 0; }
+  .vocab-sense-row { flex-direction: column; gap: 4px; }
+  .vocab-row-label { padding-top: 0; }
+}

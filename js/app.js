@@ -1546,6 +1546,54 @@ const MindVaultApp = {
     const ant = list(d.antonyms);
     const ex = list(d.examples);
     const col = list(d.collocations);
+    const senses = list(d.senses).filter(s => s && (s.definition || list(s.synonyms).length));
+    const compare = list(d.compare).filter(c => c && (c.title || c.explanation));
+
+    const registerLabels = { formal: 'formal', informal: 'santai', spoken: 'lisan', slang: 'slang', bre: 'British', ame: 'American', literary: 'sastra', law: 'hukum', technical: 'teknis' };
+    const synChip = (w) => {
+      const reg = registerLabels[String(w.register || '').trim().toLowerCase()];
+      return `<button type="button" class="vocab-chip" data-vocab-word="${e(w.word)}" title="Analisis kata ini">
+        <b>${e(w.word)}${reg ? ` <em class="vocab-register">${e(reg)}</em>` : ''}</b>${w.meaning ? `<span>${e(w.meaning)}</span>` : ''}
+      </button>`;
+    };
+    const grammarShort = { C: 'bisa dihitung', U: 'tak terhitung', T: 'perlu objek', I: 'tanpa objek' };
+    const grammarTag = (g) => {
+      const codes = String(g || '').toUpperCase().match(/\b[CUTI]\b/g) || [];
+      if (!codes.length) return '';
+      const uniq = [...new Set(codes)];
+      return `<span class="vocab-grammar" title="${e(uniq.map(c => `${c} = ${grammarShort[c]}`).join(', '))}">[${e(uniq.join(', '))}] ${e(uniq.map(c => grammarShort[c]).join(' / '))}</span>`;
+    };
+    const sensesHtml = senses.map((s, i) => `
+      <div class="vocab-sense">
+        <div class="vocab-sense-head">
+          <span class="vocab-sense-num">${i + 1}</span>
+          <div>
+            <div class="vocab-sense-tags">
+              ${s.pos ? `<span class="vocab-pos-tag">${e(s.pos)}</span>` : ''}
+              ${grammarTag(s.grammar)}
+            </div>
+            <div class="vocab-sense-def">${e(s.definition)}</div>
+          </div>
+        </div>
+        ${s.example?.en ? `
+          <div class="vocab-sense-example">
+            <p>${e(s.example.en)} <button type="button" class="vocab-speak" data-speak="${e(s.example.en)}" title="Dengarkan"><i class="fa-solid fa-volume-low"></i></button></p>
+            ${s.example.id ? `<span>${e(s.example.id)}</span>` : ''}
+          </div>` : ''}
+        ${list(s.synonyms).length ? `<div class="vocab-sense-row"><span class="vocab-row-label">Sinonim</span><div class="vocab-chips">${list(s.synonyms).map(synChip).join('')}</div></div>` : ''}
+        ${list(s.antonyms).length ? `<div class="vocab-sense-row"><span class="vocab-row-label vocab-opp">Lawan</span><div class="vocab-chips">${list(s.antonyms).map(synChip).join('')}</div></div>` : ''}
+        ${list(s.patterns).length ? `<div class="vocab-sense-row"><span class="vocab-row-label">Pola</span><ul class="vocab-patterns">${list(s.patterns).map(p => `<li>${e(p)}</li>`).join('')}</ul></div>` : ''}
+      </div>`).join('');
+
+    const compareHtml = compare.map(c => `
+      <div class="vocab-compare">
+        <div class="vocab-compare-title"><i class="fa-solid fa-circle-question"></i> ${e(c.title)}</div>
+        ${c.explanation ? `<p>${e(c.explanation)}</p>` : ''}
+        <ul>
+          ${list(c.correct).map(x => `<li class="ok"><i class="fa-solid fa-check"></i> ${e(x)}</li>`).join('')}
+          ${list(c.wrong).map(x => `<li class="bad"><i class="fa-solid fa-xmark"></i> <s>${e(x)}</s></li>`).join('')}
+        </ul>
+      </div>`).join('');
 
     return `
       <div class="vocab-head">
@@ -1571,6 +1619,12 @@ const MindVaultApp = {
           </button>
         </div>
       </div>
+
+      ${senses.length ? `
+        <div class="subsection-label">Makna & sinonim</div>
+        <div class="vocab-senses">${sensesHtml}</div>` : ''}
+
+      ${compareHtml}
 
       ${forms.length ? `
         <div class="subsection-label">Bentuk kata</div>
@@ -1609,6 +1663,7 @@ const MindVaultApp = {
             .filter(([, v]) => v).map(([k, v]) => `<div><span>${e(k)}</span><strong>${e(v)}</strong></div>`).join('')}
         </div>` : ''}
 
+      ${senses.length ? '' : `
       <div class="vocab-two">
         <div>
           <div class="subsection-label">Sinonim</div>
@@ -1618,7 +1673,7 @@ const MindVaultApp = {
           <div class="subsection-label">Antonim</div>
           <div class="vocab-chips">${ant.length ? ant.map(wordLink).join('') : '<span class="empty-note">Tidak ada antonim langsung.</span>'}</div>
         </div>
-      </div>
+      </div>`}
 
       ${ex.length ? `
         <div class="subsection-label">Contoh kalimat</div>
