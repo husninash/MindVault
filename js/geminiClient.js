@@ -6,6 +6,47 @@ const MindVaultGemini = {
       '';
   },
 
+  // Models tried in order when one is overloaded (Google returns 503/429 during demand spikes)
+  models: ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash'],
+
+  // POST a generateContent request with retry + model fallback.
+  // Returns { data } on success or { error: true, message } on failure.
+  async generate(body) {
+    const apiKey = this.getApiKey();
+    if (!apiKey) return { error: true, message: 'Gemini API key belum diatur. Isi di menu Settings.' };
+    const busy = (status) => status === 429 || status === 500 || status === 503 || status === 504;
+    let lastError = null;
+
+    for (const model of this.models) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        let response;
+        try {
+          response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+        } catch (err) {
+          lastError = { status: 0, message: err.message || 'Gagal menghubungi Gemini.' };
+          break; // network problem: try the next model
+        }
+        if (response.ok) return { data: await response.json(), model };
+
+        const errJson = await response.json().catch(() => ({}));
+        lastError = { status: response.status, message: errJson.error?.message || `HTTP ${response.status}` };
+        console.warn(`Gemini ${model} error:`, response.status, lastError.message);
+        if (response.status === 404) break;            // model not available for this key: next model
+        if (!busy(response.status)) return { error: true, message: lastError.message }; // bad key / bad request
+        if (attempt === 0) await new Promise(r => setTimeout(r, 1200));
+      }
+    }
+
+    if (lastError && busy(lastError.status)) {
+      return { error: true, message: 'Server Gemini sedang penuh. Sudah dicoba beberapa model tapi semuanya sibuk — coba lagi sebentar lagi.' };
+    }
+    return { error: true, message: lastError?.message || 'Gagal menghubungi Gemini.' };
+  },
+
   async askGemini(prompt, systemInstruction = '') {
     const apiKey = this.getApiKey();
     if (!apiKey) {
@@ -13,45 +54,17 @@ const MindVaultGemini = {
       return null;
     }
 
-    // Primary model: gemini-2.5-flash
-    let endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-
     const requestBody = {
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: prompt }]
-        }
-      ]
+      contents: [{ role: 'user', parts: [{ text: prompt }] }]
     };
-
     if (systemInstruction) {
-      requestBody.systemInstruction = {
-        parts: [{ text: systemInstruction }]
-      };
+      requestBody.systemInstruction = { parts: [{ text: systemInstruction }] };
     }
 
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
-      });
-
-      if (!response.ok) {
-        const errJson = await response.json().catch(() => ({}));
-        const errMsg = errJson.error?.message || `HTTP ${response.status}`;
-        console.warn('Gemini API Error:', response.status, errJson);
-        return { error: true, message: errMsg };
-      }
-
-      const data = await response.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      return text || null;
-    } catch (err) {
-      console.warn('Gemini fetch failed:', err);
-      return { error: true, message: err.message || "Gagal menghubungi endpoint Gemini API." };
-    }
+    const res = await this.generate(requestBody);
+    if (res.error) return res;
+    const text = res.data.candidates?.[0]?.content?.parts?.[0]?.text;
+    return text || null;
   },
 
   // English vocabulary breakdown for a word or phrase the user picked up from shows/videos.
@@ -86,19 +99,12 @@ Kalau salah satu jenis utama tidak punya bentuk yang umum dipakai, tetap tulis b
 Synonyms dan antonyms masing-masing 3-6 (antonyms boleh kosong kalau memang tidak ada). Examples 3 kalimat dengan konteks berbeda, gaya percakapan seperti di film/serial. Collocations 3-5.`;
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { responseMimeType: 'application/json', temperature: 0.3 }
-        })
+      const res = await this.generate({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: 'application/json', temperature: 0.3 }
       });
-      if (!response.ok) {
-        const errJson = await response.json().catch(() => ({}));
-        return { error: true, message: errJson.error?.message || `HTTP ${response.status}` };
-      }
-      const data = await response.json();
+      if (res.error) return res;
+      const data = res.data;
       const text = (data.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
       const match = text.match(/\{[\s\S]*\}/);
       if (!match) return { error: true, message: 'Jawaban AI tidak bisa dibaca. Coba lagi.' };
@@ -129,20 +135,12 @@ Buat 4 topik obrolan. Balas HANYA dengan JSON array tanpa teks lain, format:
 [{"headline": "judul berita singkat", "topic": "kalimat pembuka obrolan dalam Bahasa Indonesia santai", "friend": "nama teman yang cocok atau null", "why": "alasan singkat kenapa relevan"}]`;
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          tools: [{ google_search: {} }]
-        })
+      const res = await this.generate({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        tools: [{ google_search: {} }]
       });
-      if (!response.ok) {
-        const errJson = await response.json().catch(() => ({}));
-        return { error: true, message: errJson.error?.message || `HTTP ${response.status}` };
-      }
-
-      const data = await response.json();
+      if (res.error) return res;
+      const data = res.data;
       const candidate = data.candidates?.[0] || {};
       const text = (candidate.content?.parts || []).map(p => p.text || '').join('');
       // Search grounding can't be combined with JSON mode, so pull the array out of the text
