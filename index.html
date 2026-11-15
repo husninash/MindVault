@@ -10,7 +10,7 @@
   
   <!-- FontAwesome & Custom CSS -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="css/styles.css?v=19.0">
+  <link rel="stylesheet" href="css/styles.css?v=20.0">
 </head>
 <body>
 
@@ -257,6 +257,9 @@
               <button class="tool-item" onclick="MindVaultApp.switchView('graph')">
                 <i class="fa-solid fa-diagram-project"></i> Peta relasi
               </button>
+              <button class="tool-item" onclick="MindVaultApp.switchView('vocab'); MindVaultApp.startVocabReview();">
+                <i class="fa-solid fa-layer-group"></i> <span id="dash-vocab-review">Ulangi kosakata</span>
+              </button>
             </div>
           </div>
         </div>
@@ -467,17 +470,32 @@
 
     <!-- PAGE VIEW: ENGLISH VOCABULARY -->
     <section id="view-vocab" class="page-view">
-      <div class="dash-header">
-        <h2 style="font-size: 24px; font-weight: 800;">English Vocab</h2>
-        <p class="dash-summary">Ketemu kata baru pas nonton? Ketik di sini. Jenis kata, perubahan bentuk, sinonim, antonim, dan contoh kalimat dibuat otomatis.</p>
+      <div class="dash-header vocab-page-head">
+        <div>
+          <h2 style="font-size: 24px; font-weight: 800;">English Vocab</h2>
+          <p class="dash-summary">Ketemu kata baru pas nonton? Ketik di sini. Jenis kata, perubahan bentuk, sinonim, antonim, dan contoh kalimat dibuat otomatis.</p>
+        </div>
+        <button type="button" class="vocab-review-cta" id="vocab-review-btn" onclick="MindVaultApp.startVocabReview()">
+          <i class="fa-solid fa-layer-group"></i>
+          <span id="vocab-review-label">Ulangi kata</span>
+        </button>
       </div>
 
-      <form class="vocab-search" onsubmit="event.preventDefault(); MindVaultApp.lookupVocab();">
-        <input type="text" id="vocab-input" class="form-control" placeholder="Contoh: write, overwhelming, figure out" autocomplete="off" autocapitalize="off" spellcheck="false">
-        <button type="submit" class="btn btn-primary" id="vocab-submit">
-          <i class="fa-solid fa-magnifying-glass"></i>
-          <span>Analisis</span>
-        </button>
+      <form class="vocab-search-form" onsubmit="event.preventDefault(); MindVaultApp.lookupVocab();">
+        <div class="vocab-search">
+          <input type="text" id="vocab-input" class="form-control" placeholder="Contoh: write, overwhelming, figure out" autocomplete="off" autocapitalize="off" spellcheck="false">
+          <button type="submit" class="btn btn-primary" id="vocab-submit">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <span>Analisis</span>
+          </button>
+        </div>
+        <details class="vocab-context-toggle" id="vocab-context-details">
+          <summary><i class="fa-solid fa-film"></i> Tambah konteks: kalimat &amp; sumber tontonan <span>(opsional, bikin lebih gampang ingat)</span></summary>
+          <div class="vocab-context-fields">
+            <textarea id="vocab-context-sentence" class="form-control" rows="2" placeholder="Kalimat tempat kamu dengar kata itu, misal: She's really striving for that promotion."></textarea>
+            <input type="text" id="vocab-context-source" class="form-control" placeholder="Sumber, misal: Suits S2E4, podcast, YouTube..." autocomplete="off">
+          </div>
+        </details>
       </form>
 
       <div class="vocab-layout">
@@ -1239,11 +1257,11 @@
 
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/data.js?v=33.0"></script>
-<script src="js/supabaseClient.js?v=33.0"></script>
-<script src="js/geminiClient.js?v=33.0"></script>
-<script src="js/graph.js?v=33.0"></script>
-<script src="js/app.js?v=33.0"></script>
+<script src="js/data.js?v=34.0"></script>
+<script src="js/supabaseClient.js?v=34.0"></script>
+<script src="js/geminiClient.js?v=34.0"></script>
+<script src="js/graph.js?v=34.0"></script>
+<script src="js/app.js?v=34.0"></script>
 
 </body>
 </html>

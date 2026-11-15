@@ -1386,12 +1386,41 @@ const MindVaultApp = {
       return;
     }
     if (input) input.value = word;
+    this.vocabReview = null;
+
+    // Context (sentence + source) only applies to a word typed in the form, not to clicked synonyms
+    const fromForm = wordArg === undefined;
+    const ctxSentenceEl = document.getElementById('vocab-context-sentence');
+    const ctxSourceEl = document.getElementById('vocab-context-source');
+    const context = fromForm ? {
+      sentence: String(ctxSentenceEl?.value || '').trim().slice(0, 500),
+      source: String(ctxSourceEl?.value || '').trim().slice(0, 120)
+    } : { sentence: '', source: '' };
+    const hasContext = !!(context.sentence || context.source);
+    const clearForm = () => {
+      if (input) input.value = '';
+      if (fromForm) {
+        if (ctxSentenceEl) ctxSentenceEl.value = '';
+        if (ctxSourceEl) ctxSourceEl.value = '';
+        const details = document.getElementById('vocab-context-details');
+        if (details) details.open = false;
+      }
+    };
+    const attachContext = (row) => {
+      // Keep the first context a word was found in; don't overwrite it silently
+      if (!hasContext || row.data?.context?.sentence || row.data?.context?.source) return false;
+      row.data = { ...(row.data || {}), context };
+      this.saveVocabLocal();
+      MindVaultSupabase.upsertJournalRow('vocab_words', row);
+      return true;
+    };
 
     const existing = this.findVocab(word);
     if (existing) {
-      if (input) input.value = '';
+      const added = attachContext(existing);
+      clearForm();
       this.showVocab(existing.id);
-      this.showToast(`"${existing.word}" sudah ada di daftarmu.`, 'info');
+      this.showToast(added ? `Konteks ditambahkan ke "${existing.word}".` : `"${existing.word}" sudah ada di daftarmu.`, 'info');
       return;
     }
     if (this.vocabLoading) return;
@@ -1402,7 +1431,7 @@ const MindVaultApp = {
     if (btn) btn.disabled = true;
     if (result) result.innerHTML = `<p class="empty-note"><i class="fa-solid fa-spinner fa-spin"></i> Menganalisis "${this.escapeHtml(word)}"...</p>`;
 
-    const entry = await MindVaultGemini.analyzeVocab(word);
+    const entry = await MindVaultGemini.analyzeVocab(word, context.sentence);
     this.vocabLoading = false;
     if (btn) btn.disabled = false;
 
@@ -1417,28 +1446,42 @@ const MindVaultApp = {
     // Gemini may have corrected the spelling to a word that's already saved
     const already = this.findVocab(entry.word);
     if (already) {
-      if (input) input.value = '';
+      attachContext(already);
+      clearForm();
       this.showVocab(already.id);
       this.showToast(`Maksudnya "${already.word}"? Kata itu sudah ada di daftarmu.`, 'info');
       return;
     }
 
+    if (hasContext) {
+      entry.context = {
+        ...context,
+        translation: String(entry.context_translation || ''),
+        sense: Number(entry.context_sense) || null
+      };
+    }
+    delete entry.context_translation;
+    delete entry.context_sense;
+    // First review tomorrow: you just studied it today
+    entry.srs = { due: this.localDateStr(1), interval: 0, ease: 2.5, reps: 0, lapses: 0 };
+
     const row = {
       id: Date.now(),
       word: entry.word,
-      date: new Date().toISOString().split('T')[0],
+      date: this.localDateStr(0),
       data: entry,
       mastered: false
     };
     this.getVocabWords().unshift(row);
     this.saveVocabLocal();
     this.selectedVocabId = row.id;
-    if (input) input.value = '';
+    clearForm();
     this.renderVocabPage();
     MindVaultSupabase.upsertJournalRow('vocab_words', row);
   },
 
   showVocab(id) {
+    this.vocabReview = null;
     this.selectedVocabId = id;
     this.renderVocabPage();
     if (window.innerWidth < 900) document.getElementById('vocab-result')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1460,6 +1503,241 @@ const MindVaultApp = {
     this.saveVocabLocal();
     this.renderVocabPage();
     MindVaultSupabase.upsertJournalRow('vocab_words', row);
+  },
+
+  // ---------- Spaced repetition (simplified SM-2) ----------
+  localDateStr(offsetDays = 0) {
+    const d = new Date();
+    d.setDate(d.getDate() + offsetDays);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  },
+
+  vocabSrs(row) {
+    const s = row?.data?.srs || {};
+    return {
+      due: s.due || null, // no schedule yet (saved before reviews existed) = due now
+      interval: Number(s.interval) || 0,
+      ease: Number(s.ease) || 2.5,
+      reps: Number(s.reps) || 0,
+      lapses: Number(s.lapses) || 0,
+      last: s.last || null
+    };
+  },
+
+  isVocabDue(row) {
+    if (row.mastered) return false;
+    const { due } = this.vocabSrs(row);
+    return !due || due <= this.localDateStr(0);
+  },
+
+  getDueVocab() {
+    return this.getVocabWords()
+      .filter(v => this.isVocabDue(v))
+      .sort((a, b) => String(this.vocabSrs(a).due || '').localeCompare(String(this.vocabSrs(b).due || '')) || Number(a.id) - Number(b.id));
+  },
+
+  vocabNextIntervals(srs) {
+    const good = srs.reps === 0 ? 3 : srs.reps === 1 ? 7 : Math.max(srs.interval + 1, Math.round(srs.interval * srs.ease));
+    const hard = srs.reps === 0 ? 2 : Math.max(srs.interval + 1, Math.round(srs.interval * 1.2));
+    return { again: 1, hard: Math.min(hard, good), good };
+  },
+
+  formatInterval(days) {
+    if (days <= 1) return 'besok';
+    if (days < 30) return `${days} hari`;
+    const months = Math.round(days / 30);
+    return `${months} bulan`;
+  },
+
+  describeVocabDue(row) {
+    if (row.mastered) return 'Sudah hafal — tidak masuk jadwal ulang.';
+    const { due, reps } = this.vocabSrs(row);
+    const today = this.localDateStr(0);
+    if (!due || due <= today) return 'Perlu diulang hari ini.';
+    const days = Math.round((new Date(due) - new Date(today)) / 86400000);
+    return `Ulangan berikutnya ${days === 1 ? 'besok' : `${days} hari lagi`}${reps ? ` · sudah diulang ${reps}×` : ''}.`;
+  },
+
+  startVocabReview() {
+    const due = this.getDueVocab();
+    if (!due.length) {
+      const words = this.getVocabWords();
+      if (!words.length) return this.showToast('Belum ada kata. Analisis kata pertamamu dulu.', 'info');
+      const upcoming = words.filter(v => !v.mastered && this.vocabSrs(v).due).map(v => this.vocabSrs(v).due).sort()[0];
+      return this.showToast(upcoming ? `Tidak ada yang perlu diulang hari ini. Jadwal berikutnya: ${upcoming}.` : 'Tidak ada yang perlu diulang.', 'success');
+    }
+    this.vocabReview = { queue: due.slice(0, 30).map(v => v.id), pos: 0, revealed: false, done: 0, forgot: 0, forgotIds: [] };
+    if (this.activeView !== 'vocab') this.switchView('vocab');
+    this.renderVocabPage();
+    document.getElementById('vocab-result')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  },
+
+  exitVocabReview() {
+    this.vocabReview = null;
+    this.renderVocabPage();
+  },
+
+  revealVocabReview() {
+    if (!this.vocabReview) return;
+    this.vocabReview.revealed = true;
+    this.renderVocabPage();
+  },
+
+  gradeVocab(grade) {
+    const review = this.vocabReview;
+    if (!review || !review.revealed) return;
+    const id = review.queue[review.pos];
+    const row = this.getVocabWords().find(v => String(v.id) === String(id));
+    if (row) {
+      const srs = this.vocabSrs(row);
+      const next = this.vocabNextIntervals(srs);
+      if (grade === 'again') {
+        srs.ease = Math.max(1.3, srs.ease - 0.2);
+        srs.interval = next.again;
+        srs.reps = 0;
+        srs.lapses += 1;
+        review.forgot += 1;
+        // See it once more at the end of this session
+        if (review.queue.filter(q => String(q) === String(id)).length < 2) review.queue.push(id);
+        review.forgotIds.push(String(id));
+      } else if (review.forgotIds.includes(String(id))) {
+        // Forgotten earlier in this session: recalled now, but still bring it back tomorrow
+        srs.interval = 1;
+      } else if (grade === 'hard') {
+        srs.ease = Math.max(1.3, srs.ease - 0.15);
+        srs.interval = next.hard;
+        srs.reps += 1;
+      } else {
+        srs.interval = next.good;
+        srs.reps += 1;
+      }
+      srs.due = this.localDateStr(srs.interval);
+      srs.last = this.localDateStr(0);
+      srs.ease = Math.round(srs.ease * 100) / 100;
+      row.data = { ...(row.data || {}), srs };
+      if (srs.interval >= 60 && !row.mastered) {
+        row.mastered = true;
+        this.showToast(`"${row.word}" sekarang ditandai sudah hafal.`, 'success');
+      }
+      this.saveVocabLocal();
+      MindVaultSupabase.upsertJournalRow('vocab_words', row);
+    }
+    review.done += 1;
+    review.pos += 1;
+    review.revealed = false;
+    this.renderVocabPage();
+  },
+
+  updateVocabDueUI() {
+    const count = this.getDueVocab().length;
+    const label = document.getElementById('vocab-review-label');
+    const btn = document.getElementById('vocab-review-btn');
+    if (label) label.innerText = count ? `Ulangi ${count} kata` : 'Tidak ada yang perlu diulang';
+    if (btn) btn.classList.toggle('has-due', count > 0);
+    const dash = document.getElementById('dash-vocab-review');
+    if (dash) dash.innerText = count ? `Ulangi kosakata (${count} hari ini)` : 'Ulangi kosakata';
+  },
+
+  // Wraps every occurrence of the word (or one of its forms) in <mark>, escaping the rest
+  highlightVocabInSentence(sentence, row) {
+    const text = String(sentence || '');
+    const d = row.data || {};
+    const candidates = new Set([row.word]);
+    (Array.isArray(d.forms) ? d.forms : []).forEach(f => f && f.word && candidates.add(f.word));
+    if (d.verb_forms && typeof d.verb_forms === 'object') Object.values(d.verb_forms).forEach(v => v && candidates.add(v));
+    const alts = [...candidates]
+      .map(w => String(w).trim())
+      .filter(Boolean)
+      .sort((a, b) => b.length - a.length)
+      .map(w => {
+        const isWord = /^[a-z'-]+$/i.test(w);
+        const stem = isWord && w.length >= 5 ? w.slice(0, -1) : w;
+        const escaped = stem.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+        return isWord ? `${escaped}[a-z]*` : escaped;
+      });
+    if (!alts.length) return this.escapeHtml(text);
+    const re = new RegExp(`\\b(?:${alts.join('|')})`, 'gi');
+    let html = '';
+    let last = 0;
+    for (const m of text.matchAll(re)) {
+      html += this.escapeHtml(text.slice(last, m.index)) + `<mark>${this.escapeHtml(m[0])}</mark>`;
+      last = m.index + m[0].length;
+    }
+    return html + this.escapeHtml(text.slice(last));
+  },
+
+  vocabContextHtml(row, { showTranslation = true } = {}) {
+    const ctx = row.data?.context;
+    if (!ctx || (!ctx.sentence && !ctx.source)) return '';
+    return `
+      <div class="vocab-context">
+        <div class="vocab-context-label"><i class="fa-solid fa-film"></i> Ditemukan di${ctx.source ? ` <strong>${this.escapeHtml(ctx.source)}</strong>` : ''}</div>
+        ${ctx.sentence ? `
+          <p class="vocab-context-sentence">“${this.highlightVocabInSentence(ctx.sentence, row)}”
+            <button type="button" class="vocab-speak" data-speak="${this.escapeHtml(ctx.sentence)}" title="Dengarkan"><i class="fa-solid fa-volume-low"></i></button>
+          </p>` : ''}
+        ${showTranslation && ctx.translation ? `<p class="vocab-context-translation">${this.escapeHtml(ctx.translation)}</p>` : ''}
+      </div>`;
+  },
+
+  vocabReviewHtml() {
+    const review = this.vocabReview;
+    const e = (v) => this.escapeHtml(v);
+    if (review.pos >= review.queue.length) {
+      const uniqueWords = new Set(review.queue.map(String)).size;
+      const forgotWords = new Set(review.forgotIds).size;
+      return `
+        <div class="vocab-review-done">
+          <i class="fa-solid fa-circle-check"></i>
+          <h3>Selesai untuk hari ini</h3>
+          <p>${uniqueWords} kata diulang · ${uniqueWords - forgotWords} langsung ingat · ${forgotWords} sempat lupa</p>
+          <button type="button" class="btn btn-primary" onclick="MindVaultApp.exitVocabReview()">Kembali ke daftar</button>
+        </div>`;
+    }
+    const row = this.getVocabWords().find(v => String(v.id) === String(review.queue[review.pos]));
+    if (!row) {
+      review.pos += 1;
+      return this.vocabReviewHtml();
+    }
+    const d = row.data || {};
+    const senses = (Array.isArray(d.senses) ? d.senses : []).filter(s => s && s.definition).slice(0, 3);
+    const next = review.forgotIds.includes(String(row.id))
+      ? { again: 1, hard: 1, good: 1 }
+      : this.vocabNextIntervals(this.vocabSrs(row));
+    const total = review.queue.length;
+
+    return `
+      <div class="vocab-review">
+        <div class="vocab-review-top">
+          <span>Ulangi kosakata · ${review.pos + 1} / ${total}</span>
+          <button type="button" class="auth-link" onclick="MindVaultApp.exitVocabReview()">Keluar</button>
+        </div>
+        <div class="vocab-review-progress"><div style="width: ${Math.round((review.pos / total) * 100)}%"></div></div>
+
+        <div class="vocab-review-word">
+          ${e(row.word)}
+          <button type="button" class="vocab-speak" data-speak="${e(row.word)}" title="Dengarkan"><i class="fa-solid fa-volume-high"></i></button>
+        </div>
+        ${d.phonetic ? `<div class="vocab-review-phonetic">${e(d.phonetic)}</div>` : ''}
+        ${this.vocabContextHtml(row, { showTranslation: review.revealed })}
+
+        ${review.revealed ? `
+          <div class="vocab-review-answer">
+            ${d.meaning ? `<p class="vocab-meaning">${e(d.meaning)}</p>` : ''}
+            ${senses.length ? `<ol class="vocab-review-senses">${senses.map(s => `<li><span class="vocab-pos-tag">${e(s.pos || '')}</span> ${e(s.definition)}</li>`).join('')}</ol>` : ''}
+            ${!d.context && senses[0]?.example?.en ? `<p class="vocab-form-example">${e(senses[0].example.en)}</p>` : ''}
+          </div>
+          <p class="vocab-review-ask">Seberapa ingat kamu?</p>
+          <div class="vocab-review-grades">
+            <button type="button" class="grade-again" onclick="MindVaultApp.gradeVocab('again')"><strong>Lupa</strong><span>${this.formatInterval(next.again)} · 1</span></button>
+            <button type="button" class="grade-hard" onclick="MindVaultApp.gradeVocab('hard')"><strong>Susah</strong><span>${this.formatInterval(next.hard)} · 2</span></button>
+            <button type="button" class="grade-good" onclick="MindVaultApp.gradeVocab('good')"><strong>Ingat</strong><span>${this.formatInterval(next.good)} · 3</span></button>
+          </div>
+        ` : `
+          <p class="vocab-review-ask">Ingat artinya? Coba jawab dalam hati dulu.</p>
+          <button type="button" class="btn btn-primary vocab-review-reveal" onclick="MindVaultApp.revealVocabReview()">Lihat jawaban <span>(Spasi)</span></button>
+        `}
+      </div>`;
   },
 
   deleteVocab(id) {
@@ -1499,11 +1777,27 @@ const MindVaultApp = {
           this.lookupVocab(link.getAttribute('data-vocab-word'));
         }
       });
+      // Review shortcuts: Space/Enter reveals, 1/2/3 grades
+      document.addEventListener('keydown', (ev) => {
+        if (!this.vocabReview || this.activeView !== 'vocab') return;
+        if (/^(INPUT|TEXTAREA|SELECT)$/.test(ev.target.tagName) || ev.target.isContentEditable) return;
+        if (!this.vocabReview.revealed && (ev.key === ' ' || ev.key === 'Enter')) {
+          ev.preventDefault();
+          this.revealVocabReview();
+        } else if (this.vocabReview.revealed && ['1', '2', '3'].includes(ev.key)) {
+          ev.preventDefault();
+          this.gradeVocab({ 1: 'again', 2: 'hard', 3: 'good' }[ev.key]);
+        }
+      });
       this.vocabBound = true;
     }
 
+    this.updateVocabDueUI();
     const selected = words.find(v => String(v.id) === String(this.selectedVocabId));
-    if (!this.vocabLoading) result.innerHTML = selected ? this.vocabCardHtml(selected) : this.vocabEmptyHtml(words);
+    if (!this.vocabLoading) {
+      if (this.vocabReview) result.innerHTML = this.vocabReviewHtml();
+      else result.innerHTML = selected ? this.vocabCardHtml(selected) : this.vocabEmptyHtml(words);
+    }
     this.renderVocabList();
   },
 
@@ -1563,14 +1857,16 @@ const MindVaultApp = {
       const uniq = [...new Set(codes)];
       return `<span class="vocab-grammar" title="${e(uniq.map(c => `${c} = ${grammarShort[c]}`).join(', '))}">[${e(uniq.join(', '))}] ${e(uniq.map(c => grammarShort[c]).join(' / '))}</span>`;
     };
+    const contextSense = Number(d.context?.sense) || 0;
     const sensesHtml = senses.map((s, i) => `
-      <div class="vocab-sense">
+      <div class="vocab-sense ${contextSense === i + 1 ? 'is-context' : ''}">
         <div class="vocab-sense-head">
           <span class="vocab-sense-num">${i + 1}</span>
           <div>
             <div class="vocab-sense-tags">
               ${s.pos ? `<span class="vocab-pos-tag">${e(s.pos)}</span>` : ''}
               ${grammarTag(s.grammar)}
+              ${contextSense === i + 1 ? `<span class="vocab-context-badge"><i class="fa-solid fa-film"></i> makna di kalimatmu</span>` : ''}
             </div>
             <div class="vocab-sense-def">${e(s.definition)}</div>
           </div>
@@ -1608,6 +1904,7 @@ const MindVaultApp = {
             ${d.corrected ? `<span class="vocab-corrected">ejaan dikoreksi</span>` : ''}
           </div>
           ${d.meaning ? `<p class="vocab-meaning">${e(d.meaning)}</p>` : ''}
+          <p class="vocab-due"><i class="fa-regular fa-clock"></i> ${e(this.describeVocabDue(row))}</p>
         </div>
         <div class="vocab-actions">
           <button type="button" class="btn btn-secondary btn-small" onclick="MindVaultApp.toggleVocabMastered(${Number(row.id)})">
@@ -1619,6 +1916,8 @@ const MindVaultApp = {
           </button>
         </div>
       </div>
+
+      ${this.vocabContextHtml(row)}
 
       ${senses.length ? `
         <div class="subsection-label">Makna & sinonim</div>
@@ -1703,7 +2002,7 @@ const MindVaultApp = {
 
     const q = (document.getElementById('vocab-filter')?.value || '').trim().toLowerCase();
     const shown = q
-      ? words.filter(v => String(v.word).toLowerCase().includes(q) || String(v.data?.meaning || '').toLowerCase().includes(q))
+      ? words.filter(v => String(v.word).toLowerCase().includes(q) || String(v.data?.meaning || '').toLowerCase().includes(q) || String(v.data?.context?.source || '').toLowerCase().includes(q))
       : words;
 
     if (!shown.length) {
@@ -1713,7 +2012,7 @@ const MindVaultApp = {
     listEl.innerHTML = shown.map(v => `
       <li>
         <button type="button" class="vocab-list-item ${String(v.id) === String(this.selectedVocabId) ? 'active' : ''}" onclick="MindVaultApp.showVocab(${Number(v.id)})">
-          <span class="vocab-list-word">${v.mastered ? '<i class="fa-solid fa-check"></i> ' : ''}${this.escapeHtml(v.word)}</span>
+          <span class="vocab-list-word">${v.mastered ? '<i class="fa-solid fa-check"></i> ' : ''}${this.isVocabDue(v) ? '<span class="vocab-due-dot" title="Perlu diulang hari ini"></span>' : ''}${this.escapeHtml(v.word)}</span>
           <span class="vocab-list-meaning">${this.escapeHtml(v.data?.meaning || '')}</span>
         </button>
       </li>`).join('');

@@ -69,13 +69,18 @@ const MindVaultGemini = {
 
   // English vocabulary breakdown for a word or phrase the user picked up from shows/videos.
   // Returns the parsed entry object or { error, message }.
-  async analyzeVocab(word) {
+  async analyzeVocab(word, contextSentence = '') {
     const apiKey = this.getApiKey();
     if (!apiKey) return { error: true, message: 'Gemini API key belum diatur. Isi di menu Settings.' };
 
+    const contextRule = contextSentence
+      ? `\nKata ini ditemukan di kalimat berikut (dari film/serial/video yang ditonton pengguna): "${contextSentence}".
+Tambahkan ke JSON: "context_sense": nomor urut (mulai dari 1) makna di "senses" yang dipakai di kalimat itu, dan "context_translation": terjemahan natural kalimat itu ke bahasa Indonesia. Pastikan makna yang dipakai di kalimat itu ada di "senses".\n`
+      : '';
+
     const prompt = `Kamu adalah guru bahasa Inggris untuk pelajar Indonesia. Analisis kata/frasa bahasa Inggris berikut: "${word}".
 Kalau ejaannya salah, perbaiki dan analisis bentuk yang benar. Kalau itu phrasal verb, idiom, atau slang, jelaskan sebagai frasa.
-
+${contextRule}
 Balas HANYA dengan JSON (tanpa markdown) dengan struktur persis seperti ini:
 {
   "word": "bentuk dasar yang benar",

@@ -2170,3 +2170,67 @@ body { background: var(--bg-main); }
   .vocab-sense-row { flex-direction: column; gap: 4px; }
   .vocab-row-label { padding-top: 0; }
 }
+
+/* Vocab context + spaced-repetition review */
+.vocab-page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.vocab-review-cta { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--card-border); background: #FFFFFF; color: var(--text-medium); border-radius: 999px; padding: 9px 16px; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.vocab-review-cta:hover { border-color: var(--accent); color: var(--accent); }
+.vocab-review-cta.has-due { background: var(--accent); border-color: var(--accent); color: #FFFFFF; }
+.vocab-review-cta.has-due:hover { background: var(--accent-hover); color: #FFFFFF; }
+
+.vocab-search-form { max-width: 640px; margin-bottom: 20px; }
+.vocab-search-form .vocab-search { margin-bottom: 8px; }
+.vocab-context-toggle summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-medium); list-style: none; padding: 4px 0; }
+.vocab-context-toggle summary::-webkit-details-marker { display: none; }
+.vocab-context-toggle summary i { color: var(--accent); margin-right: 4px; }
+.vocab-context-toggle summary span { font-weight: 400; color: var(--text-muted); }
+.vocab-context-toggle[open] summary { color: var(--text-dark); }
+.vocab-context-fields { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.vocab-context-fields textarea { resize: vertical; min-height: 56px; font-family: inherit; }
+
+.vocab-due { font-size: 12.5px; color: var(--text-muted); margin-top: 6px; }
+.vocab-due-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-right: 6px; vertical-align: 2px; }
+
+.vocab-context { margin-top: 16px; padding: 12px 14px; border-radius: 12px; background: #FFF8EC; border: 1px solid #F3E2C2; }
+.vocab-context-label { font-size: 12px; font-weight: 700; color: #92400E; text-transform: uppercase; letter-spacing: .3px; }
+.vocab-context-label strong { text-transform: none; letter-spacing: 0; color: var(--text-dark); }
+.vocab-context-sentence { font-size: 15px; color: var(--text-dark); line-height: 1.55; margin-top: 6px; font-style: italic; }
+.vocab-context-sentence mark { background: #FDE68A; color: inherit; border-radius: 3px; padding: 0 2px; font-style: normal; font-weight: 700; }
+.vocab-context-sentence .vocab-speak { font-size: 12px; font-style: normal; }
+.vocab-context-translation { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+.vocab-context-badge { font-size: 11px; font-weight: 700; color: #92400E; background: #FDE68A; border-radius: 999px; padding: 1px 8px; }
+.vocab-sense.is-context { background: #FFFBF2; margin: 0 -12px; padding-left: 12px; padding-right: 12px; border-radius: 10px; }
+
+.vocab-review { text-align: center; padding: 4px 0 8px; }
+.vocab-review-top { display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; font-weight: 600; color: var(--text-muted); }
+.vocab-review-top .auth-link { font-size: 12.5px; }
+.vocab-review-progress { height: 4px; border-radius: 999px; background: var(--bg-main); margin: 10px 0 28px; overflow: hidden; }
+.vocab-review-progress div { height: 100%; background: var(--accent); transition: width .3s; }
+.vocab-review-word { font-family: 'Fraunces', Georgia, serif; font-size: 44px; font-weight: 600; color: var(--text-dark); line-height: 1.1; }
+.vocab-review-word .vocab-speak { font-size: 18px; }
+.vocab-review-phonetic { font-size: 14px; color: var(--text-muted); margin-top: 6px; }
+.vocab-review .vocab-context { text-align: left; max-width: 520px; margin: 18px auto 0; }
+.vocab-review-ask { font-size: 13.5px; color: var(--text-muted); margin: 22px 0 12px; }
+.vocab-review-reveal span { font-weight: 400; opacity: .75; margin-left: 4px; }
+.vocab-review-answer { max-width: 520px; margin: 20px auto 0; padding-top: 18px; border-top: 1px dashed var(--card-border); text-align: left; }
+.vocab-review-answer .vocab-meaning { margin-top: 0; font-weight: 600; color: var(--text-dark); }
+.vocab-review-senses { margin: 8px 0 0 18px; font-size: 14px; color: var(--text-medium); line-height: 1.6; }
+.vocab-review-grades { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; max-width: 420px; margin: 0 auto; }
+.vocab-review-grades button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 8px; border-radius: 12px; border: 1px solid var(--card-border); background: #FFFFFF; font: inherit; cursor: pointer; }
+.vocab-review-grades strong { font-size: 14.5px; }
+.vocab-review-grades span { font-size: 11.5px; color: var(--text-muted); }
+.vocab-review-grades .grade-again strong { color: #B42318; }
+.vocab-review-grades .grade-hard strong { color: #B7791F; }
+.vocab-review-grades .grade-good strong { color: #276749; }
+.vocab-review-grades .grade-again:hover { border-color: #B42318; background: #FEF3F2; }
+.vocab-review-grades .grade-hard:hover { border-color: #B7791F; background: #FFFAEB; }
+.vocab-review-grades .grade-good:hover { border-color: #276749; background: #F0FAF4; }
+.vocab-review-done { text-align: center; padding: 28px 0; }
+.vocab-review-done > i { font-size: 36px; color: #276749; }
+.vocab-review-done h3 { font-size: 20px; margin: 10px 0 4px; }
+.vocab-review-done p { font-size: 14px; color: var(--text-muted); margin-bottom: 18px; }
+
+@media (max-width: 900px) {
+  .vocab-review-word { font-size: 34px; }
+  .vocab-sense.is-context { margin: 0; }
+}
