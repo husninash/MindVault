@@ -18,7 +18,8 @@ const MindVaultApp = {
     this.bindNavigation();
     this.bindModals();
     this.bindAIChat();
-    
+    this.setupPwa();
+
     if (typeof MindVaultSupabase !== 'undefined') {
       MindVaultSupabase.init();
       // Resolve the signed-in user first: cloud data is only readable by its owner
@@ -32,10 +33,94 @@ const MindVaultApp = {
     if (MindVaultSupabase?.isPasswordRecovery) this.showPasswordRecovery();
     await this.loadCloudData();
     this.renderAfterSync();
+    this.openFromUrl();
+  },
+
+  // ---------- Installable app + offline ----------
+  setupPwa() {
+    if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+      navigator.serviceWorker.register('/sw.js').catch(err => console.warn('Service worker registration failed:', err));
+    }
+
+    const installBtn = document.getElementById('install-app-btn');
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      this.installPrompt = e;
+      if (installBtn) installBtn.hidden = false;
+    });
+    window.addEventListener('appinstalled', () => {
+      this.installPrompt = null;
+      if (installBtn) installBtn.hidden = true;
+      this.showToast('MindVault sudah terpasang di HP-mu.', 'success');
+    });
+    // iPhone has no install prompt: show the button with instructions instead
+    if (isIos && !standalone && installBtn) installBtn.hidden = false;
+
+    window.addEventListener('online', () => this.handleOnline());
+    window.addEventListener('offline', () => {
+      this.updateOfflinePill();
+      this.showToast('Kamu offline. Perubahan disimpan di HP dan dikirim otomatis saat online lagi.', 'warning');
+    });
+    window.addEventListener('mindvault:sync-queue', () => this.updateOfflinePill());
+    this.updateOfflinePill();
+  },
+
+  async installApp() {
+    if (this.installPrompt) {
+      this.installPrompt.prompt();
+      const { outcome } = await this.installPrompt.userChoice.catch(() => ({ outcome: 'dismissed' }));
+      if (outcome === 'accepted') this.installPrompt = null;
+      return;
+    }
+    if (/iphone|ipad|ipod/i.test(navigator.userAgent)) {
+      this.showToast('Di Safari: ketuk tombol Bagikan (kotak dengan panah), lalu pilih "Tambah ke Layar Utama".', 'info');
+    } else {
+      this.showToast('Buka menu browser (⋮), lalu pilih "Instal aplikasi" atau "Tambahkan ke layar utama".', 'info');
+    }
+  },
+
+  async handleOnline() {
+    this.updateOfflinePill();
+    if (typeof MindVaultSupabase === 'undefined' || !MindVaultSupabase.canSync()) return;
+    const before = MindVaultSupabase.pendingCount();
+    await this.loadCloudData(); // sends queued changes first, then pulls the latest
+    this.renderAfterSync();
+    const after = MindVaultSupabase.pendingCount();
+    if (before > 0 && after === 0) this.showToast('Online lagi. Semua perubahan sudah tersinkron.', 'success');
+    else if (after > 0) this.showToast(`${after} perubahan belum terkirim, dicoba lagi nanti.`, 'warning');
+  },
+
+  updateOfflinePill() {
+    const pill = document.getElementById('offline-pill');
+    const text = document.getElementById('offline-pill-text');
+    if (!pill || !text) return;
+    const offline = navigator.onLine === false;
+    const pending = typeof MindVaultSupabase !== 'undefined' ? MindVaultSupabase.pendingCount() : 0;
+    pill.hidden = !offline && pending === 0;
+    pill.classList.toggle('is-offline', offline);
+    text.innerText = offline
+      ? (pending ? `Offline · ${pending} perubahan menunggu` : 'Offline · data tersimpan di HP')
+      : `${pending} perubahan menunggu sinkron`;
+  },
+
+  // Home-screen shortcuts open e.g. /?view=vocab&review=1
+  openFromUrl() {
+    const params = new URLSearchParams(location.search);
+    const view = params.get('view');
+    if (!this.currentUser || !view || !document.getElementById(`view-${view}`) || view === 'admin') return;
+    this.switchView(view);
+    if (view === 'vocab' && params.get('review') === '1') this.startVocabReview();
+    history.replaceState(null, '', location.pathname);
   },
 
   async loadCloudData() {
     if (typeof MindVaultSupabase !== 'undefined') {
+      // Send changes made offline before pulling cloud data, so they aren't overwritten
+      if (MindVaultSupabase.canSync()) {
+        try { await MindVaultSupabase.flushQueue(); } catch (e) {}
+      }
       try {
         const profile = await MindVaultSupabase.fetchUserProfile();
         if (profile && profile.name) {

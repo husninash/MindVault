@@ -14,7 +14,10 @@ const MindVaultGemini = {
   async generate(body) {
     const apiKey = this.getApiKey();
     if (!apiKey) return { error: true, message: 'Gemini API key belum diatur. Isi di menu Settings.' };
-    const busy = (status) => status === 429 || status === 500 || status === 503 || status === 504;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      return { error: true, message: 'Kamu sedang offline. Fitur AI butuh internet — daftar kata, review, dan catatanmu tetap bisa dipakai.' };
+    }
+    const busy =(status) => status === 429 || status === 500 || status === 503 || status === 504;
     let lastError = null;
 
     for (const model of this.models) {

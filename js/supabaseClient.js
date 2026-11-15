@@ -101,7 +101,7 @@ const MindVaultSupabase = {
       // Don't leave this account's cached cloud data for the next person on this browser
       ['MINDVAULT_LOCAL_FRIENDS', 'MINDVAULT_LOCAL_DIARIES', 'MINDVAULT_LOCAL_REMINDERS', 'MINDVAULT_LOCAL_DAILY_JOURNALS',
         'MINDVAULT_DREAM_JOURNALS', 'MINDVAULT_LOCAL_TOPIC_STARTERS', 'MINDVAULT_LOCAL_TOPIC_REFLECTIONS',
-        'MINDVAULT_USER_PROFILE', 'MINDVAULT_GEMINI_KEY', 'MINDVAULT_NEWS_TOPICS', 'MINDVAULT_VOCAB_WORDS'].forEach(k => localStorage.removeItem(k));
+        'MINDVAULT_USER_PROFILE', 'MINDVAULT_GEMINI_KEY', 'MINDVAULT_NEWS_TOPICS', 'MINDVAULT_VOCAB_WORDS', 'MINDVAULT_SYNC_QUEUE'].forEach(k => localStorage.removeItem(k));
     }
     this.userId = null;
     if (this.realtimeChannel) {
@@ -112,11 +112,206 @@ const MindVaultSupabase = {
 
   async getSessionUser() {
     if (this.isConfigured && this.client) {
-      const { data } = await this.client.auth.getUser();
-      this.userId = data?.user?.id || null;
-      return data?.user || null;
+      let user = null;
+      try {
+        const { data, error } = await this.client.auth.getUser();
+        user = data?.user || null;
+        if (!user && error && this.isNetworkFailure({ error })) user = await this.getStoredSessionUser();
+      } catch (e) {
+        // getUser() needs the network; offline we trust the session saved on this device
+        user = await this.getStoredSessionUser();
+      }
+      this.userId = user?.id || null;
+      return user;
     }
     return null;
+  },
+
+  async getStoredSessionUser() {
+    try {
+      const { data } = await this.client.auth.getSession();
+      return data?.session?.user || null;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  // ---------- Offline support: queue writes made without internet and send them later ----------
+  isNetworkFailure(res) {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
+    if (res && res.status === 0) return true;
+    const msg = String(res?.error?.message || res?.message || res || '');
+    return /Failed to fetch|NetworkError|Load failed|fetch failed|Network request failed|ERR_INTERNET|ERR_NAME_NOT_RESOLVED/i.test(msg);
+  },
+
+  readQueue() {
+    try {
+      const q = JSON.parse(localStorage.getItem('MINDVAULT_SYNC_QUEUE') || '[]');
+      return Array.isArray(q) ? q : [];
+    } catch (e) {
+      return [];
+    }
+  },
+
+  writeQueue(q) {
+    localStorage.setItem('MINDVAULT_SYNC_QUEUE', JSON.stringify(q));
+    window.dispatchEvent(new CustomEvent('mindvault:sync-queue', { detail: { pending: q.length } }));
+  },
+
+  pendingCount() {
+    return this.readQueue().length;
+  },
+
+  hasPending(type) {
+    return this.readQueue().some(e => e.type === type);
+  },
+
+  // One entry per record; later changes to the same record are merged into it
+  enqueue(type, action, id) {
+    const q = this.readQueue();
+    const i = q.findIndex(e => e.type === type && String(e.id) === String(id));
+    if (i === -1) {
+      q.push({ type, action, id });
+    } else {
+      const prev = q[i].action;
+      if (prev === 'insert' && action === 'update') {
+        // still a new record: the insert will send its latest state
+      } else if (prev === 'insert' && action === 'delete') {
+        q.splice(i, 1); // never reached the cloud, nothing to delete there
+      } else {
+        q[i].action = action;
+      }
+    }
+    this.writeQueue(q);
+  },
+
+  // Runs a cloud write now, or queues it when offline. Returns the Supabase result or null.
+  async runRemote(type, action, id, fn) {
+    if (!this.canSync()) return null; // local-only / demo mode: nothing to sync
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      this.enqueue(type, action, id);
+      return null;
+    }
+    try {
+      const res = await fn();
+      if (res && res.error) {
+        if (this.isNetworkFailure(res)) {
+          this.enqueue(type, action, id);
+          return null;
+        }
+        console.warn(`Sync ${type} ${action} error:`, res.error);
+      }
+      return res;
+    } catch (e) {
+      if (this.isNetworkFailure(e)) this.enqueue(type, action, id);
+      else console.warn(`Sync ${type} ${action} exception:`, e);
+      return null;
+    }
+  },
+
+  readLocalArray(key) {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(key) || 'null');
+      return Array.isArray(parsed) ? parsed : null;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  // Sends queued changes in order. Stops at the first network failure and keeps the rest.
+  async flushQueue() {
+    if (!this.canSync() || this.flushing) return this.pendingCount();
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return this.pendingCount();
+    this.flushing = true;
+    try {
+      for (const entry of this.readQueue()) {
+        let outcome;
+        try {
+          outcome = await this.replayEntry(entry);
+        } catch (e) {
+          outcome = this.isNetworkFailure(e) ? 'network' : 'done';
+          if (outcome === 'done') console.warn('Dropping queued change after error:', entry, e);
+        }
+        if (outcome === 'network') break;
+        // Ids may have been remapped during replay, so match on the entry's current id
+        const q = this.readQueue();
+        const i = q.findIndex(e => e.type === entry.type && e.action === entry.action && String(e.id) === String(entry.remappedId ?? entry.id));
+        if (i !== -1) q.splice(i, 1);
+        this.writeQueue(q);
+      }
+    } finally {
+      this.flushing = false;
+    }
+    return this.pendingCount();
+  },
+
+  async replayEntry(entry) {
+    const failed = (res) => (res && res.error ? (this.isNetworkFailure(res) ? 'network' : 'done') : null);
+    const { type, action, id } = entry;
+
+    if (type === 'friends' || type === 'diaries') {
+      const list = (type === 'friends' ? MindVaultData.friends : MindVaultData.diaries)
+        || this.readLocalArray(type === 'friends' ? 'MINDVAULT_LOCAL_FRIENDS' : 'MINDVAULT_LOCAL_DIARIES') || [];
+      const obj = list.find(x => String(x.id) === String(id));
+      if (action === 'delete') {
+        return failed(type === 'friends' ? await this.remoteDeleteFriend(id) : await this.remoteDeleteDiary(id)) || 'done';
+      }
+      if (!obj) return 'done';
+      if (action === 'insert') {
+        const res = type === 'friends' ? await this.remoteInsertFriend(obj) : await this.remoteInsertDiary(obj);
+        const f = failed(res);
+        if (f) return f;
+        const newId = res?.data?.[0]?.id;
+        if (newId !== undefined && String(newId) !== String(id)) {
+          if (type === 'friends') this.remapFriendId(id, newId);
+          else this.remapDiaryId(id, newId);
+          entry.remappedId = newId;
+        }
+        return 'done';
+      }
+      return failed(type === 'friends' ? await this.remoteUpdateFriend(obj) : await this.remoteUpdateDiary(obj)) || 'done';
+    }
+
+    if (this.journalTables[type]) {
+      if (action === 'delete') return failed(await this.remoteDeleteJournal(type, id)) || 'done';
+      const row = (this.readLocalArray(this.journalTables[type].localKey) || []).find(r => String(r.id) === String(id));
+      if (!row) return 'done';
+      return failed(await this.remoteUpsertJournal(type, row)) || 'done';
+    }
+
+    if (type === 'topics') {
+      const starters = this.readLocalArray('MINDVAULT_LOCAL_TOPIC_STARTERS') || [];
+      const reflections = this.readLocalArray('MINDVAULT_LOCAL_TOPIC_REFLECTIONS') || [];
+      return failed(await this.remoteSaveTopics(starters, reflections)) || 'done';
+    }
+
+    if (type === 'profile') {
+      let profile = null;
+      try { profile = JSON.parse(localStorage.getItem('MINDVAULT_USER_PROFILE') || 'null'); } catch (e) {}
+      if (!profile) return 'done';
+      return failed(await this.remoteSaveProfile(profile)) || 'done';
+    }
+
+    return 'done';
+  },
+
+  remapFriendId(oldId, newId) {
+    (MindVaultData.friends || []).forEach(f => { if (String(f.id) === String(oldId)) f.id = newId; });
+    (MindVaultData.diaries || []).forEach(d => { if (String(d.friendId) === String(oldId)) d.friendId = newId; });
+    localStorage.setItem('MINDVAULT_LOCAL_FRIENDS', JSON.stringify(MindVaultData.friends || []));
+    localStorage.setItem('MINDVAULT_LOCAL_DIARIES', JSON.stringify(MindVaultData.diaries || []));
+    const q = this.readQueue();
+    q.forEach(e => { if (e.type === 'friends' && String(e.id) === String(oldId)) e.id = newId; });
+    this.writeQueue(q);
+    if (typeof MindVaultApp !== 'undefined' && String(MindVaultApp.selectedFriendId) === String(oldId)) MindVaultApp.selectedFriendId = newId;
+  },
+
+  remapDiaryId(oldId, newId) {
+    (MindVaultData.diaries || []).forEach(d => { if (String(d.id) === String(oldId)) d.id = newId; });
+    localStorage.setItem('MINDVAULT_LOCAL_DIARIES', JSON.stringify(MindVaultData.diaries || []));
+    const q = this.readQueue();
+    q.forEach(e => { if (e.type === 'diaries' && String(e.id) === String(oldId)) e.id = newId; });
+    this.writeQueue(q);
   },
 
   // Async query wrappers (Pure Live Database Mode when Supabase is configured, LocalStorage Fallback when offline)
@@ -136,11 +331,17 @@ const MindVaultSupabase = {
       }
       return MindVaultData.friends || [];
     }
+    const localFriends = () => {
+      const local = this.readLocalArray('MINDVAULT_LOCAL_FRIENDS');
+      if (local) MindVaultData.friends = local;
+      return MindVaultData.friends || [];
+    };
+    if (this.hasPending('friends')) return localFriends(); // unsent offline changes win until they're synced
     try {
       const { data, error } = await this.client.from('friends').select('*').order('id', { ascending: true });
       if (error) {
         console.error('Supabase fetchFriends error:', error);
-        return MindVaultData.friends || [];
+        return localFriends();
       }
       const friends = (data || []).map(f => ({
         id: f.id,
@@ -166,7 +367,7 @@ const MindVaultSupabase = {
       return friends;
     } catch (e) {
       console.error('Fetch friends exception:', e);
-      return MindVaultData.friends || [];
+      return localFriends();
     }
   },
 
@@ -184,9 +385,15 @@ const MindVaultSupabase = {
       }
       return MindVaultData.diaries || [];
     }
+    const localDiaries = () => {
+      const local = this.readLocalArray('MINDVAULT_LOCAL_DIARIES');
+      if (local) MindVaultData.diaries = local;
+      return MindVaultData.diaries || [];
+    };
+    if (this.hasPending('diaries')) return localDiaries();
     try {
       const { data, error } = await this.client.from('diaries').select('*').order('date', { ascending: false });
-      if (error) return MindVaultData.diaries || [];
+      if (error) return localDiaries();
       const diaries = (data || []).map(d => ({
         id: d.id,
         friendId: d.friend_id,
@@ -202,8 +409,86 @@ const MindVaultSupabase = {
       localStorage.setItem('MINDVAULT_LOCAL_DIARIES', JSON.stringify(diaries));
       return diaries;
     } catch (e) {
-      return MindVaultData.diaries || [];
+      return localDiaries();
     }
+  },
+
+  diaryPayload(d) {
+    return {
+      friend_id: d.friendId,
+      friend_name: d.friendName,
+      date: d.date,
+      title: d.title,
+      location: d.location,
+      mood: d.mood,
+      content: d.content,
+      tags: d.tags
+    };
+  },
+
+  friendPayload(f, { defaults = false } = {}) {
+    return {
+      name: f.name,
+      relation: f.relation || (defaults ? 'Friend' : f.relation),
+      avatar: f.avatar || (defaults ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80' : f.avatar),
+      tier: f.tier || (defaults ? 'Close Circle' : f.tier),
+      birthday: f.birthday || null,
+      score: f.score || (defaults ? 85 : f.score),
+      bio: f.bio || '',
+      favorites: f.favorites || {},
+      likes: f.likes || [],
+      dislikes: f.dislikes || [],
+      safe_topics: f.safeTopics || [],
+      avoid_topics: f.avoidTopics || [],
+      current_life: f.currentLife || '',
+      ai_summary: f.aiSummary || '',
+      gift_ideas: f.giftIdeas || [],
+      milestones: f.milestones || []
+    };
+  },
+
+  async remoteInsertDiary(d) {
+    return await this.client.from('diaries').insert([this.diaryPayload(d)]).select();
+  },
+
+  async remoteUpdateDiary(d) {
+    return await this.client.from('diaries').update(this.diaryPayload(d)).eq('id', d.id);
+  },
+
+  async remoteDeleteDiary(id) {
+    return await this.client.from('diaries').delete().eq('id', id);
+  },
+
+  async remoteInsertFriend(f) {
+    const payload = this.friendPayload(f, { defaults: true });
+    let res = await this.client.from('friends').insert([payload]).select();
+    if (res.error && res.error.code === 'PGRST204') {
+      // Older schema without the milestones column
+      delete payload.milestones;
+      res = await this.client.from('friends').insert([payload]).select();
+    }
+    return res;
+  },
+
+  async remoteUpdateFriend(f) {
+    const payload = this.friendPayload(f);
+    let res = await this.client.from('friends').update(payload).eq('id', f.id);
+    if (res.error && res.error.code === 'PGRST204') {
+      delete payload.milestones;
+      res = await this.client.from('friends').update(payload).eq('id', f.id);
+    }
+    return res;
+  },
+
+  async remoteDeleteFriend(friendId) {
+    const numId = Number(friendId);
+    const matchFilter = isNaN(numId) ? `friend_id.eq.${friendId}` : `friend_id.eq.${numId}`;
+    const matchIdFilter = isNaN(numId) ? `id.eq.${friendId}` : `id.eq.${numId}`;
+    // Clean up linked rows to ensure no FK block
+    try { await this.client.from('diaries').delete().or(matchFilter); } catch (e) {}
+    try { await this.client.from('reminders').delete().or(matchFilter); } catch (e) {}
+    try { await this.client.from('todays_topics').delete().or(matchFilter); } catch (e) {}
+    return await this.client.from('friends').delete().or(matchIdFilter);
   },
 
   async insertDiary(diaryObj) {
@@ -212,29 +497,11 @@ const MindVaultSupabase = {
     MindVaultData.diaries.unshift(diaryObj);
     localStorage.setItem('MINDVAULT_LOCAL_DIARIES', JSON.stringify(MindVaultData.diaries));
 
-    if (this.canSync()) {
-      try {
-        const payload = {
-          friend_id: diaryObj.friendId,
-          friend_name: diaryObj.friendName,
-          date: diaryObj.date,
-          title: diaryObj.title,
-          location: diaryObj.location,
-          mood: diaryObj.mood,
-          content: diaryObj.content,
-          tags: diaryObj.tags
-        };
-        const { data, error } = await this.client.from('diaries').insert([payload]).select();
-        if (error) {
-          console.error('Failed inserting diary to Supabase:', error);
-        } else if (data && data[0]) {
-          // Adopt the database id so later edits/deletes hit the same row
-          diaryObj.id = data[0].id;
-          localStorage.setItem('MINDVAULT_LOCAL_DIARIES', JSON.stringify(MindVaultData.diaries));
-        }
-      } catch (err) {
-        console.error('Insert diary exception:', err);
-      }
+    const res = await this.runRemote('diaries', 'insert', diaryObj.id, () => this.remoteInsertDiary(diaryObj));
+    if (res && !res.error && res.data && res.data[0]) {
+      // Adopt the database id so later edits/deletes hit the same row
+      diaryObj.id = res.data[0].id;
+      localStorage.setItem('MINDVAULT_LOCAL_DIARIES', JSON.stringify(MindVaultData.diaries));
     }
     return diaryObj;
   },
@@ -249,23 +516,7 @@ const MindVaultSupabase = {
     }
     localStorage.setItem('MINDVAULT_LOCAL_DIARIES', JSON.stringify(MindVaultData.diaries));
 
-    if (this.canSync() && diaryObj.id) {
-      try {
-        const payload = {
-          friend_id: diaryObj.friendId,
-          friend_name: diaryObj.friendName,
-          date: diaryObj.date,
-          title: diaryObj.title,
-          location: diaryObj.location,
-          mood: diaryObj.mood,
-          content: diaryObj.content,
-          tags: diaryObj.tags
-        };
-        await this.client.from('diaries').update(payload).eq('id', diaryObj.id);
-      } catch (err) {
-        console.error('Update diary exception:', err);
-      }
-    }
+    if (diaryObj.id) await this.runRemote('diaries', 'update', diaryObj.id, () => this.remoteUpdateDiary(diaryObj));
     return diaryObj;
   },
 
@@ -274,13 +525,7 @@ const MindVaultSupabase = {
     MindVaultData.diaries = MindVaultData.diaries.filter(d => String(d.id) !== String(diaryId));
     localStorage.setItem('MINDVAULT_LOCAL_DIARIES', JSON.stringify(MindVaultData.diaries));
 
-    if (this.canSync()) {
-      try {
-        await this.client.from('diaries').delete().eq('id', diaryId);
-      } catch (err) {
-        console.error('Delete diary exception:', err);
-      }
-    }
+    await this.runRemote('diaries', 'delete', diaryId, () => this.remoteDeleteDiary(diaryId));
     return true;
   },
 
@@ -299,23 +544,7 @@ const MindVaultSupabase = {
       localStorage.setItem('MINDVAULT_LOCAL_REMINDERS', JSON.stringify(MindVaultData.reminders));
     }
 
-    if (this.canSync()) {
-      try {
-        const numId = Number(friendId);
-        const matchFilter = isNaN(numId) ? `friend_id.eq.${friendId}` : `friend_id.eq.${numId}`;
-        const matchIdFilter = isNaN(numId) ? `id.eq.${friendId}` : `id.eq.${numId}`;
-
-        // Clean up linked rows to ensure no FK block
-        try { await this.client.from('diaries').delete().or(matchFilter); } catch (e) {}
-        try { await this.client.from('reminders').delete().or(matchFilter); } catch (e) {}
-        try { await this.client.from('todays_topics').delete().or(matchFilter); } catch (e) {}
-
-        const { error } = await this.client.from('friends').delete().or(matchIdFilter);
-        if (error) console.error('Delete friend error from Supabase:', error);
-      } catch (err) {
-        console.error('Delete friend exception:', err);
-      }
-    }
+    await this.runRemote('friends', 'delete', friendId, () => this.remoteDeleteFriend(friendId));
     return true;
   },
 
@@ -325,42 +554,11 @@ const MindVaultSupabase = {
     MindVaultData.friends.push(friendObj);
     localStorage.setItem('MINDVAULT_LOCAL_FRIENDS', JSON.stringify(MindVaultData.friends));
 
-    if (this.canSync()) {
-      try {
-        const payload = {
-          name: friendObj.name,
-          relation: friendObj.relation || 'Friend',
-          avatar: friendObj.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
-          tier: friendObj.tier || 'Close Circle',
-          birthday: friendObj.birthday || null,
-          score: friendObj.score || 85,
-          bio: friendObj.bio || '',
-          favorites: friendObj.favorites || {},
-          likes: friendObj.likes || [],
-          dislikes: friendObj.dislikes || [],
-          safe_topics: friendObj.safeTopics || [],
-          avoid_topics: friendObj.avoidTopics || [],
-          current_life: friendObj.currentLife || '',
-          ai_summary: friendObj.aiSummary || '',
-          gift_ideas: friendObj.giftIdeas || [],
-          milestones: friendObj.milestones || []
-        };
-        let { data, error } = await this.client.from('friends').insert([payload]).select();
-        if (error && error.code === 'PGRST204') {
-          // Older schema without the milestones column
-          delete payload.milestones;
-          ({ data, error } = await this.client.from('friends').insert([payload]).select());
-        }
-        if (error) {
-          console.error('Insert friend error from Supabase:', error);
-        } else if (data && data[0]) {
-          // Adopt the database id so later edits/deletes hit the same row
-          friendObj.id = data[0].id;
-          localStorage.setItem('MINDVAULT_LOCAL_FRIENDS', JSON.stringify(MindVaultData.friends));
-        }
-      } catch (err) {
-        console.error('Insert friend exception:', err);
-      }
+    const tempId = friendObj.id;
+    const res = await this.runRemote('friends', 'insert', tempId, () => this.remoteInsertFriend(friendObj));
+    if (res && !res.error && res.data && res.data[0]) {
+      // Adopt the database id so later edits/deletes hit the same row
+      this.remapFriendId(tempId, res.data[0].id);
     }
     return friendObj;
   },
@@ -373,37 +571,7 @@ const MindVaultSupabase = {
     }
     localStorage.setItem('MINDVAULT_LOCAL_FRIENDS', JSON.stringify(MindVaultData.friends));
 
-    if (this.canSync()) {
-      try {
-        const payload = {
-          name: friendObj.name,
-          relation: friendObj.relation,
-          avatar: friendObj.avatar,
-          tier: friendObj.tier,
-          birthday: friendObj.birthday,
-          score: friendObj.score,
-          bio: friendObj.bio,
-          favorites: friendObj.favorites,
-          likes: friendObj.likes,
-          dislikes: friendObj.dislikes,
-          safe_topics: friendObj.safeTopics,
-          avoid_topics: friendObj.avoidTopics,
-          current_life: friendObj.currentLife,
-          ai_summary: friendObj.aiSummary,
-          gift_ideas: friendObj.giftIdeas,
-          milestones: friendObj.milestones || []
-        };
-        let { error } = await this.client.from('friends').update(payload).eq('id', friendObj.id);
-        if (error && error.code === 'PGRST204') {
-          // Older schema without the milestones column
-          delete payload.milestones;
-          ({ error } = await this.client.from('friends').update(payload).eq('id', friendObj.id));
-        }
-        if (error) console.error('Update friend error from Supabase:', error);
-      } catch (err) {
-        console.error('Update friend exception:', err);
-      }
-    }
+    await this.runRemote('friends', 'update', friendObj.id, () => this.remoteUpdateFriend(friendObj));
     return friendObj;
   },
 
@@ -433,24 +601,22 @@ const MindVaultSupabase = {
     return local ? JSON.parse(local) : MindVaultData.user;
   },
 
+  async remoteSaveProfile(userObj) {
+    const payload = {
+      user_id: this.userId,
+      name: userObj.name || 'User',
+      email: userObj.email || '',
+      quote: userObj.quote || '',
+      avatar: userObj.avatar || '',
+      updated_at: new Date().toISOString()
+    };
+    return await this.client.from('user_profiles').upsert(payload, { onConflict: 'user_id' });
+  },
+
   async saveUserProfile(userObj) {
     if (!userObj) return;
     localStorage.setItem('MINDVAULT_USER_PROFILE', JSON.stringify(userObj));
-    if (this.canSync()) {
-      try {
-        const payload = {
-          user_id: this.userId,
-          name: userObj.name || 'User',
-          email: userObj.email || '',
-          quote: userObj.quote || '',
-          avatar: userObj.avatar || '',
-          updated_at: new Date().toISOString()
-        };
-        await this.client.from('user_profiles').upsert(payload, { onConflict: 'user_id' });
-      } catch (e) {
-        console.warn('Sync user profile exception:', e);
-      }
-    }
+    await this.runRemote('profile', 'upsert', 'me', () => this.remoteSaveProfile(userObj));
   },
 
   async fetchGeminiKey() {
@@ -485,24 +651,21 @@ const MindVaultSupabase = {
     }
   },
 
+  async remoteSaveTopics(starters, reflections) {
+    const payload = {
+      user_id: this.userId,
+      name: MindVaultData.user.name || 'User',
+      topic_starters: starters,
+      topic_reflections: reflections,
+      updated_at: new Date().toISOString()
+    };
+    return await this.client.from('user_profiles').upsert(payload, { onConflict: 'user_id' });
+  },
+
   async saveTopics(starters, reflections) {
     localStorage.setItem('MINDVAULT_LOCAL_TOPIC_STARTERS', JSON.stringify(starters));
     localStorage.setItem('MINDVAULT_LOCAL_TOPIC_REFLECTIONS', JSON.stringify(reflections));
-    if (this.canSync()) {
-      try {
-        const payload = {
-          user_id: this.userId,
-          name: MindVaultData.user.name || 'User',
-          topic_starters: starters,
-          topic_reflections: reflections,
-          updated_at: new Date().toISOString()
-        };
-        const { error } = await this.client.from('user_profiles').upsert(payload, { onConflict: 'user_id' });
-        if (error) console.warn('Sync topics error:', error);
-      } catch (e) {
-        console.warn('Sync topics exception:', e);
-      }
-    }
+    await this.runRemote('topics', 'upsert', 'me', () => this.remoteSaveTopics(starters, reflections));
   },
 
   async fetchReminders() {
@@ -531,6 +694,7 @@ const MindVaultSupabase = {
       }
     };
     if (!this.canSync()) return readLocal();
+    if (this.hasPending(table)) return readLocal(); // unsent offline changes win until they're synced
     try {
       const { data, error } = await this.client.from(table).select('*').order('date', { ascending: false });
       if (error) {
@@ -550,27 +714,24 @@ const MindVaultSupabase = {
     }
   },
 
-  async upsertJournalRow(table, row) {
-    if (!this.canSync() || !row) return;
+  async remoteUpsertJournal(table, row) {
     const payload = {};
     this.journalTables[table].columns.forEach(c => { payload[c] = row[c] ?? null; });
     payload.id = Math.floor(Number(row.id));
-    try {
-      const { error } = await this.client.from(table).upsert(payload, { onConflict: 'id' });
-      if (error) console.warn(`Sync ${table} error:`, error);
-    } catch (e) {
-      console.warn(`Sync ${table} exception:`, e);
-    }
+    return await this.client.from(table).upsert(payload, { onConflict: 'id' });
+  },
+
+  async remoteDeleteJournal(table, id) {
+    return await this.client.from(table).delete().eq('id', Math.floor(Number(id)));
+  },
+
+  async upsertJournalRow(table, row) {
+    if (!row) return;
+    await this.runRemote(table, 'upsert', row.id, () => this.remoteUpsertJournal(table, row));
   },
 
   async deleteJournalRow(table, id) {
-    if (!this.canSync()) return;
-    try {
-      const { error } = await this.client.from(table).delete().eq('id', Math.floor(Number(id)));
-      if (error) console.warn(`Delete ${table} error:`, error);
-    } catch (e) {
-      console.warn(`Delete ${table} exception:`, e);
-    }
+    await this.runRemote(table, 'delete', id, () => this.remoteDeleteJournal(table, id));
   },
 
   async fetchVocabWords() {

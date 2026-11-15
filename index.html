@@ -7,10 +7,20 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>MindVault — Your Second Brain for Meaningful Relationships</title>
+
+  <!-- Installable app (PWA) -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#B14F69">
+  <link rel="icon" type="image/png" href="/icons/favicon-64.png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="MindVault">
   
   <!-- FontAwesome & Custom CSS -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="css/styles.css?v=20.0">
+  <link rel="stylesheet" href="css/styles.css?v=21.0">
 </head>
 <body>
 
@@ -104,6 +114,16 @@
           </button>
         </li>
       </ul>
+    </div>
+
+    <!-- Shown only when the browser can install the app -->
+    <button type="button" class="install-app-btn" id="install-app-btn" hidden onclick="MindVaultApp.installApp()">
+      <i class="fa-solid fa-mobile-screen-button"></i>
+      <span>Pasang di HP</span>
+    </button>
+    <div class="offline-pill" id="offline-pill" hidden>
+      <i class="fa-solid fa-cloud-arrow-up"></i>
+      <span id="offline-pill-text">Offline</span>
     </div>
 
     <!-- Bottom User Card -->
@@ -1257,11 +1277,11 @@
 
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/data.js?v=34.0"></script>
-<script src="js/supabaseClient.js?v=34.0"></script>
-<script src="js/geminiClient.js?v=34.0"></script>
-<script src="js/graph.js?v=34.0"></script>
-<script src="js/app.js?v=34.0"></script>
+<script src="js/data.js?v=35.0"></script>
+<script src="js/supabaseClient.js?v=35.0"></script>
+<script src="js/geminiClient.js?v=35.0"></script>
+<script src="js/graph.js?v=35.0"></script>
+<script src="js/app.js?v=35.0"></script>
 
 </body>
 </html>

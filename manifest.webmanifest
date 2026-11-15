@@ -1,0 +1,32 @@
+{
+  "name": "MindVault",
+  "short_name": "MindVault",
+  "description": "Second brain untuk hubungan, jurnal, dan kosakata bahasa Inggris.",
+  "id": "/",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FAF7F4",
+  "theme_color": "#B14F69",
+  "lang": "id",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Ulangi kosakata",
+      "short_name": "Ulangi",
+      "url": "/?view=vocab&review=1",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Tambah kata baru",
+      "short_name": "Kata baru",
+      "url": "/?view=vocab",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
