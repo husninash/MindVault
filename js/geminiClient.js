@@ -9,7 +9,7 @@ const MindVaultGemini = {
   // Used only when the live model list can't be fetched. Google retires models regularly,
   // so normally the list comes from the API itself (see pickModels).
   fallbackModels: ['gemini-flash-latest', 'gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'],
-  modelsCacheKey: 'MINDVAULT_GEMINI_MODELS',
+  modelsCacheKey: 'MINDVAULT_GEMINI_MODELS_V2', // bumped so phones drop the shorter list from v53.0
 
   // Ranks model names from the API: newest Flash first, stable before preview, full before lite
   rankModels(names) {
@@ -25,11 +25,15 @@ const MindVaultGemini = {
         dated: /-\d{2,}$|-\d{2}-\d{4}$/.test(n) ? 1 : 0
       }))
       .sort((a, b) => b.v - a.v || a.preview - b.preview || a.lite - b.lite || a.dated - b.dated || a.n.length - b.n.length);
-    // Try at most 4, best first
+    // Best full + best lite model of each of the 4 newest versions. Older versions stay in the
+    // list on purpose: brand-new models often have little or no free quota.
     const out = [];
-    for (const m of picked) {
-      if (out.length >= 4) break;
-      if (!out.includes(m.n)) out.push(m.n);
+    const versions = [...new Set(picked.map(m => m.v))].slice(0, 4);
+    for (const v of versions) {
+      for (const lite of [0, 1]) {
+        const m = picked.find(x => x.v === v && x.lite === lite);
+        if (m) out.push(m.n);
+      }
     }
     return out;
   },
@@ -74,6 +78,7 @@ const MindVaultGemini = {
 
     const models = await this.pickModels(apiKey);
     let retired = 0;
+    let quotaHit = '';
     for (const model of models) {
       for (let attempt = 0; attempt < 2; attempt++) {
         let response;
@@ -104,12 +109,21 @@ const MindVaultGemini = {
           break;
         }
         if (!busy(response.status)) return { error: true, message: lastError.message }; // bad key / bad request
+        // Out of quota for this model (free tier): retrying won't help, but another model has its own quota
+        if (response.status === 429 && /quota|exhausted|limit/i.test(lastError.message)) {
+          quotaHit = lastError.message;
+          break;
+        }
         if (attempt === 0) await new Promise(r => setTimeout(r, 1200));
       }
     }
 
+    if (quotaHit && lastError && lastError.status === 429) {
+      const detail = quotaHit.split('\n')[0].slice(0, 160);
+      return { error: true, message: `Kuota Gemini (API key gratis) sedang habis untuk semua model yang dicoba. Biasanya pulih sendiri dalam beberapa menit atau besok. Detail: ${detail}` };
+    }
     if (lastError && busy(lastError.status)) {
-      return { error: true, message: 'Server Gemini sedang penuh. Sudah dicoba beberapa model tapi semuanya sibuk — coba lagi sebentar lagi.' };
+      return { error: true, message: `Server Gemini sedang penuh. Sudah dicoba ${models.length} model tapi semuanya sibuk — coba lagi sebentar lagi. (${lastError.status}: ${String(lastError.message).split('\n')[0].slice(0, 120)})` };
     }
     if (retired && retired === models.length) {
       return { error: true, message: 'Model Gemini yang dipakai sudah tidak tersedia. Coba lagi — daftar model akan diperbarui otomatis.' };
