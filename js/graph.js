@@ -19,6 +19,8 @@ class KnowledgeGraphEngine {
 
   // Positions you dragged bubbles to, stored as fractions of the canvas so they survive resizes
   static storageKey = 'MINDVAULT_GRAPH_POSITIONS';
+  // How far (px) a bubble floats around its spot
+  static sway = 4;
 
   nodeKey(node) {
     return node.type === 'topic' ? `topic:${String(node.label || '').toLowerCase()}` : node.id;
@@ -80,8 +82,9 @@ class KnowledgeGraphEngine {
         // Closer distance for higher intimacy
         const dist = minDim * (0.45 - (normalizedIntimacy * 0.25));
 
-        x = centerX + Math.cos(angle) * dist;
-        y = centerY + Math.sin(angle) * dist;
+        // Spread out over the whole canvas (it can be wider or taller than it is square)
+        x = centerX + Math.cos(angle) * dist * (width / Math.min(width, height));
+        y = centerY + Math.sin(angle) * dist * (height / Math.min(width, height));
 
         // Node size based on intimacy (kept small: the score is drawn as a ring, not a separate bubble)
         radius = Math.round(13 + normalizedIntimacy * 5); // 13px for low score up to 18px for close friends
@@ -100,8 +103,9 @@ class KnowledgeGraphEngine {
         const angle = (topicCount / totalT) * Math.PI * 2;
         topicCount++;
         const dist = Math.min(width, height) * 0.40; // leave room for the label under the outermost nodes
-        x = centerX + Math.cos(angle) * dist;
-        y = centerY + Math.sin(angle) * dist;
+        // Spread out over the whole canvas (it can be wider or taller than it is square)
+        x = centerX + Math.cos(angle) * dist * (width / Math.min(width, height));
+        y = centerY + Math.sin(angle) * dist * (height / Math.min(width, height));
         radius = 16;
         color = '#059669';
       }
@@ -137,8 +141,26 @@ class KnowledgeGraphEngine {
     const parent = this.canvas.parentElement;
     if (parent) {
       this.canvas.width = parent.clientWidth || 800;
-      this.canvas.height = 480;
+      this.canvas.height = this.neededHeight(this.canvas.width);
+      this.canvas.style.height = this.canvas.height + 'px';
     }
+  }
+
+  // Make the canvas taller when there are many bubbles or a narrow screen, so they have room
+  // to sit apart (with their names) instead of piling up
+  neededHeight(width) {
+    const ctx = this.ctx;
+    ctx.font = '600 12px Plus Jakarta Sans';
+    let area = 0;
+    for (const node of this.data.nodes || []) {
+      if (node.type === 'user') continue;
+      const label = String(node.label || '');
+      const w = Math.max(44, ctx.measureText(label).width + 18);
+      const h = node.type === 'friend' ? 74 : 62;
+      area += w * h;
+    }
+    // Packing is never perfect, so ask for roughly 2.5x the space the bubbles actually cover
+    return Math.round(Math.min(1400, Math.max(480, (area * 2.5) / Math.max(width, 280))));
   }
 
   // Pointer position in canvas pixels (the canvas can be drawn smaller/larger than its pixel size)
@@ -259,39 +281,54 @@ class KnowledgeGraphEngine {
     this.ctx.stroke();
     this.ctx.restore();
 
-    // Gently push apart bubbles that sit on top of each other (ones you placed by hand stay put)
+    // Keep bubbles AND their name labels from overlapping (including room for their sway)
+    const boxes = this.nodes.map(node => this.footprint(node));
     for (let i = 0; i < this.nodes.length; i++) {
       for (let j = i + 1; j < this.nodes.length; j++) {
         const a = this.nodes[i], b = this.nodes[j];
-        const dx = b.x - a.x, dy = b.y - a.y;
-        const dist = Math.hypot(dx, dy) || 0.01;
-        const minDist = a.radius + b.radius + 26; // room for the name labels
-        if (dist >= minDist) continue;
-        const push = (minDist - dist) * 0.04;
-        const ux = dx / dist, uy = dy / dist;
         const aFixed = a.type === 'user' || a.pinned || a.dragging;
         const bFixed = b.type === 'user' || b.pinned || b.dragging;
         if (aFixed && bFixed) continue;
-        const share = aFixed || bFixed ? 1 : 0.5;
-        if (!aFixed) { a.x -= ux * push * share; a.y -= uy * push * share; }
-        if (!bFixed) { b.x += ux * push * share; b.y += uy * push * share; }
+        const A = boxes[i], B = boxes[j];
+        const overlapX = Math.min(A.right, B.right) - Math.max(A.left, B.left);
+        const overlapY = Math.min(A.bottom, B.bottom) - Math.max(A.top, B.top);
+        if (overlapX <= 0 || overlapY <= 0) continue;
+        // Push along whichever direction needs the smaller move
+        let mx = 0, my = 0;
+        // (two long names that can't fit side by side on a narrow screen go above/below each other)
+        const fitSideBySide = (A.right - A.left) + (B.right - B.left) < width - 4;
+        if (overlapX < overlapY && fitSideBySide) mx = (b.x >= a.x ? 1 : -1) * overlapX;
+        else my = ((B.top + B.bottom) >= (A.top + A.bottom) ? 1 : -1) * overlapY;
+        const k = 0.25 * (aFixed || bFixed ? 1 : 0.5);
+        if (!aFixed) { a.x -= mx * k; a.y -= my * k; this.shiftBox(A, -mx * k, -my * k); }
+        if (!bFixed) { b.x += mx * k; b.y += my * k; this.shiftBox(B, mx * k, my * k); }
       }
     }
-
-    // Update node positions subtly (floating animation)
+    // Keep everything inside the canvas
     for (const node of this.nodes) {
-      if (node.type !== 'user' && !node.pinned && !node.dragging) {
-        node.x += node.vx;
-        node.y += node.vy;
+      if (node.type === 'user' || node.dragging) continue;
+      const f = this.footprint(node);
+      if (f.left < 2) node.x += 2 - f.left;
+      if (f.right > width - 2) node.x -= f.right - (width - 2);
+      if (f.top < 2) node.y += 2 - f.top;
+      if (f.bottom > height - 2) node.y -= f.bottom - (height - 2);
+    }
 
-        // Bounce back if drifting too far
-        const dx = node.x - centerX;
-        const dy = node.y - centerY;
-        if (Math.hypot(dx, dy) > minDim * 0.48) {
-          node.vx *= -1;
-          node.vy *= -1;
-        }
+    // Gentle floating: each bubble sways a few pixels around its own spot.
+    // The spacing above leaves room for this, so swaying never makes them overlap.
+    const t = performance.now() / 1000;
+    for (const node of this.nodes) {
+      if (node.type === 'user' || node.dragging) {
+        node.drawX = node.x;
+        node.drawY = node.y;
+        continue;
       }
+      if (node.phase === undefined) {
+        node.phase = Math.random() * Math.PI * 2;
+        node.speed = 0.5 + Math.random() * 0.5;
+      }
+      node.drawX = node.x + Math.sin(t * node.speed + node.phase) * KnowledgeGraphEngine.sway;
+      node.drawY = node.y + Math.cos(t * node.speed * 0.8 + node.phase * 1.3) * KnowledgeGraphEngine.sway;
     }
 
     // Draw Edges
@@ -317,16 +354,16 @@ class KnowledgeGraphEngine {
         }
 
         this.ctx.beginPath();
-        this.ctx.moveTo(source.x, source.y);
-        this.ctx.lineTo(target.x, target.y);
+        this.ctx.moveTo(source.drawX, source.drawY);
+        this.ctx.lineTo(target.drawX, target.drawY);
         this.ctx.strokeStyle = isHighlighted ? 'rgba(234, 141, 182, 0.9)' : strokeColor;
         this.ctx.lineWidth = isHighlighted ? 3 : lineWidth;
         this.ctx.stroke();
 
         // Edge label if hovered
         if (isHighlighted && edge.label) {
-          const midX = (source.x + target.x) / 2;
-          const midY = (source.y + target.y) / 2;
+          const midX = (source.drawX + target.drawX) / 2;
+          const midY = (source.drawY + target.drawY) / 2;
           this.ctx.fillStyle = '#2D1A29';
           this.ctx.font = '700 11px Plus Jakarta Sans';
           this.ctx.fillText(edge.label, midX, midY - 6);
@@ -341,7 +378,7 @@ class KnowledgeGraphEngine {
       // Glow effect
       if (isHovered) {
         this.ctx.beginPath();
-        this.ctx.arc(node.x, node.y, node.radius + 8, 0, Math.PI * 2);
+        this.ctx.arc(node.drawX, node.drawY, node.radius + 8, 0, Math.PI * 2);
         this.ctx.fillStyle = 'rgba(248, 187, 217, 0.4)';
         this.ctx.fill();
       }
@@ -352,20 +389,20 @@ class KnowledgeGraphEngine {
         const ringR = node.radius + 4;
 
         this.ctx.beginPath();
-        this.ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+        this.ctx.arc(node.drawX, node.drawY, node.radius, 0, Math.PI * 2);
         this.ctx.fillStyle = '#FFFFFF';
         this.ctx.fill();
 
         // Ring track
         this.ctx.beginPath();
-        this.ctx.arc(node.x, node.y, ringR, 0, Math.PI * 2);
+        this.ctx.arc(node.drawX, node.drawY, ringR, 0, Math.PI * 2);
         this.ctx.strokeStyle = 'rgba(45, 26, 41, 0.10)';
         this.ctx.lineWidth = 4;
         this.ctx.stroke();
 
         // Ring fill = score
         this.ctx.beginPath();
-        this.ctx.arc(node.x, node.y, ringR, -Math.PI / 2, -Math.PI / 2 + (score / 100) * Math.PI * 2);
+        this.ctx.arc(node.drawX, node.drawY, ringR, -Math.PI / 2, -Math.PI / 2 + (score / 100) * Math.PI * 2);
         this.ctx.strokeStyle = node.color;
         this.ctx.lineWidth = 4;
         this.ctx.lineCap = 'round';
@@ -377,10 +414,10 @@ class KnowledgeGraphEngine {
         this.ctx.font = '800 11px Plus Jakarta Sans';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(initials, node.x, node.y + 0.5);
+        this.ctx.fillText(initials, node.drawX, node.drawY + 0.5);
       } else {
         this.ctx.beginPath();
-        this.ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+        this.ctx.arc(node.drawX, node.drawY, node.radius, 0, Math.PI * 2);
         this.ctx.fillStyle = node.color;
         this.ctx.fill();
         this.ctx.lineWidth = 3;
@@ -394,19 +431,44 @@ class KnowledgeGraphEngine {
       this.ctx.font = isHovered ? '700 13px Plus Jakarta Sans' : '600 12px Plus Jakarta Sans';
       this.ctx.textAlign = 'center';
       
-      let displayLabel = node.label;
-      if (node.type === 'friend' && node.state === 'conflict') {
-        displayLabel = `[!] ${node.label}`;
-      }
+      let displayLabel = this.labelText(node);
       // Show the exact score only on hover; the ring already shows it at a glance
       if (node.type === 'friend' && isHovered && node.score !== undefined) {
         displayLabel = `${displayLabel} · ${node.score}%`;
       }
-      const labelOffset = node.type === 'friend' ? node.radius + 20 : node.radius + 16;
-      this.ctx.fillText(displayLabel, node.x, node.y + labelOffset);
+      this.ctx.fillText(displayLabel, node.drawX, node.drawY + this.labelOffset(node));
     }
 
     this.animationId = requestAnimationFrame(() => this.animate());
+  }
+
+  labelText(node) {
+    return node.type === 'friend' && node.state === 'conflict' ? `[!] ${node.label}` : String(node.label || '');
+  }
+
+  labelOffset(node) {
+    return node.type === 'friend' ? node.radius + 20 : node.radius + 16;
+  }
+
+  // The area a node takes up: its circle (with the score ring) plus the name underneath
+  footprint(node) {
+    if (node.labelWidth === undefined || node.labelWidthFor !== node.label) {
+      this.ctx.font = '600 12px Plus Jakarta Sans';
+      node.labelWidth = this.ctx.measureText(this.labelText(node)).width;
+      node.labelWidthFor = node.label;
+    }
+    const pad = node.type === 'user' ? 0 : KnowledgeGraphEngine.sway;
+    const half = Math.max(node.radius + 7, node.labelWidth / 2 + 5) + pad;
+    return {
+      left: node.x - half,
+      right: node.x + half,
+      top: node.y - node.radius - 7 - pad,
+      bottom: node.y + this.labelOffset(node) + 5 + pad
+    };
+  }
+
+  shiftBox(box, dx, dy) {
+    box.left += dx; box.right += dx; box.top += dy; box.bottom += dy;
   }
 
   destroy() {

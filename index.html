@@ -20,7 +20,7 @@
   
   <!-- FontAwesome & Custom CSS -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="css/styles.css?v=32.0">
+  <link rel="stylesheet" href="css/styles.css?v=33.3">
 </head>
 <body>
 
@@ -159,12 +159,12 @@
     <header class="top-header">
       <div class="search-box" id="global-search">
         <i class="fa-solid fa-magnifying-glass"></i>
-        <input type="search" id="global-search-input" name="mindvault-search" data-lpignore="true" data-form-type="other" placeholder="Cari teman, catatan, topik, kado, kosakata..." autocomplete="off" enterkeyhint="search" aria-label="Cari" aria-controls="global-search-results" aria-expanded="false">
+        <input type="search" id="global-search-input" name="mindvault-search" readonly data-lpignore="true" data-form-type="other" placeholder="Cari teman, catatan, topik, kado, kosakata..." autocomplete="off" enterkeyhint="search" aria-label="Cari" aria-controls="global-search-results" aria-expanded="false">
         <div class="search-results" id="global-search-results" role="listbox" hidden></div>
       </div>
 
       <div class="header-actions">
-        <button class="btn btn-secondary btn-pill" onclick="MindVaultApp.openPrepModal(1)">
+        <button class="btn btn-secondary btn-pill" onclick="MindVaultApp.openPrepModal()">
           <i class="fa-solid fa-bolt" style="color: var(--accent);"></i>
           <span>Meeting Prep</span>
         </button>
@@ -304,10 +304,21 @@
           <h2 style="font-size: 24px; font-weight: 800;">Friends Directory</h2>
           <p style="font-size: 14px; color: var(--text-muted);">Manage intimacy tiers, favorites, and AI summaries.</p>
         </div>
-        <button class="btn btn-primary" onclick="MindVaultApp.openAddFriendModal()">
-          <i class="fa-solid fa-user-plus"></i>
-          <span>Add New Friend</span>
-        </button>
+        <div class="friends-toolbar">
+          <label class="friends-sort">
+            <i class="fa-solid fa-arrow-down-wide-short"></i>
+            <span>Urutkan</span>
+            <select id="friends-sort" class="form-control" onchange="MindVaultApp.setFriendsSort(this.value)">
+              <option value="closeness">Paling dekat</option>
+              <option value="az">Nama (A–Z)</option>
+              <option value="newest">Baru ditambahkan</option>
+            </select>
+          </label>
+          <button class="btn btn-primary" onclick="MindVaultApp.openAddFriendModal()">
+            <i class="fa-solid fa-user-plus"></i>
+            <span>Add New Friend</span>
+          </button>
+        </div>
       </div>
 
       <div class="grid-4" id="friends-grid-container">
@@ -355,6 +366,16 @@
               <h3><i class="fa-solid fa-user-clock"></i> Current Life Status</h3>
             </div>
             <p id="profile-current-life" style="font-size: 14px; color: var(--text-medium); line-height: 1.6;"></p>
+          </div>
+
+          <div class="glass-card">
+            <div class="card-title-row">
+              <h3><i class="fa-solid fa-clock-rotate-left"></i> Riwayat Catatan <span id="profile-history-count" class="history-count"></span></h3>
+              <button class="btn btn-primary" style="padding: 4px 10px; font-size: 11px;" onclick="MindVaultApp.openAddDiaryModal(MindVaultApp.selectedFriendId)">
+                <i class="fa-solid fa-plus"></i> Catat Momen
+              </button>
+            </div>
+            <div id="profile-history-list"></div>
           </div>
 
           <div class="grid-2">
@@ -814,6 +835,11 @@
       <button class="modal-close-btn">&times;</button>
     </div>
 
+    <label class="prep-friend-picker">
+      <span>Ketemu siapa?</span>
+      <select id="prep-friend-select" class="form-control" onchange="MindVaultApp.openPrepModal(this.value)"></select>
+    </label>
+
     <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px; padding: 14px; background: var(--bg-main); border-radius: 16px;">
       <img id="prep-friend-avatar" src="" style="width: 54px; height: 54px; border-radius: 50%; object-fit: cover;" alt="">
       <div>
@@ -836,6 +862,14 @@
         <strong style="font-size: 13px; color: #DC2626;">Topics to Avoid:</strong>
         <ul id="prep-avoid-list" style="list-style: none; margin-top: 8px;"></ul>
       </div>
+    </div>
+
+    <div class="prep-news">
+      <div class="prep-news-head">
+        <strong><i class="fa-solid fa-newspaper"></i> Kabar terbaru soal yang dia suka</strong>
+        <button type="button" class="btn btn-secondary btn-small" id="prep-news-refresh" onclick="MindVaultApp.loadPrepNews(MindVaultApp.prepFriendId, true)" title="Cari kabar terbaru lagi" aria-label="Cari kabar terbaru lagi"><i class="fa-solid fa-rotate"></i></button>
+      </div>
+      <div id="prep-news-list"></div>
     </div>
 
     <button class="btn btn-primary" style="width: 100%;" onclick="document.getElementById('modal-meeting-prep').classList.remove('active')">Got It, Ready to Meet!</button>
@@ -914,6 +948,15 @@
       <input type="text" id="add-friend-avatar" class="form-control" style="margin-top: 4px;" placeholder="https://images.unsplash.com/... (Optional URL)">
     </div>
     
+    <div class="form-group">
+      <label>Gender <span class="form-optional">(opsional)</span></label>
+      <div class="gender-choice" role="radiogroup">
+        <label><input type="radio" name="add-friend-gender" value="P"> <i class="fa-solid fa-venus"></i> Perempuan</label>
+        <label><input type="radio" name="add-friend-gender" value="L"> <i class="fa-solid fa-mars"></i> Laki-laki</label>
+        <label><input type="radio" name="add-friend-gender" value=""> Tidak diisi</label>
+      </div>
+    </div>
+
     <div class="form-row">
       <div class="form-group">
         <label>No. HP / WhatsApp <span class="form-optional">(opsional)</span></label>
@@ -1311,12 +1354,12 @@
 
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/i18n.js?v=51.0"></script>
-<script src="js/data.js?v=51.0"></script>
-<script src="js/supabaseClient.js?v=51.0"></script>
-<script src="js/geminiClient.js?v=51.0"></script>
-<script src="js/graph.js?v=51.0"></script>
-<script src="js/app.js?v=51.0"></script>
+<script src="js/i18n.js?v=52.9"></script>
+<script src="js/data.js?v=52.9"></script>
+<script src="js/supabaseClient.js?v=52.9"></script>
+<script src="js/geminiClient.js?v=52.9"></script>
+<script src="js/graph.js?v=52.9"></script>
+<script src="js/app.js?v=52.9"></script>
 
 </body>
 </html>

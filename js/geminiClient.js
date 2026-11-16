@@ -203,6 +203,17 @@ Buat 4 topik obrolan. Balas HANYA dengan JSON array tanpa teks lain, format:
         tools: [{ google_search: {} }]
       });
       if (res.error) return res;
+      const parsed = this.parseGroundedArray(res, t => t && t.topic, 4);
+      if (!parsed.items.length) return { error: true, message: 'AI tidak mengembalikan topik. Coba lagi.' };
+      return { topics: parsed.items, sources: parsed.sources, searchEntryHtml: parsed.searchEntryHtml };
+    } catch (err) {
+      return { error: true, message: err.message || 'Gagal menghubungi Gemini API.' };
+    }
+  },
+
+  // Reads a Google-Search-grounded answer that holds a JSON array, and attaches to each item
+  // the articles it was written from (item.sources), plus the overall source list.
+  parseGroundedArray(res, keep, limit) {
       const data = res.data;
       const candidate = data.candidates?.[0] || {};
       const text = (candidate.content?.parts || []).map(p => p.text || '').join('');
@@ -214,8 +225,7 @@ Buat 4 topik obrolan. Balas HANYA dengan JSON array tanpa teks lain, format:
       } catch (e) {
         topics = [];
       }
-      topics = (Array.isArray(topics) ? topics : []).filter(t => t && t.topic).slice(0, 4);
-      if (topics.length === 0) return { error: true, message: 'AI tidak mengembalikan topik. Coba lagi.' };
+      topics = (Array.isArray(topics) ? topics : []).filter(keep).slice(0, limit);
 
       const meta = candidate.groundingMetadata || {};
       const chunks = meta.groundingChunks || [];
@@ -253,7 +263,34 @@ Buat 4 topik obrolan. Balas HANYA dengan JSON array tanpa teks lain, format:
         });
       }
 
-      return { topics, sources, searchEntryHtml: meta.searchEntryPoint?.renderedContent || '' };
+      return { items: topics, sources, searchEntryHtml: meta.searchEntryPoint?.renderedContent || '' };
+  },
+
+  // Fresh news about the things one friend is into, for the 1-minute meeting cheat sheet
+  async fetchPrepNews(friend) {
+    const apiKey = this.getApiKey();
+    if (!apiKey) return { error: true, message: 'Gemini API key belum diatur. Isi di menu Settings.' };
+    const today = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const english = typeof I18N !== 'undefined' && I18N.lang === 'en';
+    const fav = friend.favorites || {};
+    const interests = [...(friend.likes || []), fav.hobby, fav.food, fav.drink, fav.book, ...(friend.safeTopics || [])]
+      .filter(Boolean).map(String).slice(0, 10).join(', ');
+    if (!interests) return { error: true, empty: true, message: 'Belum ada minat yang dicatat untuk teman ini.' };
+
+    const prompt = `Hari ini ${today}. Aku mau ketemu temanku ${friend.name}. Dia suka: ${interests}.
+Cari dengan Google Search berita atau kabar TERBARU (utamakan 7 hari terakhir) yang berhubungan langsung dengan hal-hal yang dia suka itu, supaya bisa jadi bahan obrolan.
+Buat maksimal 3 kabar, masing-masing dari minat yang berbeda kalau bisa. Jangan mengarang: kalau tidak ada kabar baru untuk suatu minat, lewati saja.
+Balas HANYA dengan JSON array tanpa teks lain, format:
+[{"interest": "minat yang terkait", "headline": "judul kabar singkat", "summary": "ringkasan 1-2 kalimat: apa yang terjadi dan kapan", "opener": "kalimat pembuka obrolan santai ke ${friend.name}"}]`;
+    try {
+      const res = await this.generate({
+        contents: [{ role: 'user', parts: [{ text: english ? prompt + '\n\nIMPORTANT: write "interest", "headline", "summary" and "opener" in casual English (the JSON keys stay the same).' : prompt }] }],
+        tools: [{ google_search: {} }]
+      });
+      if (res.error) return res;
+      const parsed = this.parseGroundedArray(res, t => t && t.headline, 3);
+      if (!parsed.items.length) return { error: true, message: 'Belum ketemu kabar baru soal minatnya.' };
+      return { items: parsed.items, sources: parsed.sources };
     } catch (err) {
       return { error: true, message: err.message || 'Gagal menghubungi Gemini API.' };
     }

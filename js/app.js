@@ -245,7 +245,12 @@ const MindVaultApp = {
     const input = document.getElementById('global-search-input');
     const box = document.getElementById('global-search-results');
     if (!input || !box) return;
-    // Browsers sometimes autofill the saved login email into this box; clear anything typed by autofill
+    // Browsers autofill the saved login email into this box. They skip read-only fields, so the box
+    // stays read-only until you actually tap/click or focus it; anything filled before that is cleared.
+    const unlock = () => input.removeAttribute('readonly');
+    input.addEventListener('pointerdown', unlock);
+    input.addEventListener('touchstart', unlock, { passive: true });
+    input.addEventListener('focus', unlock);
     const clearAutofill = () => { if (document.activeElement !== input && input.value) input.value = ''; };
     setTimeout(clearAutofill, 300);
     setTimeout(clearAutofill, 1500);
@@ -286,6 +291,7 @@ const MindVaultApp = {
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '') || document.activeElement?.isContentEditable;
       if ((e.key === '/' && !typing) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) {
         e.preventDefault();
+        unlock();
         input.focus();
         input.select();
       }
@@ -1139,6 +1145,7 @@ const MindVaultApp = {
       const el = document.getElementById('add-friend-' + id);
       if (el) el.value = '';
     });
+    document.querySelectorAll('input[name="add-friend-gender"]').forEach(r => { r.checked = false; });
     const relSelect = document.getElementById('add-friend-relation-select');
     if (relSelect) relSelect.value = 'Teman Dekat';
     const relCustom = document.getElementById('add-friend-relation-custom');
@@ -1154,7 +1161,7 @@ const MindVaultApp = {
   },
 
   openEditProfileModal(friendId) {
-    const friend = MindVaultData.friends.find(f => f.id === friendId) || MindVaultData.friends[0];
+    const friend = this.findFriend(friendId) || MindVaultData.friends[0];
     if (!friend) {
       this.showToast('Friend not found.', 'warning');
       return;
@@ -1193,6 +1200,7 @@ const MindVaultApp = {
     if (document.getElementById('add-friend-phone')) document.getElementById('add-friend-phone').value = contact.phone || '';
     if (document.getElementById('add-friend-instagram')) document.getElementById('add-friend-instagram').value = contact.instagram ? '@' + contact.instagram : '';
     if (document.getElementById('add-friend-address')) document.getElementById('add-friend-address').value = contact.address || '';
+    document.querySelectorAll('input[name="add-friend-gender"]').forEach(r => { r.checked = r.value === contact.gender; });
     if (document.getElementById('add-friend-life')) document.getElementById('add-friend-life').value = friend.currentLife || '';
 
     // Favorites
@@ -1311,6 +1319,57 @@ const MindVaultApp = {
     return digits.length >= 8 ? digits : '';
   },
 
+  // Notes you logged with this friend, newest first
+  friendDiaries(friend) {
+    return (MindVaultData.diaries || []).filter(d =>
+      String(d.friendId) === String(friend.id) ||
+      (d.friendName && friend.name && d.friendName.toLowerCase() === friend.name.toLowerCase())
+    ).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || String(b.id).localeCompare(String(a.id)));
+  },
+
+  renderFriendHistory(friend) {
+    const list = document.getElementById('profile-history-list');
+    const count = document.getElementById('profile-history-count');
+    if (!list) return;
+    const diaries = this.friendDiaries(friend);
+    if (count) count.textContent = diaries.length ? `(${diaries.length})` : '';
+    if (!diaries.length) {
+      list.innerHTML = `<p class="history-empty">${this.L(
+        `Belum ada catatan dengan ${this.escapeHtml(friend.name)}. Setiap kali ketemu atau ngobrol, catat lewat "Catat Momen" supaya riwayatnya muncul di sini.`,
+        `No notes with ${this.escapeHtml(friend.name)} yet. Each time you meet or talk, log it with "Log Memory" and it shows up here.`)}</p>`;
+      return;
+    }
+    const esc = (v) => this.escapeHtml(v);
+    const fmt = (d) => {
+      const t = new Date(d);
+      return isNaN(t) ? esc(d || '') : t.toLocaleDateString(I18N.locale(), { day: 'numeric', month: 'short', year: 'numeric' });
+    };
+    const daysAgo = (d) => {
+      const t = new Date(d);
+      if (isNaN(t)) return '';
+      const n = Math.round((new Date().setHours(0, 0, 0, 0) - t.setHours(0, 0, 0, 0)) / 86400000);
+      if (n <= 0) return this.L('hari ini', 'today');
+      if (n === 1) return this.L('kemarin', 'yesterday');
+      return this.L(`${n} hari lalu`, `${n} days ago`);
+    };
+    list.innerHTML = `<div class="history-timeline">${diaries.map(d => `
+      <div class="history-item">
+        <div class="history-dot"></div>
+        <div class="history-body">
+          <div class="history-meta">
+            <strong>${fmt(d.date)}</strong> <span>· ${daysAgo(d.date)}</span>
+            ${d.location ? `<span>· <i class="fa-solid fa-location-dot"></i> ${esc(d.location)}</span>` : ''}
+            ${d.mood ? `<span class="history-mood">${esc(d.mood)}</span>` : ''}
+          </div>
+          ${d.title ? `<div class="history-title">${esc(d.title)}</div>` : ''}
+          ${d.content ? `<p class="history-content">${esc(d.content)}</p>` : ''}
+          <div class="history-actions">
+            <button type="button" onclick="MindVaultApp.openEditDiaryModal('${esc(d.id)}')"><i class="fa-solid fa-pen-to-square"></i> ${this.L('Ubah', 'Edit')}</button>
+          </div>
+        </div>
+      </div>`).join('')}</div>`;
+  },
+
   renderFriendContact(friend) {
     const box = document.getElementById('profile-contact');
     if (!box) return;
@@ -1360,6 +1419,9 @@ const MindVaultApp = {
     if (phone) contact.phone = phone;
     if (instagram) contact.instagram = instagram;
     if (address) contact.address = address;
+    // Gender lives in the contact JSON too, so no schema change is needed
+    const gender = document.querySelector('input[name="add-friend-gender"]:checked')?.value;
+    if (gender === 'P' || gender === 'L') contact.gender = gender;
 
     // Favorites
     const favDrink = document.getElementById('add-friend-fav-drink')?.value.trim();
@@ -1453,7 +1515,7 @@ const MindVaultApp = {
     if (this.activeView === 'graph') this.renderKnowledgeGraph();
   },
 
-  openAddDiaryModal() {
+  openAddDiaryModal(friendId) {
     const titleEl = document.getElementById('modal-add-diary-header-title');
     if (titleEl) titleEl.innerText = 'Log New Memory / Conversation';
     const editIdEl = document.getElementById('edit-diary-id');
@@ -1472,6 +1534,9 @@ const MindVaultApp = {
     if (moodInput) moodInput.selectedIndex = 0;
 
     this.populateDiaryFriendOptions();
+    const preset = this.findFriend(friendId);
+    const friendSelect = document.getElementById('add-diary-friend');
+    if (preset && friendSelect) friendSelect.value = preset.name;
     document.getElementById('modal-add-diary')?.classList.add('active');
   },
 
@@ -2666,7 +2731,7 @@ const MindVaultApp = {
       (friend.avoidTopics || []).length > 0,
       (friend.giftIdeas || []).length > 0,
       (friend.milestones || []).length > 0,
-      Object.keys(friend.contact || {}).length > 0,
+      Object.keys(friend.contact || {}).some(k => k !== 'gender'),
       String(friend.bio || '').length > 20
     ].filter(Boolean).length;
     if (known) score += add(known, `Kamu tahu ${known} hal tentang dia`, `You know ${known} things about them`);
@@ -2875,6 +2940,26 @@ const MindVaultApp = {
     }
   },
 
+  genderIcon(friend) {
+    const g = friend?.contact?.gender;
+    if (g === 'P') return ` <i class="fa-solid fa-venus gender-icon gender-p" title="${this.L('Perempuan', 'Female')}" aria-label="${this.L('Perempuan', 'Female')}"></i>`;
+    if (g === 'L') return ` <i class="fa-solid fa-mars gender-icon gender-l" title="${this.L('Laki-laki', 'Male')}" aria-label="${this.L('Laki-laki', 'Male')}"></i>`;
+    return '';
+  },
+
+  // How the friends list is ordered: 'closeness' (default), 'az' or 'newest'. Remembered per device.
+  getFriendsSort() {
+    try {
+      const v = localStorage.getItem('MINDVAULT_FRIENDS_SORT');
+      return ['closeness', 'az', 'newest'].includes(v) ? v : 'closeness';
+    } catch (e) { return 'closeness'; }
+  },
+
+  setFriendsSort(value) {
+    try { localStorage.setItem('MINDVAULT_FRIENDS_SORT', value); } catch (e) {}
+    this.renderFriendsGrid();
+  },
+
   // Render Friends Grid Directory
   renderFriendsGrid() {
     this.recalculateAllFriendScores();
@@ -2892,7 +2977,18 @@ const MindVaultApp = {
       return;
     }
 
-    grid.innerHTML = MindVaultData.friends.map(friend => {
+    const sort = this.getFriendsSort();
+    const sortSelect = document.getElementById('friends-sort');
+    if (sortSelect) sortSelect.value = sort;
+    const collator = new Intl.Collator(I18N.locale(), { sensitivity: 'base' });
+    const byName = (a, b) => collator.compare(String(a.name || ''), String(b.name || ''));
+    const friends = [...MindVaultData.friends].sort(
+      sort === 'az' ? byName
+        : sort === 'newest' ? (a, b) => Number(b.id) - Number(a.id) || byName(a, b)
+        : (a, b) => (b.score || 0) - (a.score || 0) || byName(a, b)
+    );
+
+    grid.innerHTML = friends.map(friend => {
       const scoreColor = friend.scoreState === 'conflict' ? '#DC2626' : (friend.scoreState === 'cooling' ? '#D97706' : '#059669');
       const badgeBg = friend.scoreState === 'conflict' ? '#FEE2E2' : (friend.scoreState === 'cooling' ? '#FEF3C7' : 'var(--secondary)');
       const badgeColor = friend.scoreState === 'conflict' ? '#DC2626' : (friend.scoreState === 'cooling' ? '#D97706' : 'var(--accent-hover)');
@@ -2906,7 +3002,7 @@ const MindVaultApp = {
             <img src="${friend.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80'}" class="friend-card-avatar" alt="${friend.name}">
             <span class="tier-badge" style="background: ${badgeBg}; color: ${badgeColor}; font-weight: 700;">${friend.tier || friend.relation || 'Teman'}</span>
           </div>
-          <h4>${friend.name}</h4>
+          <h4>${this.escapeHtml(friend.name)}${this.genderIcon(friend)}</h4>
           <p class="relation-type">${I18N.t(friend.relation || '')} • <strong style="color: ${scoreColor};">${friend.score}% ${this.L('Kedekatan', 'Intimacy')}</strong></p>
           
           <div class="friend-card-tags">
@@ -2937,7 +3033,7 @@ const MindVaultApp = {
 
   // Render Single Friend Profile View
   renderFriendProfile(id) {
-    const friend = MindVaultData.friends.find(f => f.id === id) || MindVaultData.friends[0];
+    const friend = this.findFriend(id) || MindVaultData.friends[0];
     if (!friend) return;
 
     // Recalculate dynamic score
@@ -2945,7 +3041,7 @@ const MindVaultApp = {
 
     // Basic Header Info
     const nameEl = document.getElementById('profile-name');
-    if (nameEl) nameEl.innerText = friend.name || 'Teman';
+    if (nameEl) nameEl.innerHTML = this.escapeHtml(friend.name || 'Teman') + this.genderIcon(friend);
 
     const relationEl = document.getElementById('profile-relation');
     if (relationEl) relationEl.innerText = friend.relation || 'Teman';
@@ -2975,6 +3071,7 @@ const MindVaultApp = {
     if (bioEl) bioEl.innerText = friend.bio || 'Belum ada bio ringkas.';
 
     this.renderFriendContact(friend);
+    this.renderFriendHistory(friend);
 
     const scoreEl = document.getElementById('profile-score-val');
     if (scoreEl) {
@@ -3192,6 +3289,9 @@ const MindVaultApp = {
 
   // Render Conversation Diaries List
   renderDiariesList() {
+    // Notes changed: keep the open friend profile's history in step
+    const openFriend = this.activeView === 'profile' && this.findFriend(this.selectedFriendId);
+    if (openFriend) this.renderFriendHistory(openFriend);
     const container = document.getElementById('diaries-full-list');
     if (!container) return;
 
@@ -3507,27 +3607,94 @@ const MindVaultApp = {
   },
 
   // Meeting Prep Modal
+  // Ids come in as numbers or as strings (from onclick attributes / selects), so compare as text
+  findFriend(id) {
+    if (id === undefined || id === null || id === '') return null;
+    return MindVaultData.friends.find(f => String(f.id) === String(id)) || null;
+  },
+
   openPrepModal(friendId) {
-    const friend = MindVaultData.friends.find(f => f.id === friendId) || MindVaultData.friends[0];
+    const friends = MindVaultData.friends || [];
+    // No friend given (header button): the one you're looking at, else your closest friend
+    const friend = this.findFriend(friendId) || this.findFriend(this.selectedFriendId)
+      || [...friends].sort((a, b) => (b.score || 0) - (a.score || 0))[0];
     if (!friend) {
-      this.showToast('Tambahkan teman dulu di Friends Directory.', 'info');
+      this.showToast(this.L('Tambahkan teman dulu di Daftar Teman.', 'Add a friend first in the Friends list.'), 'info');
       return;
     }
+    this.prepFriendId = friend.id;
     const modal = document.getElementById('modal-meeting-prep');
-    
+    const esc = (v) => this.escapeHtml(v);
+
+    const select = document.getElementById('prep-friend-select');
+    if (select) {
+      const collator = new Intl.Collator(I18N.locale(), { sensitivity: 'base' });
+      select.innerHTML = [...friends].sort((a, b) => collator.compare(String(a.name || ''), String(b.name || '')))
+        .map(f => `<option value="${esc(f.id)}"${String(f.id) === String(friend.id) ? ' selected' : ''}>${esc(f.name)}</option>`).join('');
+    }
+
     document.getElementById('prep-friend-name').innerText = friend.name;
-    document.getElementById('prep-friend-avatar').src = friend.avatar;
-    document.getElementById('prep-current-life').innerText = friend.currentLife;
-    
-    document.getElementById('prep-safe-list').innerHTML = friend.safeTopics.map(t => `<li style="margin-bottom: 6px; font-size: 13px;"><i class="fa-solid fa-check" style="color: #059669; margin-right: 6px;"></i>${t}</li>`).join('');
-    document.getElementById('prep-avoid-list').innerHTML = friend.avoidTopics.map(t => `<li style="margin-bottom: 6px; font-size: 13px;"><i class="fa-solid fa-xmark" style="color: #DC2626; margin-right: 6px;"></i>${t}</li>`).join('');
-    
+    document.getElementById('prep-friend-avatar').src = friend.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.name || 'Friend')}&background=F8BBD9&color=2D1A29&bold=true&size=250`;
+    document.getElementById('prep-current-life').innerText = friend.currentLife || this.L('Belum ada info.', 'No info yet.');
+
+    const safe = friend.safeTopics || [];
+    const avoid = friend.avoidTopics || [];
+    const none = `<li style="font-size: 13px; color: var(--text-muted);">${this.L('Belum dicatat.', 'Nothing noted yet.')}</li>`;
+    document.getElementById('prep-safe-list').innerHTML = safe.length ? safe.map(t => `<li style="margin-bottom: 6px; font-size: 13px;"><i class="fa-solid fa-check" style="color: #059669; margin-right: 6px;"></i>${esc(t)}</li>`).join('') : none;
+    document.getElementById('prep-avoid-list').innerHTML = avoid.length ? avoid.map(t => `<li style="margin-bottom: 6px; font-size: 13px;"><i class="fa-solid fa-xmark" style="color: #DC2626; margin-right: 6px;"></i>${esc(t)}</li>`).join('') : none;
+
     modal.classList.add('active');
+    this.loadPrepNews(friend.id, false);
+  },
+
+  // News about what this friend likes (Google-grounded). Cached per friend for the day.
+  prepNewsKey(id) { return `MINDVAULT_PREP_NEWS_${id}`; },
+
+  async loadPrepNews(friendId, force) {
+    const box = document.getElementById('prep-news-list');
+    const friend = this.findFriend(friendId);
+    if (!box || !friend) return;
+    const today = new Date().toISOString().slice(0, 10);
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem(this.prepNewsKey(friend.id)) || 'null'); } catch (e) {}
+    if (!force && cached && cached.date === today && cached.lang === I18N.lang && Array.isArray(cached.items)) {
+      this.renderPrepNews(cached.items);
+      return;
+    }
+    if (!MindVaultGemini.getApiKey()) {
+      box.innerHTML = `<p class="prep-news-note">${this.L('Isi Gemini API key di Pengaturan supaya bisa cari kabar terbaru.', 'Add a Gemini API key in Settings to look up the latest news.')}</p>`;
+      return;
+    }
+    box.innerHTML = `<p class="prep-news-note"><i class="fa-solid fa-spinner fa-spin"></i> ${this.L('Mencari kabar terbaru soal minatnya...', 'Looking up the latest on their interests...')}</p>`;
+    const res = await MindVaultGemini.fetchPrepNews(friend);
+    if (String(this.prepFriendId) !== String(friend.id)) return; // switched to another friend meanwhile
+    if (res.error) {
+      box.innerHTML = `<p class="prep-news-note">${res.empty
+        ? this.L('Belum ada minat yang dicatat. Tambahkan hobi atau kesukaannya di profil supaya bisa dicarikan kabar.', 'No interests noted yet. Add their hobbies or likes to the profile so news can be found.')
+        : this.escapeHtml(res.message || this.L('Gagal mencari kabar.', 'Could not load news.'))}</p>`;
+      return;
+    }
+    try { localStorage.setItem(this.prepNewsKey(friend.id), JSON.stringify({ date: today, lang: I18N.lang, items: res.items })); } catch (e) {}
+    this.renderPrepNews(res.items);
+  },
+
+  renderPrepNews(items) {
+    const box = document.getElementById('prep-news-list');
+    if (!box) return;
+    const esc = (v) => this.escapeHtml(v);
+    box.innerHTML = items.map(n => `
+      <div class="prep-news-item">
+        ${n.interest ? `<span class="prep-news-tag">${esc(n.interest)}</span>` : ''}
+        <div class="prep-news-title">${esc(n.headline)}</div>
+        ${n.summary ? `<p>${esc(n.summary)}</p>` : ''}
+        ${n.opener ? `<p class="prep-news-opener"><i class="fa-regular fa-comment"></i> ${esc(n.opener)}</p>` : ''}
+        ${(n.sources || []).length ? `<div class="prep-news-sources">${n.sources.map(src => `<a href="${esc(src.uri)}" target="_blank" rel="noopener">${esc(src.title)} <i class="fa-solid fa-arrow-up-right-from-square"></i></a>`).join('')}</div>` : ''}
+      </div>`).join('');
   },
 
   // Conversation Simulator trigger
   openSimulatorModal(friendId) {
-    const friend = MindVaultData.friends.find(f => f.id === friendId) || MindVaultData.friends[0];
+    const friend = this.findFriend(friendId) || MindVaultData.friends[0];
     if (!friend) {
       this.showToast('Tambahkan teman dulu di Friends Directory.', 'info');
       return;

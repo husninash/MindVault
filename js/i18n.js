@@ -39,6 +39,18 @@ const I18N = {
 
     // ---- Search results ----
     ['Total teman', 'Friends'],
+    ['Urutkan', 'Sort'],
+    ['Riwayat Catatan', 'Notes History'],
+    ['Ketemu siapa?', 'Meeting who?'],
+    ['Kabar terbaru soal yang dia suka', 'Latest news on what they like'],
+    ['Cari kabar terbaru lagi', 'Look up the latest again'],
+    ['Belum dicatat.', 'Nothing noted yet.'],
+    ['Paling dekat', 'Closest first'],
+    ['Nama (A–Z)', 'Name (A–Z)'],
+    ['Baru ditambahkan', 'Recently added'],
+    ['Perempuan', 'Female'],
+    ['Laki-laki', 'Male'],
+    ['Tidak diisi', 'Not set'],
     ['Teman-teman', 'People'],
     ['Teman', 'Friend'],
     ['Catatan', 'Notes'],
