@@ -55,6 +55,13 @@ const MindVaultGemini = {
     return { error: true, message: lastError?.message || 'Gagal menghubungi Gemini.' };
   },
 
+  // Extra line for prompts whose answer is shown to the user, so it comes back in their chosen language
+  languageNote() {
+    return (typeof I18N !== 'undefined' && I18N.lang === 'en')
+      ? '\n\nIMPORTANT: Write every natural-language part of your answer in English, even if the instructions above are in Indonesian. Keep names, titles and quoted user notes as they are.'
+      : '';
+  },
+
   async askGemini(prompt, systemInstruction = '') {
     const apiKey = this.getApiKey();
     if (!apiKey) {
@@ -63,7 +70,7 @@ const MindVaultGemini = {
     }
 
     const requestBody = {
-      contents: [{ role: 'user', parts: [{ text: prompt }] }]
+      contents: [{ role: 'user', parts: [{ text: prompt + this.languageNote() }] }]
     };
     if (systemInstruction) {
       requestBody.systemInstruction = { parts: [{ text: systemInstruction }] };
@@ -155,6 +162,7 @@ Kalau salah satu jenis utama tidak punya bentuk yang umum dipakai, tetap tulis b
     if (!apiKey) return { error: true, message: 'Gemini API key belum diatur. Isi di menu Settings.' };
 
     const today = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const english = typeof I18N !== 'undefined' && I18N.lang === 'en';
     const interests = (friends || []).slice(0, 12).map(f => {
       const likes = [...(f.likes || []), ...(f.favorites?.hobby ? [f.favorites.hobby] : [])].slice(0, 6).join(', ');
       return `- ${f.name}: ${likes || f.bio || 'minat belum dicatat'}`;
@@ -167,7 +175,7 @@ Buat 4 topik obrolan. Balas HANYA dengan JSON array tanpa teks lain, format:
 
     try {
       const res = await this.generate({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        contents: [{ role: 'user', parts: [{ text: english ? prompt + '\n\nIMPORTANT: write "headline", "summary", "topic" and "why" in casual English (the JSON keys stay the same).' : prompt }] }],
         tools: [{ google_search: {} }]
       });
       if (res.error) return res;

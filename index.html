@@ -20,7 +20,7 @@
   
   <!-- FontAwesome & Custom CSS -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="css/styles.css?v=28.0">
+  <link rel="stylesheet" href="css/styles.css?v=29.0">
 </head>
 <body>
 
@@ -116,6 +116,14 @@
       </ul>
     </div>
 
+    <div class="sidebar-lang">
+      <i class="fa-solid fa-language"></i>
+      <div class="lang-switch" role="group" aria-label="Bahasa">
+        <button type="button" data-lang-option="id" onclick="I18N.setLang('id')">ID</button>
+        <button type="button" data-lang-option="en" onclick="I18N.setLang('en')">EN</button>
+      </div>
+    </div>
+
     <!-- Shown only when the browser can install the app -->
     <button type="button" class="install-app-btn" id="install-app-btn" hidden onclick="MindVaultApp.installApp()">
       <i class="fa-solid fa-mobile-screen-button"></i>
@@ -200,7 +208,7 @@
       <div class="stat-row">
         <div class="stat">
           <span class="stat-value" id="dash-active-friends">0</span>
-          <span class="stat-label">Teman</span>
+          <span class="stat-label">Total teman</span>
         </div>
         <div class="stat">
           <span class="stat-value" id="dash-diaried-memories">0</span>
@@ -570,6 +578,14 @@
 
         <div class="glass-card">
           <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 14px;"><i class="fa-solid fa-sliders"></i> App Preferences</h3>
+          <div class="form-group">
+            <label>Bahasa</label>
+            <select class="form-control" id="user-setting-language" onchange="I18N.setLang(this.value)">
+              <option value="id">Bahasa Indonesia</option>
+              <option value="en">English</option>
+            </select>
+            <p class="form-hint">Tampilan bahasa aplikasi. Jawaban AI juga mengikuti bahasa ini.</p>
+          </div>
           <div class="form-group">
             <label>Theme Style</label>
             <select class="form-control" id="user-setting-theme">
@@ -1196,6 +1212,10 @@
       </div>
       <h2>MindVault</h2>
       <p>Relationship AI & Personal Second Brain</p>
+      <div class="lang-switch auth-lang-switch" role="group" aria-label="Bahasa">
+        <button type="button" data-lang-option="id" onclick="I18N.setLang('id')">ID</button>
+        <button type="button" data-lang-option="en" onclick="I18N.setLang('en')">EN</button>
+      </div>
     </div>
 
     <!-- Auth Tabs -->
@@ -1293,11 +1313,12 @@
 
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/data.js?v=43.0"></script>
-<script src="js/supabaseClient.js?v=43.0"></script>
-<script src="js/geminiClient.js?v=43.0"></script>
-<script src="js/graph.js?v=43.0"></script>
-<script src="js/app.js?v=43.0"></script>
+<script src="js/i18n.js?v=44.0"></script>
+<script src="js/data.js?v=44.0"></script>
+<script src="js/supabaseClient.js?v=44.0"></script>
+<script src="js/geminiClient.js?v=44.0"></script>
+<script src="js/graph.js?v=44.0"></script>
+<script src="js/app.js?v=44.0"></script>
 
 </body>
 </html>

@@ -20,6 +20,13 @@ const MindVaultApp = {
     this.bindAIChat();
     this.setupPwa();
     this.setupGlobalSearch();
+    // Dates and AI-made text depend on the language; redraw what shows them
+    window.addEventListener('mindvault:language', () => {
+      this.renderDashboard();
+      this.renderRemindersList();
+      if (this.activeView === 'profile' && this.selectedFriendId) this.renderFriendProfile(this.selectedFriendId);
+      this.showToast(I18N.lang === 'en' ? 'Language switched to English.' : 'Bahasa diganti ke Bahasa Indonesia.', 'success');
+    });
 
     if (typeof MindVaultSupabase !== 'undefined') {
       MindVaultSupabase.init();
@@ -295,7 +302,7 @@ const MindVaultApp = {
     (MindVaultData.friends || []).forEach(f => {
       const contact = f.contact || {};
       items.push({
-        group: 'Teman', icon: 'fa-user', title: f.name, sub: [f.relation, f.bio].filter(Boolean).join(' · '),
+        group: 'Teman-teman', icon: 'fa-user', title: f.name, sub: [f.relation, f.bio].filter(Boolean).join(' · '),
         text: join(f.name, f.relation, f.bio, f.currentLife, f.likes, f.safeTopics, Object.entries(f.favorites || {}).filter(([k]) => !k.startsWith('_')).map(([, v]) => v), contact.instagram, contact.address, contact.phone),
         action: { type: 'friend', id: f.id }
       });
@@ -362,10 +369,10 @@ const MindVaultApp = {
       scored.push({ ...item, score });
     });
 
-    const order = ['Teman', 'Catatan', 'Jurnal harian', 'Topik obrolan', 'Ide kado', 'Kosakata'];
+    const order = ['Teman-teman', 'Catatan', 'Jurnal harian', 'Topik obrolan', 'Ide kado', 'Kosakata'];
     const groups = order.map(name => ({
       name,
-      items: scored.filter(i => i.group === name).sort((a, b) => b.score - a.score).slice(0, name === 'Teman' ? 5 : 4)
+      items: scored.filter(i => i.group === name).sort((a, b) => b.score - a.score).slice(0, name === 'Teman-teman' ? 5 : 4)
     })).filter(g => g.items.length);
 
     this.searchResults = groups.flatMap(g => g.items);
@@ -2588,7 +2595,7 @@ const MindVaultApp = {
     if (heading) heading.textContent = name ? `${this.greetingForNow()}, ${name}` : this.greetingForNow();
 
     const dateEl = document.getElementById('dash-date');
-    if (dateEl) dateEl.textContent = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    if (dateEl) dateEl.textContent = new Date().toLocaleDateString(I18N.locale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
     const friends = MindVaultData.friends || [];
     const upcoming = this.getSmartReminders().filter(r => r.diffDays <= 30);
@@ -2939,7 +2946,7 @@ const MindVaultApp = {
             diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
           }
 
-          const formattedBday = nextBday.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+          const formattedBday = nextBday.toLocaleDateString(I18N.locale(), { day: 'numeric', month: 'long', year: 'numeric' });
 
           combinedList.push({
             isAutoBirthday: true,
@@ -2960,7 +2967,7 @@ const MindVaultApp = {
           const targetDate = new Date(m.date);
           const targetStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
           diffDays = Math.round((targetStart.getTime() - startToday.getTime()) / (1000 * 60 * 60 * 24));
-          formattedDate = targetDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+          formattedDate = targetDate.toLocaleDateString(I18N.locale(), { day: 'numeric', month: 'long', year: 'numeric' });
         }
 
         combinedList.push({
@@ -3144,7 +3151,7 @@ const MindVaultApp = {
         diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
       }
 
-      const formattedDate = nextBday.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+      const formattedDate = nextBday.toLocaleDateString(I18N.locale(), { day: 'numeric', month: 'long', year: 'numeric' });
 
       // Determine reminder status
       let urgency = 'normal';
@@ -3210,7 +3217,7 @@ const MindVaultApp = {
           mIsDueSoon = true;
         }
 
-        const formattedMDate = targetDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+        const formattedMDate = targetDate.toLocaleDateString(I18N.locale(), { day: 'numeric', month: 'long', year: 'numeric' });
 
         reminders.push({
           id: `milestone-${friend.id}-${mIdx}`,

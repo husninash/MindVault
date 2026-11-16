@@ -1,6 +1,6 @@
 // MindVault service worker: lets the installed app open and work without internet.
 // Bump CACHE_VERSION when the list of shell files changes.
-const CACHE_VERSION = 'mindvault-v4';
+const CACHE_VERSION = 'mindvault-v5';
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const CDN_CACHE = `${CACHE_VERSION}-cdn`;
 
@@ -8,6 +8,7 @@ const SHELL_FILES = [
   '/',
   '/index.html',
   '/css/styles.css',
+  '/js/i18n.js',
   '/js/data.js',
   '/js/supabaseClient.js',
   '/js/geminiClient.js',
