@@ -1,0 +1,13 @@
+# Cloudflare Pages headers (same as netlify.toml)
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+# The service worker must always be re-checked so app updates reach installed phones
+/sw.js
+  Cache-Control: no-cache
+  Service-Worker-Allowed: /
+
+/manifest.webmanifest
+  Content-Type: application/manifest+json
