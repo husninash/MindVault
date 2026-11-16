@@ -409,6 +409,7 @@ const MindVaultSupabase = {
         score: f.score,
         bio: f.bio,
         favorites: f.favorites || {},
+        contact: f.contact || (f.favorites && f.favorites._contact) || {},
         likes: f.likes || [],
         dislikes: f.dislikes || [],
         safeTopics: f.safe_topics || [],
@@ -485,13 +486,14 @@ const MindVaultSupabase = {
   friendPayload(f, { defaults = false } = {}) {
     return {
       name: f.name,
-      relation: f.relation || (defaults ? 'Friend' : f.relation),
+      relation: f.relation || (defaults ? 'Teman' : f.relation),
       avatar: f.avatar || (defaults ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80' : f.avatar),
-      tier: f.tier || (defaults ? 'Close Circle' : f.tier),
+      tier: f.tier || (defaults ? 'Teman' : f.tier),
       birthday: f.birthday || null,
       score: f.score || (defaults ? 85 : f.score),
       bio: f.bio || '',
       favorites: f.favorites || {},
+      contact: f.contact || {},
       likes: f.likes || [],
       dislikes: f.dislikes || [],
       safe_topics: f.safeTopics || [],
@@ -515,12 +517,24 @@ const MindVaultSupabase = {
     return await this.client.from('diaries').delete().eq('id', id);
   },
 
+  // Until the schema update is run, keep contact details inside favorites so nothing is lost
+  stripNewFriendColumns(payload) {
+    delete payload.milestones;
+    if ('contact' in payload) {
+      const contact = payload.contact || {};
+      delete payload.contact;
+      payload.favorites = { ...(payload.favorites || {}) };
+      if (Object.keys(contact).length) payload.favorites._contact = contact;
+      else delete payload.favorites._contact;
+    }
+  },
+
   async remoteInsertFriend(f) {
     const payload = this.friendPayload(f, { defaults: true });
     let res = await this.client.from('friends').insert([payload]).select();
     if (res.error && res.error.code === 'PGRST204') {
-      // Older schema without the milestones column
-      delete payload.milestones;
+      // Older schema without the milestones/contact columns
+      this.stripNewFriendColumns(payload);
       res = await this.client.from('friends').insert([payload]).select();
     }
     return res;
@@ -530,7 +544,7 @@ const MindVaultSupabase = {
     const payload = this.friendPayload(f);
     let res = await this.client.from('friends').update(payload).eq('id', f.id);
     if (res.error && res.error.code === 'PGRST204') {
-      delete payload.milestones;
+      this.stripNewFriendColumns(payload);
       res = await this.client.from('friends').update(payload).eq('id', f.id);
     }
     return res;

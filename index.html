@@ -20,7 +20,7 @@
   
   <!-- FontAwesome & Custom CSS -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="css/styles.css?v=25.0">
+  <link rel="stylesheet" href="css/styles.css?v=26.0">
 </head>
 <body>
 
@@ -320,6 +320,7 @@
             <span class="tag-chip" id="profile-score-val">94% Score</span>
             <span class="tag-chip" id="profile-tier-badge" style="background: var(--lavender-light); color: var(--lavender-deep);">Friend</span>
           </div>
+          <div id="profile-contact" class="profile-contact" hidden></div>
         </div>
         <div class="profile-actions-bar">
           <button class="btn btn-secondary" onclick="MindVaultApp.openEditProfileModal(MindVaultApp.selectedFriendId)"><i class="fa-solid fa-pen-to-square" style="color: var(--accent-hover);"></i> Edit Profile</button>
@@ -864,17 +865,16 @@
       <div class="form-group">
         <label>Relationship / Tier</label>
         <select id="add-friend-relation-select" class="form-control" onchange="MindVaultApp.handleRelationSelectChange(this.value)">
-          <option value="Inner Circle">Inner Circle (Sahabat Inti)</option>
-          <option value="Close Friend">Close Friend (Teman Dekat)</option>
-          <option value="Friend">Friend (Teman)</option>
-          <option value="Bestie">Bestie</option>
-          <option value="Family">Family (Keluarga)</option>
-          <option value="Partner / Lover">Partner / Lover (Pasangan)</option>
-          <option value="Ex Lover">Ex Lover (Mantan)</option>
-          <option value="Colleague / Work">Colleague / Work (Rekan Kerja)</option>
-          <option value="Mentor / Teacher">Mentor / Teacher</option>
-          <option value="Acquaintance">Acquaintance (Kenalan)</option>
-          <option value="Other">Other / Lainnya (Ketik Sendiri)...</option>
+          <option value="Sahabat">Sahabat</option>
+          <option value="Teman Dekat">Teman Dekat</option>
+          <option value="Teman">Teman</option>
+          <option value="Keluarga">Keluarga</option>
+          <option value="Pasangan">Pasangan</option>
+          <option value="Mantan">Mantan</option>
+          <option value="Rekan Kerja">Rekan Kerja</option>
+          <option value="Mentor / Guru">Mentor / Guru</option>
+          <option value="Kenalan">Kenalan</option>
+          <option value="Other">Lainnya (ketik sendiri)...</option>
         </select>
         <input type="text" id="add-friend-relation-custom" class="form-control" style="display: none; margin-top: 8px;" placeholder="Ketik relationship / tier kustom...">
       </div>
@@ -899,6 +899,21 @@
       <input type="text" id="add-friend-avatar" class="form-control" style="margin-top: 4px;" placeholder="https://images.unsplash.com/... (Optional URL)">
     </div>
     
+    <div class="form-row">
+      <div class="form-group">
+        <label>No. HP / WhatsApp <span class="form-optional">(opsional)</span></label>
+        <input type="tel" id="add-friend-phone" class="form-control" inputmode="tel" autocomplete="off" placeholder="mis. 0812 3456 7890">
+      </div>
+      <div class="form-group">
+        <label>Instagram <span class="form-optional">(opsional)</span></label>
+        <input type="text" id="add-friend-instagram" class="form-control" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="mis. @username">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Alamat <span class="form-optional">(opsional)</span></label>
+      <textarea id="add-friend-address" class="form-control" rows="2" placeholder="mis. Jl. Melati No. 12, Medan"></textarea>
+    </div>
+
     <div class="form-group">
       <label>Bio / Bio Ringkas</label>
       <input type="text" id="add-friend-bio" class="form-control" placeholder="e.g. Coffee enthusiast, UI designer, loves Tokyo travel">
@@ -1277,11 +1292,11 @@
 
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/data.js?v=38.0"></script>
-<script src="js/supabaseClient.js?v=38.0"></script>
-<script src="js/geminiClient.js?v=38.0"></script>
-<script src="js/graph.js?v=38.0"></script>
-<script src="js/app.js?v=38.0"></script>
+<script src="js/data.js?v=41.0"></script>
+<script src="js/supabaseClient.js?v=41.0"></script>
+<script src="js/geminiClient.js?v=41.0"></script>
+<script src="js/graph.js?v=41.0"></script>
+<script src="js/app.js?v=41.0"></script>
 
 </body>
 </html>

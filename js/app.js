@@ -882,12 +882,12 @@ const MindVaultApp = {
 
     // Clear form inputs & reset upload state
     this.uploadedAvatarData = null;
-    ['name', 'birthday', 'avatar', 'bio', 'life', 'fav-drink', 'fav-food', 'fav-color', 'fav-hobby', 'fav-book', 'likes', 'dislikes', 'safe-topics', 'avoid-topics', 'gifts'].forEach(id => {
+    ['name', 'birthday', 'avatar', 'phone', 'instagram', 'address', 'bio', 'life', 'fav-drink', 'fav-food', 'fav-color', 'fav-hobby', 'fav-book', 'likes', 'dislikes', 'safe-topics', 'avoid-topics', 'gifts'].forEach(id => {
       const el = document.getElementById('add-friend-' + id);
       if (el) el.value = '';
     });
     const relSelect = document.getElementById('add-friend-relation-select');
-    if (relSelect) relSelect.value = 'Close Friend';
+    if (relSelect) relSelect.value = 'Teman Dekat';
     const relCustom = document.getElementById('add-friend-relation-custom');
     if (relCustom) {
       relCustom.style.display = 'none';
@@ -920,7 +920,7 @@ const MindVaultApp = {
     const relSelect = document.getElementById('add-friend-relation-select');
     const relCustom = document.getElementById('add-friend-relation-custom');
     if (relSelect && relCustom) {
-      const rel = (friend.relation || '').trim();
+      const rel = this.normalizeRelation(friend.relation);
       const matched = Array.from(relSelect.options).find(opt => opt.value.toLowerCase() === rel.toLowerCase() && opt.value !== 'Other');
       if (matched) {
         relSelect.value = matched.value;
@@ -936,6 +936,10 @@ const MindVaultApp = {
     if (document.getElementById('add-friend-birthday')) document.getElementById('add-friend-birthday').value = friend.birthday || '';
     if (document.getElementById('add-friend-avatar')) document.getElementById('add-friend-avatar').value = friend.avatar || '';
     if (document.getElementById('add-friend-bio')) document.getElementById('add-friend-bio').value = friend.bio || '';
+    const contact = friend.contact || {};
+    if (document.getElementById('add-friend-phone')) document.getElementById('add-friend-phone').value = contact.phone || '';
+    if (document.getElementById('add-friend-instagram')) document.getElementById('add-friend-instagram').value = contact.instagram ? '@' + contact.instagram : '';
+    if (document.getElementById('add-friend-address')) document.getElementById('add-friend-address').value = contact.address || '';
     if (document.getElementById('add-friend-life')) document.getElementById('add-friend-life').value = friend.currentLife || '';
 
     // Favorites
@@ -993,21 +997,86 @@ const MindVaultApp = {
     }).join(' ');
   },
 
-  // One-time tidy-up for names saved before formatting existed (e.g. typed in all caps)
+  // Relationship types, in Indonesian. Older English/duplicate labels map onto these.
+  normalizeRelation(raw) {
+    const rel = String(raw || '').replace(/\s+/g, ' ').trim();
+    const key = rel.toLowerCase();
+    const map = {
+      'inner circle': 'Sahabat', 'bestie': 'Sahabat', 'best friend': 'Sahabat', 'sahabat inti': 'Sahabat', 'sahabat': 'Sahabat',
+      'close friend': 'Teman Dekat', 'close circle': 'Teman Dekat', 'teman dekat': 'Teman Dekat',
+      'friend': 'Teman', 'good friend': 'Teman', 'teman': 'Teman',
+      'family': 'Keluarga', 'keluarga': 'Keluarga',
+      'partner / lover': 'Pasangan', 'partner': 'Pasangan', 'lover': 'Pasangan', 'pasangan': 'Pasangan',
+      'ex lover': 'Mantan', 'ex': 'Mantan', 'mantan': 'Mantan',
+      'colleague / work': 'Rekan Kerja', 'colleague': 'Rekan Kerja', 'work': 'Rekan Kerja', 'rekan kerja': 'Rekan Kerja',
+      'mentor / teacher': 'Mentor / Guru', 'mentor': 'Mentor / Guru', 'teacher': 'Mentor / Guru', 'mentor / guru': 'Mentor / Guru',
+      'acquaintance': 'Kenalan', 'kenalan': 'Kenalan'
+    };
+    return map[key] || rel;
+  },
+
+  // One-time tidy-up for friends saved before formatting existed: names typed in all caps,
+  // and relationship labels from the old English list (Inner Circle, Bestie, Close Friend, ...)
   async normalizeSavedFriendNames() {
     const friends = MindVaultData.friends || [];
-    const changed = friends.filter(f => f && f.name && this.formatPersonName(f.name) !== f.name);
+    const changed = friends.filter(f => f && (
+      (f.name && this.formatPersonName(f.name) !== f.name) ||
+      (f.relation && this.normalizeRelation(f.relation) !== f.relation)
+    ));
     if (!changed.length) return;
     for (const friend of changed) {
       const oldName = friend.name;
-      friend.name = this.formatPersonName(oldName);
+      if (oldName) friend.name = this.formatPersonName(oldName);
+      if (friend.relation) {
+        const oldRelation = friend.relation;
+        friend.relation = this.normalizeRelation(oldRelation);
+        if (!friend.tier || friend.tier === oldRelation || this.normalizeRelation(friend.tier) !== friend.tier) friend.tier = friend.relation;
+      }
       (MindVaultData.diaries || []).forEach(d => {
         if (String(d.friendId) === String(friend.id) && d.friendName === oldName) d.friendName = friend.name;
       });
       await MindVaultSupabase.updateFriend(friend);
     }
+    this.recalculateAllFriendScores();
     this.renderFriendsGrid();
     this.renderDashboard();
+  },
+
+  // "@User.Name", "instagram.com/user.name/", "https://www.instagram.com/user.name?igsh=..." -> "user.name"
+  normalizeInstagram(raw) {
+    let v = String(raw || '').trim();
+    if (!v) return '';
+    v = v.replace(/^https?:\/\//i, '').replace(/^(www\.)?instagram\.com\//i, '');
+    v = v.split(/[/?#\s]/)[0].replace(/^@+/, '');
+    return v.replace(/[^A-Za-z0-9._]/g, '').toLowerCase();
+  },
+
+  // Phone number for a WhatsApp link: "0812-3456 7890" -> "6281234567890"
+  whatsappNumber(phone) {
+    let digits = String(phone || '').replace(/\D/g, '');
+    if (digits.startsWith('0')) digits = '62' + digits.slice(1);
+    return digits.length >= 8 ? digits : '';
+  },
+
+  renderFriendContact(friend) {
+    const box = document.getElementById('profile-contact');
+    if (!box) return;
+    const c = friend.contact || {};
+    const items = [];
+    if (c.phone) {
+      const tel = String(c.phone).replace(/[^\d+]/g, '');
+      items.push(`<a class="contact-chip" href="tel:${this.escapeHtml(tel)}"><i class="fa-solid fa-phone"></i> ${this.escapeHtml(c.phone)}</a>`);
+      const wa = this.whatsappNumber(c.phone);
+      if (wa) items.push(`<a class="contact-chip" href="https://wa.me/${wa}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>`);
+    }
+    if (c.instagram) {
+      items.push(`<a class="contact-chip" href="https://instagram.com/${encodeURIComponent(c.instagram)}" target="_blank" rel="noopener"><i class="fa-brands fa-instagram"></i> @${this.escapeHtml(c.instagram)}</a>`);
+    }
+    if (c.address) {
+      items.push(`<a class="contact-chip contact-chip-address" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}" target="_blank" rel="noopener"><i class="fa-solid fa-location-dot"></i> <span>${this.escapeHtml(c.address)}</span></a>`);
+    }
+    box.innerHTML = items.join('');
+    box.hidden = items.length === 0;
   },
 
   readFriendFormData() {
@@ -1016,7 +1085,7 @@ const MindVaultApp = {
     // Read relation from select or custom text input
     const relSelect = document.getElementById('add-friend-relation-select');
     const relCustom = document.getElementById('add-friend-relation-custom');
-    let relation = 'Friend';
+    let relation = 'Teman';
     if (relSelect) {
       if (relSelect.value === 'Other') {
         relation = (relCustom && relCustom.value.trim()) ? relCustom.value.trim() : 'Other';
@@ -1029,6 +1098,15 @@ const MindVaultApp = {
     const avatarInput = document.getElementById('add-friend-avatar')?.value.trim();
     const bio = document.getElementById('add-friend-bio')?.value.trim();
     const currentLife = document.getElementById('add-friend-life')?.value.trim();
+
+    // Contact details (all optional)
+    const contact = {};
+    const phone = (document.getElementById('add-friend-phone')?.value || '').trim();
+    const instagram = this.normalizeInstagram(document.getElementById('add-friend-instagram')?.value);
+    const address = (document.getElementById('add-friend-address')?.value || '').trim();
+    if (phone) contact.phone = phone;
+    if (instagram) contact.instagram = instagram;
+    if (address) contact.address = address;
 
     // Favorites
     const favDrink = document.getElementById('add-friend-fav-drink')?.value.trim();
@@ -1063,11 +1141,12 @@ const MindVaultApp = {
 
     return {
       name: name || 'Teman Baru',
-      relation: relation || 'Friend',
+      relation: relation || 'Teman',
       birthday: birthday || null,
       avatar: avatar,
       bio: bio || '',
       currentLife: currentLife || 'Recently added to MindVault.',
+      contact,
       favorites,
       likes,
       dislikes,
@@ -1082,7 +1161,7 @@ const MindVaultApp = {
 
     const newFriend = {
       ...friendData,
-      tier: friendData.relation || 'Close Circle',
+      tier: friendData.relation || 'Teman',
       score: 85,
       aiSummary: `${friendData.name} is a valued connection in your network.`
     };
@@ -1105,7 +1184,7 @@ const MindVaultApp = {
     const updatedFriend = {
       ...existing,
       ...friendData,
-      tier: friendData.relation || existing.tier || 'Friend',
+      tier: friendData.relation || existing.tier || 'Teman',
       id: friendId
     };
 
@@ -2252,13 +2331,11 @@ const MindVaultApp = {
     MindVaultData.friends.forEach(f => {
       f.score = this.calculateDynamicFriendScore(f);
       if (f.score <= 45) {
-        f.tier = 'Needs Repair / In Conflict';
+        f.tier = 'Konflik / Butuh Pemulihan';
       } else if (f.score <= 65) {
-        f.tier = 'Cooling Down';
-      } else if (f.score <= 80) {
-        f.tier = f.relation || 'Good Friend';
+        f.tier = 'Pendinginan / Jarak';
       } else {
-        f.tier = f.relation || 'Close Circle';
+        f.tier = f.relation || 'Teman';
       }
     });
   },
@@ -2467,7 +2544,7 @@ const MindVaultApp = {
           </button>
           <div class="friend-card-avatar-wrapper">
             <img src="${friend.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80'}" class="friend-card-avatar" alt="${friend.name}">
-            <span class="tier-badge" style="background: ${badgeBg}; color: ${badgeColor}; font-weight: 700;">${friend.tier || friend.relation || 'Friend'}</span>
+            <span class="tier-badge" style="background: ${badgeBg}; color: ${badgeColor}; font-weight: 700;">${friend.tier || friend.relation || 'Teman'}</span>
           </div>
           <h4>${friend.name}</h4>
           <p class="relation-type">${friend.relation || ''} • <strong style="color: ${scoreColor};">${friend.score}% Intimacy</strong></p>
@@ -2511,11 +2588,11 @@ const MindVaultApp = {
     if (nameEl) nameEl.innerText = friend.name || 'Teman';
 
     const relationEl = document.getElementById('profile-relation');
-    if (relationEl) relationEl.innerText = friend.relation || 'Friend';
+    if (relationEl) relationEl.innerText = friend.relation || 'Teman';
 
     const tierBadgeEl = document.getElementById('profile-tier-badge');
     if (tierBadgeEl) {
-      let tierLabel = friend.relation || 'Friend';
+      let tierLabel = friend.relation || 'Teman';
       if (friend.score <= 45) {
         tierLabel = 'Konflik / Butuh Pemulihan';
         tierBadgeEl.style.background = '#FEE2E2';
@@ -2537,6 +2614,8 @@ const MindVaultApp = {
     const bioEl = document.getElementById('profile-bio');
     if (bioEl) bioEl.innerText = friend.bio || 'Belum ada bio ringkas.';
 
+    this.renderFriendContact(friend);
+
     const scoreEl = document.getElementById('profile-score-val');
     if (scoreEl) {
       const scoreColor = friend.score <= 45 ? '#DC2626' : (friend.score <= 65 ? '#D97706' : '#059669');
@@ -2552,7 +2631,7 @@ const MindVaultApp = {
     // Favorites
     const favsContainer = document.getElementById('profile-favorites-list');
     if (favsContainer) {
-      const favEntries = Object.entries(friend.favorites || {});
+      const favEntries = Object.entries(friend.favorites || {}).filter(([key]) => !key.startsWith('_'));
       if (favEntries.length === 0) {
         favsContainer.innerHTML = '<p style="font-size: 13px; color: var(--text-muted); padding: 6px;">Belum ada favorit yang diisi. Klik Edit Profile untuk menambahkan.</p>';
       } else {
@@ -3916,10 +3995,10 @@ const MindVaultApp = {
       const score = friend.score !== undefined ? friend.score : this.calculateDynamicFriendScore(friend);
       nodes.push({
         id: friendNodeId,
-        label: friend.name || 'Friend',
+        label: friend.name ? this.formatPersonName(friend.name) : 'Teman',
         type: 'friend',
         score: score,
-        tier: friend.tier || friend.relation || 'Friend',
+        tier: friend.tier || friend.relation || 'Teman',
         rawFriend: friend
       });
 
@@ -3927,7 +4006,7 @@ const MindVaultApp = {
       edges.push({
         from: 'user',
         to: friendNodeId,
-        label: `${score}% • ${friend.tier || friend.relation || 'Friend'}`,
+        label: `${score}% • ${friend.tier || friend.relation || 'Teman'}`,
         score: score
       });
 

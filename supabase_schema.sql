@@ -116,6 +116,8 @@ CREATE TABLE IF NOT EXISTS vocab_words (
 
 -- MIGRATIONS for databases created from an older version of this file (safe to re-run)
 ALTER TABLE friends ADD COLUMN IF NOT EXISTS milestones JSONB DEFAULT '[]'::jsonb;
+-- Optional contact details: { phone, instagram, address }
+ALTER TABLE friends ADD COLUMN IF NOT EXISTS contact JSONB DEFAULT '{}'::jsonb;
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS gemini_key TEXT;
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS topic_starters JSONB;
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS topic_reflections JSONB;

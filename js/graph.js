@@ -59,8 +59,8 @@ class KnowledgeGraphEngine {
         x = centerX + Math.cos(angle) * dist;
         y = centerY + Math.sin(angle) * dist;
 
-        // Node size based on intimacy
-        radius = Math.round(18 + normalizedIntimacy * 8); // 19px for low score up to 26px for close friends
+        // Node size based on intimacy (kept small: the score is drawn as a ring, not a separate bubble)
+        radius = Math.round(13 + normalizedIntimacy * 5); // 13px for low score up to 18px for close friends
 
         // Visual Color Coding:
         // High (Green/Purple gradient), Medium (Yellow/Amber), Conflict/Low (Crimson Red)
@@ -115,7 +115,7 @@ class KnowledgeGraphEngine {
       let found = null;
       for (const node of this.nodes) {
         const dist = Math.hypot(node.x - mouseX, node.y - mouseY);
-        if (dist <= node.radius + 6) {
+        if (dist <= node.radius + 8) {
           found = node;
           break;
         }
@@ -234,22 +234,46 @@ class KnowledgeGraphEngine {
         this.ctx.fill();
       }
 
-      // Outer Circle
-      this.ctx.beginPath();
-      this.ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
-      this.ctx.fillStyle = node.color;
-      this.ctx.fill();
-      this.ctx.lineWidth = 3;
-      this.ctx.strokeStyle = '#FFFFFF';
-      this.ctx.stroke();
+      if (node.type === 'friend') {
+        // Friend: initials in a soft circle, closeness score as a ring around it
+        const score = Math.max(0, Math.min(100, Number(node.score) || 0));
+        const ringR = node.radius + 4;
 
-      // Intimacy Percentage Badge inside Node if Friend
-      if (node.type === 'friend' && node.score !== undefined) {
+        this.ctx.beginPath();
+        this.ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
         this.ctx.fillStyle = '#FFFFFF';
-        this.ctx.font = '800 10px Plus Jakarta Sans';
+        this.ctx.fill();
+
+        // Ring track
+        this.ctx.beginPath();
+        this.ctx.arc(node.x, node.y, ringR, 0, Math.PI * 2);
+        this.ctx.strokeStyle = 'rgba(45, 26, 41, 0.10)';
+        this.ctx.lineWidth = 4;
+        this.ctx.stroke();
+
+        // Ring fill = score
+        this.ctx.beginPath();
+        this.ctx.arc(node.x, node.y, ringR, -Math.PI / 2, -Math.PI / 2 + (score / 100) * Math.PI * 2);
+        this.ctx.strokeStyle = node.color;
+        this.ctx.lineWidth = 4;
+        this.ctx.lineCap = 'round';
+        this.ctx.stroke();
+        this.ctx.lineCap = 'butt';
+
+        const initials = String(node.label || '?').trim().split(/\s+/).slice(0, 2).map(w => w.charAt(0)).join('').toUpperCase();
+        this.ctx.fillStyle = node.color;
+        this.ctx.font = '800 11px Plus Jakarta Sans';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(`${node.score}%`, node.x, node.y);
+        this.ctx.fillText(initials, node.x, node.y + 0.5);
+      } else {
+        this.ctx.beginPath();
+        this.ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+        this.ctx.fillStyle = node.color;
+        this.ctx.fill();
+        this.ctx.lineWidth = 3;
+        this.ctx.strokeStyle = '#FFFFFF';
+        this.ctx.stroke();
       }
 
       // Node Label
@@ -262,7 +286,12 @@ class KnowledgeGraphEngine {
       if (node.type === 'friend' && node.score <= 45) {
         displayLabel = `[!] ${node.label}`;
       }
-      this.ctx.fillText(displayLabel, node.x, node.y + node.radius + 16);
+      // Show the exact score only on hover; the ring already shows it at a glance
+      if (node.type === 'friend' && isHovered && node.score !== undefined) {
+        displayLabel = `${displayLabel} · ${node.score}%`;
+      }
+      const labelOffset = node.type === 'friend' ? node.radius + 20 : node.radius + 16;
+      this.ctx.fillText(displayLabel, node.x, node.y + labelOffset);
     }
 
     this.animationId = requestAnimationFrame(() => this.animate());
