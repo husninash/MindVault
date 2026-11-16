@@ -22,7 +22,10 @@ const MindVaultApp = {
     this.setupGlobalSearch();
     // Dates and AI-made text depend on the language; redraw what shows them
     window.addEventListener('mindvault:language', () => {
+      this.newsTopicsError = '';
       this.renderDashboard();
+      this.renderNewsTopics();
+      this.refreshNewsTopics(false);
       this.renderRemindersList();
       if (this.activeView === 'profile' && this.selectedFriendId) this.renderFriendProfile(this.selectedFriendId);
       this.showToast(I18N.lang === 'en' ? 'Language switched to English.' : 'Bahasa diganti ke Bahasa Indonesia.', 'success');
@@ -453,6 +456,11 @@ const MindVaultApp = {
     }
   },
 
+  // Pick the Indonesian or English version of a sentence built in code
+  L(id, en) {
+    return (typeof I18N !== 'undefined' && I18N.lang === 'en') ? en : id;
+  },
+
   escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   },
@@ -461,7 +469,8 @@ const MindVaultApp = {
   getNewsTopicsCache() {
     try {
       const cache = JSON.parse(localStorage.getItem('MINDVAULT_NEWS_TOPICS') || 'null');
-      return cache && cache.date === new Date().toISOString().split('T')[0] ? cache : null;
+      const lang = typeof I18N !== 'undefined' ? I18N.lang : 'id';
+      return cache && cache.date === new Date().toISOString().split('T')[0] && (cache.lang || 'id') === lang ? cache : null;
     } catch (e) {
       return null;
     }
@@ -484,7 +493,7 @@ const MindVaultApp = {
     if (result.error) {
       this.newsTopicsError = result.message;
     } else {
-      localStorage.setItem('MINDVAULT_NEWS_TOPICS', JSON.stringify({ date: new Date().toISOString().split('T')[0], ...result }));
+      localStorage.setItem('MINDVAULT_NEWS_TOPICS', JSON.stringify({ date: new Date().toISOString().split('T')[0], lang: I18N.lang, ...result }));
     }
     this.renderNewsTopics();
   },
@@ -514,7 +523,7 @@ const MindVaultApp = {
           <details>
             <summary>
               <p class="news-topic-text">${esc(t.topic)}</p>
-              <p class="news-topic-meta">${esc(t.headline || '')}${t.friend && t.friend !== 'null' ? ` · cocok untuk <strong>${esc(t.friend)}</strong>` : ''}</p>
+              <p class="news-topic-meta">${esc(t.headline || '')}${t.friend && t.friend !== 'null' ? ` · ${this.L('cocok untuk', 'good for')} <strong>${esc(t.friend)}</strong>` : ''}</p>
             </summary>
             <div class="news-topic-detail">
               ${t.summary ? `<p class="news-topic-summary">${esc(t.summary)}</p>` : ''}
@@ -2605,10 +2614,10 @@ const MindVaultApp = {
         summary.innerHTML = 'Belum ada teman yang dicatat. <a href="#" onclick="MindVaultApp.openAddFriendModal(); return false;">Tambahkan teman pertamamu</a> untuk mulai.';
       } else if (upcoming.length) {
         const next = upcoming[0];
-        const when = next.diffDays === 0 ? 'hari ini' : next.diffDays === 1 ? 'besok' : `${next.diffDays} hari lagi`;
-        summary.innerHTML = `Berikutnya: <strong>${esc(next.title)}</strong>, ${when}.`;
+        const when = next.diffDays === 0 ? this.L('hari ini', 'today') : next.diffDays === 1 ? this.L('besok', 'tomorrow') : this.L(`${next.diffDays} hari lagi`, `in ${next.diffDays} days`);
+        summary.innerHTML = `${this.L('Berikutnya:', 'Next up:')} <strong>${esc(next.title)}</strong>, ${when}.`;
       } else {
-        summary.textContent = `Kamu mencatat ${friends.length} teman. Tidak ada acara dalam 30 hari ke depan.`;
+        summary.textContent = this.L(`Kamu mencatat ${friends.length} teman. Tidak ada acara dalam 30 hari ke depan.`, `You're keeping track of ${friends.length} ${friends.length === 1 ? 'friend' : 'friends'}. No events in the next 30 days.`);
       }
     }
 
@@ -2787,14 +2796,14 @@ const MindVaultApp = {
             <span class="tier-badge" style="background: ${badgeBg}; color: ${badgeColor}; font-weight: 700;">${friend.tier || friend.relation || 'Teman'}</span>
           </div>
           <h4>${friend.name}</h4>
-          <p class="relation-type">${friend.relation || ''} • <strong style="color: ${scoreColor};">${friend.score}% Intimacy</strong></p>
+          <p class="relation-type">${I18N.t(friend.relation || '')} • <strong style="color: ${scoreColor};">${friend.score}% ${this.L('Kedekatan', 'Intimacy')}</strong></p>
           
           <div class="friend-card-tags">
             ${(friend.likes || []).slice(0, 3).map(l => `<span class="tag-chip">${l}</span>`).join('')}
           </div>
 
           <div style="width: 100%; padding: 10px; background: var(--bg-main); border-radius: 12px; font-size: 11px; color: var(--text-medium); margin-bottom: 14px; text-align: left;">
-            <strong>AI Brief:</strong> ${(friend.currentLife || 'Belum ada info.').substring(0, 65)}...
+            <strong>${this.L('Ringkasan AI:', 'AI Brief:')}</strong> ${(friend.currentLife || this.L('Belum ada info.', 'No info yet.')).substring(0, 65)}...
           </div>
 
           <div class="friend-card-actions">
@@ -2950,11 +2959,11 @@ const MindVaultApp = {
 
           combinedList.push({
             isAutoBirthday: true,
-            title: `Ulang Tahun ${friend.name}`,
+            title: this.L(`Ulang Tahun ${friend.name}`, `${friend.name}'s Birthday`),
             type: 'Ulang Tahun',
             date: formattedBday,
             diffDays,
-            notes: 'Otomatis tersinkronisasi dari data tanggal lahir profil.'
+            notes: this.L('Otomatis tersinkronisasi dari data tanggal lahir profil.', "Synced automatically from the profile's birthday.")
           });
         }
       }
@@ -2997,19 +3006,19 @@ const MindVaultApp = {
           let isUpcoming = false;
 
           if (item.diffDays === 0) {
-            dayDiffText = 'HARI INI';
+            dayDiffText = this.L('HARI INI', 'TODAY');
             isUpcoming = true;
           } else if (item.diffDays === 1) {
-            dayDiffText = 'Besok';
+            dayDiffText = this.L('Besok', 'Tomorrow');
             isUpcoming = true;
           } else if (item.diffDays > 1 && item.diffDays <= 7) {
-            dayDiffText = `${item.diffDays} hari lagi (H-${item.diffDays})`;
+            dayDiffText = this.L(`${item.diffDays} hari lagi (H-${item.diffDays})`, `in ${item.diffDays} days`);
             isUpcoming = true;
           } else if (item.diffDays > 7 && item.diffDays < 9000) {
-            dayDiffText = `⏳ ${item.diffDays} hari lagi`;
+            dayDiffText = this.L(`⏳ ${item.diffDays} hari lagi`, `⏳ in ${item.diffDays} days`);
             isUpcoming = true;
           } else if (item.diffDays < 0) {
-            dayDiffText = `Sudah lewat (${Math.abs(item.diffDays)} hari lalu)`;
+            dayDiffText = this.L(`Sudah lewat (${Math.abs(item.diffDays)} hari lalu)`, `Passed (${Math.abs(item.diffDays)} days ago)`);
           }
 
           const badgeColor = isUpcoming ? '#DC2626' : '#6B7280';
@@ -3023,7 +3032,7 @@ const MindVaultApp = {
                   <strong style="font-size: 13.5px; color: var(--text-dark);">${item.title}</strong>
                   ${dayDiffText ? `<span style="font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 10px; background: ${badgeBg}; color: ${badgeColor};">${dayDiffText}</span>` : ''}
                 </div>
-                <div style="font-size: 12px; color: #6D28D9; font-weight: 600; margin-bottom: 4px;">${item.type} • ${item.formattedDate || item.date}</div>
+                <div style="font-size: 12px; color: #6D28D9; font-weight: 600; margin-bottom: 4px;">${I18N.t(item.type || '')} • ${item.formattedDate || item.date}</div>
                 ${item.notes ? `<p style="font-size: 12px; color: var(--text-muted); line-height: 1.4; margin: 0; background: var(--bg-main); padding: 6px 10px; border-radius: 8px;">${item.notes}</p>` : ''}
               </div>
               <div style="display: flex; gap: 4px;">
@@ -3155,23 +3164,24 @@ const MindVaultApp = {
 
       // Determine reminder status
       let urgency = 'normal';
-      let tagText = `${diffDays} hari lagi`;
+      const inDays = (n) => this.L(`${n} hari lagi`, `in ${n} days`);
+      let tagText = inDays(diffDays);
       let isDueSoon = false;
 
       if (diffDays === 0) {
         urgency = 'critical';
-        tagText = 'HARI INI';
+        tagText = this.L('HARI INI', 'TODAY');
         isDueSoon = true;
       } else if (diffDays === 1) {
         urgency = 'high';
-        tagText = 'Besok';
+        tagText = this.L('Besok', 'Tomorrow');
         isDueSoon = true;
       } else if (diffDays <= 7) {
         urgency = 'warning';
-        tagText = `${diffDays} hari lagi (H-${diffDays})`;
+        tagText = this.L(`${inDays(diffDays)} (H-${diffDays})`, inDays(diffDays));
         isDueSoon = true;
       } else if (diffDays <= 30) {
-        tagText = `${diffDays} hari lagi`;
+        tagText = inDays(diffDays);
       }
 
       reminders.push({
@@ -3179,7 +3189,7 @@ const MindVaultApp = {
         friendId: friend.id,
         friendName: friend.name,
         friendAvatar: friend.avatar,
-        title: `Ulang Tahun ${friend.name}`,
+        title: this.L(`Ulang Tahun ${friend.name}`, `${friend.name}'s Birthday`),
         date: formattedDate,
         diffDays,
         urgency,
@@ -3200,20 +3210,20 @@ const MindVaultApp = {
         if (mDiffDays < 0) return; // Skip past events in active reminders
 
         let mUrgency = 'normal';
-        let mTagText = `${mDiffDays} hari lagi`;
+        let mTagText = inDays(mDiffDays);
         let mIsDueSoon = false;
 
         if (mDiffDays === 0) {
           mUrgency = 'critical';
-          mTagText = 'HARI INI';
+          mTagText = this.L('HARI INI', 'TODAY');
           mIsDueSoon = true;
         } else if (mDiffDays === 1) {
           mUrgency = 'high';
-          mTagText = 'Besok';
+          mTagText = this.L('Besok', 'Tomorrow');
           mIsDueSoon = true;
         } else if (mDiffDays <= 7) {
           mUrgency = 'warning';
-          mTagText = `${mDiffDays} hari lagi (H-${mDiffDays})`;
+          mTagText = this.L(`${inDays(mDiffDays)} (H-${mDiffDays})`, inDays(mDiffDays));
           mIsDueSoon = true;
         }
 
@@ -3230,7 +3240,7 @@ const MindVaultApp = {
           urgency: mUrgency,
           tagText: mTagText,
           isDueSoon: mIsDueSoon,
-          type: m.type || 'Momen Spesial',
+          type: m.type || this.L('Momen Spesial', 'Special Moment'),
           notes: m.notes || ''
         });
       });
@@ -3274,7 +3284,7 @@ const MindVaultApp = {
                 <strong style="font-size: 15px; color: var(--text-dark);">${rem.title}</strong>
                 <span style="font-size: 11px; font-weight: 800; padding: 2px 10px; border-radius: 12px; background: ${badgeBg}; color: ${badgeColor};">${rem.tagText}</span>
               </div>
-              <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">${rem.date} • Disinkronkan dari profil ${rem.friendName}</p>
+              <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">${rem.date} • ${this.L(`Disinkronkan dari profil ${rem.friendName}`, `Synced from ${rem.friendName}'s profile`)}</p>
             </div>
           </div>
           <div style="display: flex; gap: 8px;">
@@ -3304,10 +3314,16 @@ const MindVaultApp = {
     const first = dueSoon[0];
     const isBirthday = first.type.includes('Ulang Tahun') || first.type.includes('Birthday');
     const icon = '<i class="fa-solid fa-bell" style="color: var(--accent);"></i>';
-    const headerTitle = isBirthday ? `Peringatan Ulang Tahun Mendekat (H-${first.diffDays})!` : `Momen Spesial Mendekat: ${first.title} (H-${first.diffDays})!`;
-    const descText = isBirthday 
-      ? `<strong>${first.friendName}</strong> akan berulang tahun pada <strong>${first.date}</strong> (${first.tagText}). Waktunya siapkan ucapan atau ide kado spesial!`
-      : `<strong>${first.friendName}</strong> memiliki acara <strong>${first.title}</strong> pada <strong>${first.date}</strong> (${first.tagText}). ${first.notes ? `<em>Catatan: "${first.notes}"</em>` : ''}`;
+    const headerTitle = isBirthday
+      ? this.L(`Ulang tahun sebentar lagi (H-${first.diffDays})!`, `Birthday coming up (in ${first.diffDays} days)!`)
+      : this.L(`Momen spesial sebentar lagi: ${first.title} (H-${first.diffDays})!`, `Special moment coming up: ${first.title} (in ${first.diffDays} days)!`);
+    const descText = isBirthday
+      ? this.L(
+          `<strong>${first.friendName}</strong> akan berulang tahun pada <strong>${first.date}</strong> (${first.tagText}). Waktunya siapkan ucapan atau ide kado spesial!`,
+          `<strong>${first.friendName}</strong> has a birthday on <strong>${first.date}</strong> (${first.tagText}). Time to plan a message or a special gift!`)
+      : this.L(
+          `<strong>${first.friendName}</strong> memiliki acara <strong>${first.title}</strong> pada <strong>${first.date}</strong> (${first.tagText}). ${first.notes ? `<em>Catatan: "${first.notes}"</em>` : ''}`,
+          `<strong>${first.friendName}</strong> has <strong>${first.title}</strong> on <strong>${first.date}</strong> (${first.tagText}). ${first.notes ? `<em>Note: "${first.notes}"</em>` : ''}`);
 
     alertContainer.innerHTML = `
       <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: linear-gradient(135deg, #FFF1F2 0%, #FFE4E6 100%); border-radius: 18px; border: 1.5px solid #FDA4AF; margin-bottom: 20px; box-shadow: 0 4px 16px rgba(225,29,72,0.12); flex-wrap: wrap; gap: 10px;">

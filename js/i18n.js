@@ -468,6 +468,12 @@ const I18N = {
     ['AI Berbasis Aturan', 'Rule-based AI'],
     ['Gemini AI Siap', 'Gemini AI Ready'],
     ['Bahasa diganti ke Bahasa Indonesia.', 'Language switched to Indonesian.'],
+    ['Ulang Tahun', 'Birthday'],
+    ['Momen Spesial', 'Special Moment'],
+    ['Wisuda / Kelulusan', 'Graduation'],
+    ['Pernikahan', 'Wedding'],
+    ['Kelahiran', 'New Baby'],
+    ['HARI INI', 'TODAY'],
     ['Bahasa diganti ke Bahasa Inggris.', 'Language switched to English.'],
 
     // ---- More vocab ----
