@@ -1,6 +1,6 @@
 // MindVault service worker: lets the installed app open and work without internet.
 // Bump CACHE_VERSION when the list of shell files changes.
-const CACHE_VERSION = 'mindvault-v1';
+const CACHE_VERSION = 'mindvault-v2';
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const CDN_CACHE = `${CACHE_VERSION}-cdn`;
 
@@ -22,7 +22,11 @@ const SHELL_FILES = [
 
 const CDN_FILES = [
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'
+  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
+  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2',
+  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-regular-400.woff2',
+  // Must match the @import at the top of css/styles.css
+  'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap'
 ];
 
 // Libraries, icon fonts and web fonts: safe to serve from cache
@@ -71,7 +75,9 @@ async function networkFirst(request, timeoutMs = 4000) {
   }
 }
 
-async function staleWhileRevalidate(request) {
+// Cached copy first; refresh in the background. With nothing cached, never wait forever:
+// a stylesheet or font that hangs would keep the whole page blank.
+async function staleWhileRevalidate(request, timeoutMs = 4000) {
   const cache = await caches.open(CDN_CACHE);
   const cached = await cache.match(request);
   const refresh = fetch(request)
@@ -79,8 +85,10 @@ async function staleWhileRevalidate(request) {
       if (response && (response.ok || response.type === 'opaque')) cache.put(request, response.clone());
       return response;
     })
-    .catch(() => cached);
-  return cached || refresh;
+    .catch(() => cached || new Response('', { status: 504, statusText: 'Offline' }));
+  if (cached) return cached;
+  const timeout = new Promise(resolve => setTimeout(() => resolve(new Response('', { status: 504, statusText: 'Timeout' })), timeoutMs));
+  return Promise.race([refresh, timeout]);
 }
 
 self.addEventListener('fetch', (event) => {

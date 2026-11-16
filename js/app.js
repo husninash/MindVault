@@ -64,6 +64,11 @@ const MindVaultApp = {
       this.showToast('Kamu offline. Perubahan disimpan di HP dan dikirim otomatis saat online lagi.', 'warning');
     });
     window.addEventListener('mindvault:sync-queue', () => this.updateOfflinePill());
+    window.addEventListener('mindvault:network-down', () => this.updateOfflinePill());
+    // A connection with no real internet doesn't fire "online" when it recovers, so check now and then
+    setInterval(() => {
+      if (typeof MindVaultSupabase !== 'undefined' && MindVaultSupabase.networkDown && navigator.onLine) this.handleOnline();
+    }, 30000);
     this.updateOfflinePill();
   },
 
@@ -82,8 +87,18 @@ const MindVaultApp = {
   },
 
   async handleOnline() {
+    if (this.syncingAfterOnline) return;
+    if (typeof MindVaultSupabase !== 'undefined') MindVaultSupabase.networkDown = false;
     this.updateOfflinePill();
-    if (typeof MindVaultSupabase === 'undefined' || !MindVaultSupabase.canSync()) return;
+    if (typeof MindVaultSupabase === 'undefined') return;
+    this.syncingAfterOnline = true;
+    try {
+      // Signed in while offline from the device's saved session: confirm it with the server now
+      await MindVaultSupabase.getSessionUser();
+    } catch (e) {}
+    this.syncingAfterOnline = false;
+    this.updateOfflinePill();
+    if (!MindVaultSupabase.canSync() || MindVaultSupabase.networkDown) return;
     const before = MindVaultSupabase.pendingCount();
     await this.loadCloudData(); // sends queued changes first, then pulls the latest
     this.renderAfterSync();
@@ -96,7 +111,7 @@ const MindVaultApp = {
     const pill = document.getElementById('offline-pill');
     const text = document.getElementById('offline-pill-text');
     if (!pill || !text) return;
-    const offline = navigator.onLine === false;
+    const offline = navigator.onLine === false || (typeof MindVaultSupabase !== 'undefined' && MindVaultSupabase.networkDown);
     const pending = typeof MindVaultSupabase !== 'undefined' ? MindVaultSupabase.pendingCount() : 0;
     pill.hidden = !offline && pending === 0;
     pill.classList.toggle('is-offline', offline);

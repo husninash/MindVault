@@ -22,7 +22,9 @@ const MindVaultSupabase = {
 
     if (window.supabase && supabaseUrl && supabaseKey) {
       try {
-        this.client = window.supabase.createClient(supabaseUrl, supabaseKey);
+        this.client = window.supabase.createClient(supabaseUrl, supabaseKey, {
+          global: { fetch: (input, init) => this.fetchWithTimeout(input, init) }
+        });
         this.isConfigured = true;
         // Opening a password-reset link signs the user in with a recovery session
         this.client.auth.onAuthStateChange((event) => {
@@ -113,13 +115,26 @@ const MindVaultSupabase = {
   async getSessionUser() {
     if (this.isConfigured && this.client) {
       let user = null;
-      try {
-        const { data, error } = await this.client.auth.getUser();
-        user = data?.user || null;
-        if (!user && error && this.isNetworkFailure({ error })) user = await this.getStoredSessionUser();
-      } catch (e) {
-        // getUser() needs the network; offline we trust the session saved on this device
-        user = await this.getStoredSessionUser();
+      if (this.isOffline()) {
+        // No point asking the server: use the session saved on this device straight away
+        user = this.readStoredUser();
+      } else {
+        // getUser() needs the network and the client keeps retrying a token refresh with growing
+        // delays when the connection is bad, so don't let startup wait on it for more than a few seconds
+        const outcome = await Promise.race([
+          this.client.auth.getUser().then(r => ({ r }), e => ({ e })),
+          new Promise(resolve => setTimeout(() => resolve({ timeout: true }), 4000))
+        ]);
+        if (outcome.timeout) {
+          this.networkDown = true;
+          window.dispatchEvent(new Event('mindvault:network-down'));
+          user = this.readStoredUser();
+        } else if (outcome.e) {
+          user = this.isNetworkFailure(outcome.e) ? this.readStoredUser() : null;
+        } else {
+          user = outcome.r?.data?.user || null;
+          if (!user && outcome.r?.error && this.isNetworkFailure({ error: outcome.r.error })) user = this.readStoredUser();
+        }
       }
       this.userId = user?.id || null;
       return user;
@@ -127,18 +142,59 @@ const MindVaultSupabase = {
     return null;
   },
 
-  async getStoredSessionUser() {
+  // The user from the session Supabase saved on this device. Read directly from storage because the
+  // client's own getSession() waits on a token refresh that can't finish offline. Only used to show
+  // this device's offline copy; syncing re-checks the token with the server once back online.
+  readStoredUser() {
     try {
-      const { data } = await this.client.auth.getSession();
-      return data?.session?.user || null;
-    } catch (e) {
-      return null;
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!/^sb-.+-auth-token$/.test(key)) continue;
+        const stored = JSON.parse(localStorage.getItem(key) || 'null');
+        const user = stored?.user || stored?.currentSession?.user;
+        if (user && user.id) return user;
+      }
+    } catch (e) {}
+    return null;
+  },
+
+  // Requests on a connection without real internet (weak signal, Wi-Fi with no internet) can hang forever.
+  // Give up after a few seconds and treat the network as down until it comes back.
+  networkDown: false,
+  requestTimeoutMs: 6000,
+
+  async fetchWithTimeout(input, init = {}) {
+    if (this.networkDown) throw new TypeError('Failed to fetch (offline)');
+    const controller = new AbortController();
+    if (init.signal) {
+      if (init.signal.aborted) controller.abort();
+      else init.signal.addEventListener('abort', () => controller.abort(), { once: true });
     }
+    let timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; controller.abort(); }, this.requestTimeoutMs);
+    try {
+      const res = await fetch(input, { ...init, signal: controller.signal });
+      this.networkDown = false;
+      return res;
+    } catch (err) {
+      if (timedOut || this.isNetworkFailure(err)) {
+        this.networkDown = true;
+        window.dispatchEvent(new Event('mindvault:network-down'));
+        throw new TypeError('Failed to fetch (timeout)');
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
+  },
+
+  isOffline() {
+    return (typeof navigator !== 'undefined' && navigator.onLine === false) || this.networkDown;
   },
 
   // ---------- Offline support: queue writes made without internet and send them later ----------
   isNetworkFailure(res) {
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
+    if (this.isOffline && this.isOffline()) return true;
     if (res && res.status === 0) return true;
     const msg = String(res?.error?.message || res?.message || res || '');
     return /Failed to fetch|NetworkError|Load failed|fetch failed|Network request failed|ERR_INTERNET|ERR_NAME_NOT_RESOLVED/i.test(msg);
@@ -188,7 +244,7 @@ const MindVaultSupabase = {
   // Runs a cloud write now, or queues it when offline. Returns the Supabase result or null.
   async runRemote(type, action, id, fn) {
     if (!this.canSync()) return null; // local-only / demo mode: nothing to sync
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    if (this.isOffline()) {
       this.enqueue(type, action, id);
       return null;
     }
@@ -221,7 +277,7 @@ const MindVaultSupabase = {
   // Sends queued changes in order. Stops at the first network failure and keeps the rest.
   async flushQueue() {
     if (!this.canSync() || this.flushing) return this.pendingCount();
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) return this.pendingCount();
+    if (this.isOffline()) return this.pendingCount();
     this.flushing = true;
     try {
       for (const entry of this.readQueue()) {
@@ -316,7 +372,7 @@ const MindVaultSupabase = {
 
   // Async query wrappers (Pure Live Database Mode when Supabase is configured, LocalStorage Fallback when offline)
   async fetchFriends() {
-    if (!this.canSync()) {
+    if (!this.canSync() || this.isOffline()) {
       const local = localStorage.getItem('MINDVAULT_LOCAL_FRIENDS');
       if (local) {
         try {
@@ -372,7 +428,7 @@ const MindVaultSupabase = {
   },
 
   async fetchDiaries() {
-    if (!this.canSync()) {
+    if (!this.canSync() || this.isOffline()) {
       const local = localStorage.getItem('MINDVAULT_LOCAL_DIARIES');
       if (local) {
         try {
@@ -576,7 +632,7 @@ const MindVaultSupabase = {
   },
 
   async fetchUserProfile() {
-    if (!this.canSync()) {
+    if (!this.canSync() || this.isOffline()) {
       const local = localStorage.getItem('MINDVAULT_USER_PROFILE');
       return local ? JSON.parse(local) : MindVaultData.user;
     }
@@ -620,7 +676,7 @@ const MindVaultSupabase = {
   },
 
   async fetchGeminiKey() {
-    if (!this.canSync()) {
+    if (!this.canSync() || this.isOffline()) {
       return localStorage.getItem('MINDVAULT_GEMINI_KEY') || '';
     }
     try {
@@ -693,7 +749,7 @@ const MindVaultSupabase = {
         return null;
       }
     };
-    if (!this.canSync()) return readLocal();
+    if (!this.canSync() || this.isOffline()) return readLocal();
     if (this.hasPending(table)) return readLocal(); // unsent offline changes win until they're synced
     try {
       const { data, error } = await this.client.from(table).select('*').order('date', { ascending: false });

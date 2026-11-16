@@ -2242,3 +2242,26 @@ body { background: var(--bg-main); }
 .offline-pill { display: flex; align-items: center; gap: 8px; margin: 0 16px 10px; padding: 8px 12px; border-radius: 10px; background: #FFFAEB; color: #92400E; font-size: 12.5px; font-weight: 600; }
 .offline-pill.is-offline { background: #F2F0EE; color: var(--text-medium); }
 .offline-pill.is-offline i::before { content: "\f0c2"; }
+
+/* Grid/flex children default to min-width: auto, so one wide child (Google's search chips)
+   stretched the whole dashboard past the phone screen. Let columns shrink instead. */
+.grid-main-sidebar > *, .grid-2 > *, .dash-column, .dash-column > .glass-card, .vocab-layout > * { min-width: 0; }
+.news-search-entry { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.news-topic-text, .news-topic-meta { overflow-wrap: anywhere; }
+.news-sources a { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Phone header: search on its own row, actions share the next row */
+@media (max-width: 768px) {
+  .top-header { flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+  .search-box { width: 100%; flex: 1 1 100%; }
+  .header-actions { width: 100%; gap: 8px; }
+  .header-actions .btn-pill { flex: 1 1 0; min-width: 0; padding: 10px 12px; font-size: 13px; white-space: nowrap; }
+  .header-actions .btn-pill span { overflow: hidden; text-overflow: ellipsis; }
+  .header-actions .btn-icon-only { flex: none; }
+  #notification-dropdown { width: min(340px, calc(100vw - 32px)) !important; right: -52px !important; }
+  .main-wrapper { max-width: 100vw; overflow-x: clip; }
+}
+@media (max-width: 768px) {
+  .header-actions .btn-pill { padding: 10px 8px; gap: 0; }
+  .header-actions .btn-pill i { display: none; }
+}

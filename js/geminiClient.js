@@ -23,15 +23,20 @@ const MindVaultGemini = {
     for (const model of this.models) {
       for (let attempt = 0; attempt < 2; attempt++) {
         let response;
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 45000); // grounded searches can take a while
         try {
           response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
+            body: JSON.stringify(body),
+            signal: controller.signal
           });
         } catch (err) {
-          lastError = { status: 0, message: err.message || 'Gagal menghubungi Gemini.' };
-          break; // network problem: try the next model
+          const timedOut = err.name === 'AbortError';
+          return { error: true, message: timedOut ? 'Koneksi terlalu lambat, Gemini tidak menjawab. Coba lagi saat sinyal lebih bagus.' : 'Tidak bisa menghubungi Gemini. Cek koneksi internetmu.' };
+        } finally {
+          clearTimeout(timer);
         }
         if (response.ok) return { data: await response.json(), model };
 
