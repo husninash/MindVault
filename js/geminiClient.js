@@ -61,6 +61,20 @@ const MindVaultGemini = {
     return this.fallbackModels;
   },
 
+  // Models that timed out today get tried last-resort only (until tomorrow)
+  slowKey: 'MINDVAULT_GEMINI_SLOW',
+  slowList() {
+    try {
+      const s = JSON.parse(localStorage.getItem(this.slowKey) || 'null');
+      return s && s.day === new Date().toDateString() ? s.models : [];
+    } catch (e) { return []; }
+  },
+  isSlow(model) { return this.slowList().includes(model); },
+  markSlow(model) {
+    const models = [...new Set([...this.slowList(), model])];
+    try { localStorage.setItem(this.slowKey, JSON.stringify({ day: new Date().toDateString(), models })); } catch (e) {}
+  },
+
   forgetModels() {
     try { localStorage.removeItem(this.modelsCacheKey); } catch (e) {}
   },
@@ -79,11 +93,17 @@ const MindVaultGemini = {
     const models = await this.pickModels(apiKey);
     let retired = 0;
     let quotaHit = '';
+    let slow = [];
+    const started = Date.now();
     for (const model of models) {
+      // A model that keeps you waiting is skipped for the rest of the day (see markSlow)
+      if (this.isSlow(model) && models.some(m => !this.isSlow(m))) continue;
+      // Give up after ~75s in total, so you're never stuck waiting for minutes
+      if (Date.now() - started > 75000) break;
       for (let attempt = 0; attempt < 2; attempt++) {
         let response;
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 45000); // grounded searches can take a while
+        const timer = setTimeout(() => controller.abort(), 35000); // grounded searches can take a while
         try {
           response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
             method: 'POST',
@@ -92,8 +112,14 @@ const MindVaultGemini = {
             signal: controller.signal
           });
         } catch (err) {
-          const timedOut = err.name === 'AbortError';
-          return { error: true, message: timedOut ? 'Koneksi terlalu lambat, Gemini tidak menjawab. Coba lagi saat sinyal lebih bagus.' : 'Tidak bisa menghubungi Gemini. Cek koneksi internetmu.' };
+          if (err.name !== 'AbortError') {
+            return { error: true, message: 'Tidak bisa menghubungi Gemini. Cek koneksi internetmu.' };
+          }
+          // Too slow: try the next model instead of failing
+          console.warn(`Gemini ${model} timed out`);
+          slow.push(model);
+          this.markSlow(model);
+          break;
         } finally {
           clearTimeout(timer);
         }
@@ -118,6 +144,9 @@ const MindVaultGemini = {
       }
     }
 
+    if (slow.length && !lastError) {
+      return { error: true, message: `Gemini tidak menjawab (sudah dicoba ${slow.length} model: ${slow.join(', ')}). Biasanya karena koneksi lambat atau server Google sedang padat — coba lagi sebentar lagi.` };
+    }
     if (quotaHit && lastError && lastError.status === 429) {
       const detail = quotaHit.split('\n')[0].slice(0, 160);
       return { error: true, message: `Kuota Gemini (API key gratis) sedang habis untuk semua model yang dicoba. Biasanya pulih sendiri dalam beberapa menit atau besok. Detail: ${detail}` };
