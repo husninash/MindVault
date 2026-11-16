@@ -282,11 +282,27 @@ const MindVaultApp = {
     if (this.newsTopicsLoading && !cache) {
       html = '<p class="empty-note">Mencari berita terbaru untuk bahan obrolan...</p>';
     } else if (cache) {
-      html = `<ol class="news-topics">${cache.topics.map(t => `
+      html = `<ol class="news-topics">${cache.topics.map(t => {
+        const links = (t.sources || []).filter(s => /^https?:\/\//i.test(s.uri || ''));
+        const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(t.headline || t.topic)}&tbm=nws`;
+        return `
         <li class="news-topic">
-          <p class="news-topic-text">${esc(t.topic)}</p>
-          <p class="news-topic-meta">${esc(t.headline || '')}${t.friend && t.friend !== 'null' ? ` · cocok untuk <strong>${esc(t.friend)}</strong>` : ''}</p>
-        </li>`).join('')}</ol>`;
+          <details>
+            <summary>
+              <p class="news-topic-text">${esc(t.topic)}</p>
+              <p class="news-topic-meta">${esc(t.headline || '')}${t.friend && t.friend !== 'null' ? ` · cocok untuk <strong>${esc(t.friend)}</strong>` : ''}</p>
+            </summary>
+            <div class="news-topic-detail">
+              ${t.summary ? `<p class="news-topic-summary">${esc(t.summary)}</p>` : ''}
+              ${t.why ? `<p class="news-topic-why"><i class="fa-solid fa-lightbulb"></i> ${esc(t.why)}</p>` : ''}
+              <div class="news-topic-links">
+                ${links.map(s => `<a href="${esc(s.uri)}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square"></i> ${esc(s.title)}</a>`).join('')}
+                <a href="${esc(searchUrl)}" target="_blank" rel="noopener noreferrer" class="${links.length ? 'is-secondary' : ''}"><i class="fa-solid fa-magnifying-glass"></i> ${links.length ? 'Cari berita lain' : 'Cari beritanya'}</a>
+              </div>
+            </div>
+          </details>
+        </li>`;
+      }).join('')}</ol>`;
       if (cache.sources && cache.sources.length) {
         html += `<div class="news-sources"><span>Sumber</span>${cache.sources.map(s =>
           `<a href="${esc(s.uri)}" target="_blank" rel="noopener noreferrer">${esc(s.title)}</a>`).join('')}</div>`;

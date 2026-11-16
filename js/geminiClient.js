@@ -163,7 +163,7 @@ Kalau salah satu jenis utama tidak punya bentuk yang umum dipakai, tetap tulis b
     const prompt = `Hari ini ${today}. Cari berita terbaru (maksimal 3 hari terakhir) dengan Google Search, utamakan Indonesia lalu dunia.
 ${interests ? `Pilih berita yang nyambung dengan minat teman-teman berikut:\n${interests}\n` : 'Pilih berita umum yang enak dijadikan bahan obrolan santai.\n'}
 Buat 4 topik obrolan. Balas HANYA dengan JSON array tanpa teks lain, format:
-[{"headline": "judul berita singkat", "topic": "kalimat pembuka obrolan dalam Bahasa Indonesia santai", "friend": "nama teman yang cocok atau null", "why": "alasan singkat kenapa relevan"}]`;
+[{"headline": "judul berita singkat", "summary": "ringkasan isi beritanya 2-3 kalimat: apa yang terjadi, siapa, kapan", "topic": "kalimat pembuka obrolan dalam Bahasa Indonesia santai", "friend": "nama teman yang cocok atau null", "why": "alasan singkat kenapa relevan"}]`;
 
     try {
       const res = await this.generate({
@@ -186,12 +186,40 @@ Buat 4 topik obrolan. Balas HANYA dengan JSON array tanpa teks lain, format:
       if (topics.length === 0) return { error: true, message: 'AI tidak mengembalikan topik. Coba lagi.' };
 
       const meta = candidate.groundingMetadata || {};
+      const chunks = meta.groundingChunks || [];
       const seen = new Set();
-      const sources = (meta.groundingChunks || [])
+      const sources = chunks
         .map(c => c.web)
         .filter(w => w && w.uri && !seen.has(w.uri) && seen.add(w.uri))
         .slice(0, 6)
         .map(w => ({ title: w.title || w.uri, uri: w.uri }));
+
+      // Link each topic to the articles it was written from. Grounding supports point at
+      // byte ranges of the answer text; each topic is one {...} object inside that text.
+      if (match && Array.isArray(meta.groundingSupports)) {
+        const enc = new TextEncoder();
+        const starts = [];
+        for (let i = match.index; i < match.index + match[0].length; i++) if (text[i] === '{') starts.push(i);
+        const spans = starts.map((start, i) => [
+          enc.encode(text.slice(0, start)).length,
+          enc.encode(text.slice(0, starts[i + 1] ?? match.index + match[0].length)).length
+        ]);
+        topics.forEach((t, i) => {
+          const span = spans[i];
+          if (!span) return;
+          const used = new Set();
+          const links = [];
+          meta.groundingSupports.forEach(s => {
+            const at = s.segment?.startIndex ?? 0;
+            if (at < span[0] || at >= span[1]) return;
+            (s.groundingChunkIndices || []).forEach(ci => {
+              const web = chunks[ci]?.web;
+              if (web && web.uri && !used.has(web.uri)) { used.add(web.uri); links.push({ title: web.title || web.uri, uri: web.uri }); }
+            });
+          });
+          if (links.length) t.sources = links.slice(0, 3);
+        });
+      }
 
       return { topics, sources, searchEntryHtml: meta.searchEntryPoint?.renderedContent || '' };
     } catch (err) {
