@@ -2265,3 +2265,7 @@ body { background: var(--bg-main); }
   .header-actions .btn-pill { padding: 10px 8px; gap: 0; }
   .header-actions .btn-pill i { display: none; }
 }
+
+/* Stats wrap to 2 columns on narrow screens even if the phone breakpoint doesn't match */
+.stat-row { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+.stat { min-width: 0; }

@@ -1,6 +1,6 @@
 // MindVault service worker: lets the installed app open and work without internet.
 // Bump CACHE_VERSION when the list of shell files changes.
-const CACHE_VERSION = 'mindvault-v2';
+const CACHE_VERSION = 'mindvault-v3';
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const CDN_CACHE = `${CACHE_VERSION}-cdn`;
 
@@ -35,7 +35,7 @@ const CDN_HOSTS = ['cdn.jsdelivr.net', 'cdnjs.cloudflare.com', 'fonts.googleapis
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const shell = await caches.open(SHELL_CACHE);
-    await shell.addAll(SHELL_FILES);
+    await shell.addAll(SHELL_FILES.map(url => new Request(url, { cache: 'reload' })));
     const cdn = await caches.open(CDN_CACHE);
     await Promise.all(CDN_FILES.map(url => cdn.add(url).catch(() => {})));
     await self.skipWaiting();
@@ -54,8 +54,13 @@ self.addEventListener('activate', (event) => {
 async function networkFirst(request, timeoutMs = 4000) {
   const cache = await caches.open(SHELL_CACHE);
   try {
+    // cache: 'no-cache' revalidates with the server (cheap 304 when unchanged) instead of trusting
+    // the browser's HTTP cache, which could otherwise hand back an old index.html after a deploy
+    const fresh = request.mode === 'navigate'
+      ? fetch(request.url, { cache: 'no-cache', credentials: 'same-origin' })
+      : fetch(request, { cache: 'no-cache' });
     const response = await Promise.race([
-      fetch(request),
+      fresh,
       new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), timeoutMs))
     ]);
     if (response && response.ok) {

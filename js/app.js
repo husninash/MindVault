@@ -39,8 +39,18 @@ const MindVaultApp = {
   // ---------- Installable app + offline ----------
   setupPwa() {
     if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
-      navigator.serviceWorker.register('/sw.js').catch(err => console.warn('Service worker registration failed:', err));
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => { this.swRegistration = reg; })
+        .catch(err => console.warn('Service worker registration failed:', err));
     }
+
+    // Phones resume a home-screen app from memory instead of reloading it, so a new deploy would
+    // never show up. Check for a newer version whenever the app comes back to the foreground.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') this.checkForAppUpdate();
+    });
+    window.addEventListener('pageshow', (e) => { if (e.persisted) this.checkForAppUpdate(); });
+    setTimeout(() => this.checkForAppUpdate(), 8000);
 
     const installBtn = document.getElementById('install-app-btn');
     const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
@@ -70,6 +80,33 @@ const MindVaultApp = {
       if (typeof MindVaultSupabase !== 'undefined' && MindVaultSupabase.networkDown && navigator.onLine) this.handleOnline();
     }, 30000);
     this.updateOfflinePill();
+  },
+
+  currentAppVersion() {
+    const src = document.querySelector('script[src*="js/app.js"]')?.getAttribute('src') || '';
+    return (src.match(/[?&]v=([\w.]+)/) || [])[1] || '';
+  },
+
+  async checkForAppUpdate() {
+    if (navigator.onLine === false || !/^https?:$/.test(location.protocol)) return;
+    const now = Date.now();
+    if (this.lastUpdateCheck && now - this.lastUpdateCheck < 60000) return;
+    this.lastUpdateCheck = now;
+    try {
+      this.swRegistration?.update().catch(() => {});
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000);
+      const html = await fetch(`/?update-check=${now}`, { cache: 'no-store', signal: controller.signal }).then(r => r.text());
+      clearTimeout(timer);
+      const latest = (html.match(/js\/app\.js\?v=([\w.]+)/) || [])[1];
+      const current = this.currentAppVersion();
+      if (!latest || !current || latest === current) return;
+      // Don't throw away something the user is typing; try again next time they come back
+      const active = document.activeElement;
+      if (active && /^(INPUT|TEXTAREA)$/.test(active.tagName) && active.value) return;
+      if (document.querySelector('.modal-overlay.active, .modal.active')) return;
+      location.reload();
+    } catch (e) {}
   },
 
   async installApp() {
