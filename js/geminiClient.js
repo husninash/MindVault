@@ -6,8 +6,60 @@ const MindVaultGemini = {
       '';
   },
 
-  // Models tried in order when one is overloaded (Google returns 503/429 during demand spikes)
-  models: ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash'],
+  // Used only when the live model list can't be fetched. Google retires models regularly,
+  // so normally the list comes from the API itself (see pickModels).
+  fallbackModels: ['gemini-flash-latest', 'gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'],
+  modelsCacheKey: 'MINDVAULT_GEMINI_MODELS',
+
+  // Ranks model names from the API: newest Flash first, stable before preview, full before lite
+  rankModels(names) {
+    const skip = /image|tts|audio|live|embedding|thinking|exp|robotics|computer|native|8b/i;
+    const picked = names
+      .map(n => String(n).replace(/^models\//, ''))
+      .filter(n => /^gemini-\d+(\.\d+)?-flash/.test(n) && !skip.test(n))
+      .map(n => ({
+        n,
+        v: parseFloat(n.match(/^gemini-(\d+(?:\.\d+)?)/)[1]),
+        preview: /preview/.test(n) ? 1 : 0,
+        lite: /lite/.test(n) ? 1 : 0,
+        dated: /-\d{2,}$|-\d{2}-\d{4}$/.test(n) ? 1 : 0
+      }))
+      .sort((a, b) => b.v - a.v || a.preview - b.preview || a.lite - b.lite || a.dated - b.dated || a.n.length - b.n.length);
+    // Try at most 4, best first
+    const out = [];
+    for (const m of picked) {
+      if (out.length >= 4) break;
+      if (!out.includes(m.n)) out.push(m.n);
+    }
+    return out;
+  },
+
+  // The Flash models this API key can use right now, newest first (cached for a day)
+  async pickModels(apiKey) {
+    try {
+      const cached = JSON.parse(localStorage.getItem(this.modelsCacheKey) || 'null');
+      if (cached && Array.isArray(cached.list) && cached.list.length && Date.now() - cached.at < 86400000) return cached.list;
+    } catch (e) {}
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=${apiKey}`);
+      if (res.ok) {
+        const json = await res.json();
+        const names = (json.models || [])
+          .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+          .map(m => m.name);
+        const list = this.rankModels(names);
+        if (list.length) {
+          try { localStorage.setItem(this.modelsCacheKey, JSON.stringify({ at: Date.now(), list })); } catch (e) {}
+          return list;
+        }
+      }
+    } catch (e) {}
+    return this.fallbackModels;
+  },
+
+  forgetModels() {
+    try { localStorage.removeItem(this.modelsCacheKey); } catch (e) {}
+  },
 
   // POST a generateContent request with retry + model fallback.
   // Returns { data } on success or { error: true, message } on failure.
@@ -20,7 +72,9 @@ const MindVaultGemini = {
     const busy =(status) => status === 429 || status === 500 || status === 503 || status === 504;
     let lastError = null;
 
-    for (const model of this.models) {
+    const models = await this.pickModels(apiKey);
+    let retired = 0;
+    for (const model of models) {
       for (let attempt = 0; attempt < 2; attempt++) {
         let response;
         const controller = new AbortController();
@@ -43,7 +97,12 @@ const MindVaultGemini = {
         const errJson = await response.json().catch(() => ({}));
         lastError = { status: response.status, message: errJson.error?.message || `HTTP ${response.status}` };
         console.warn(`Gemini ${model} error:`, response.status, lastError.message);
-        if (response.status === 404) break;            // model not available for this key: next model
+        // Model retired or not available for this key: try the next one, and refresh the list next time
+        if (response.status === 404 || /no longer available/i.test(lastError.message)) {
+          retired++;
+          this.forgetModels();
+          break;
+        }
         if (!busy(response.status)) return { error: true, message: lastError.message }; // bad key / bad request
         if (attempt === 0) await new Promise(r => setTimeout(r, 1200));
       }
@@ -51,6 +110,9 @@ const MindVaultGemini = {
 
     if (lastError && busy(lastError.status)) {
       return { error: true, message: 'Server Gemini sedang penuh. Sudah dicoba beberapa model tapi semuanya sibuk — coba lagi sebentar lagi.' };
+    }
+    if (retired && retired === models.length) {
+      return { error: true, message: 'Model Gemini yang dipakai sudah tidak tersedia. Coba lagi — daftar model akan diperbarui otomatis.' };
     }
     return { error: true, message: lastError?.message || 'Gagal menghubungi Gemini.' };
   },

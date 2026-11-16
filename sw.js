@@ -1,6 +1,6 @@
 // MindVault service worker: lets the installed app open and work without internet.
 // Bump CACHE_VERSION when the list of shell files changes.
-const CACHE_VERSION = 'mindvault-v6';
+const CACHE_VERSION = 'mindvault-v7';
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const CDN_CACHE = `${CACHE_VERSION}-cdn`;
 
