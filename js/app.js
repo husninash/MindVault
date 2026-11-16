@@ -19,6 +19,7 @@ const MindVaultApp = {
     this.bindModals();
     this.bindAIChat();
     this.setupPwa();
+    this.setupGlobalSearch();
 
     if (typeof MindVaultSupabase !== 'undefined') {
       MindVaultSupabase.init();
@@ -226,6 +227,222 @@ const MindVaultApp = {
           this.renderTopicsPage();
         }
       });
+    }
+  },
+
+  // ---------- Global search (header) ----------
+  setupGlobalSearch() {
+    const input = document.getElementById('global-search-input');
+    const box = document.getElementById('global-search-results');
+    if (!input || !box) return;
+    let timer = null;
+    input.addEventListener('input', () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => this.runGlobalSearch(input.value), 120);
+    });
+    input.addEventListener('focus', () => { if (input.value.trim()) this.runGlobalSearch(input.value); });
+    input.addEventListener('keydown', (e) => {
+      const items = [...box.querySelectorAll('.search-result')];
+      const current = items.findIndex(el => el.classList.contains('is-active'));
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        if (!items.length) return;
+        e.preventDefault();
+        const next = e.key === 'ArrowDown' ? (current + 1) % items.length : (current - 1 + items.length) % items.length;
+        items.forEach((el, i) => el.classList.toggle('is-active', i === next));
+        items[next].scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const target = items[current >= 0 ? current : 0];
+        if (target) this.openSearchResult(Number(target.dataset.index));
+      } else if (e.key === 'Escape') {
+        this.closeGlobalSearch();
+        input.blur();
+      }
+    });
+    box.addEventListener('mousedown', (e) => e.preventDefault()); // keep focus so the click lands
+    box.addEventListener('click', (e) => {
+      const item = e.target.closest('.search-result');
+      if (item) this.openSearchResult(Number(item.dataset.index));
+    });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#global-search')) this.closeGlobalSearch();
+    });
+    // "/" or Ctrl+K jumps to search from anywhere (except while typing)
+    document.addEventListener('keydown', (e) => {
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '') || document.activeElement?.isContentEditable;
+      if ((e.key === '/' && !typing) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) {
+        e.preventDefault();
+        input.focus();
+        input.select();
+      }
+    });
+  },
+
+  closeGlobalSearch() {
+    const box = document.getElementById('global-search-results');
+    if (box) box.hidden = true;
+    document.getElementById('global-search-input')?.setAttribute('aria-expanded', 'false');
+  },
+
+  // Lower-case and strip accents so "cafe" finds "Café"
+  searchNormalize(value) {
+    return String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  },
+
+  buildSearchIndex() {
+    const items = [];
+    const join = (...parts) => parts.flat(2).filter(Boolean).map(p => typeof p === 'object' ? Object.values(p).join(' ') : p).join(' ');
+    (MindVaultData.friends || []).forEach(f => {
+      const contact = f.contact || {};
+      items.push({
+        group: 'Teman', icon: 'fa-user', title: f.name, sub: [f.relation, f.bio].filter(Boolean).join(' · '),
+        text: join(f.name, f.relation, f.bio, f.currentLife, f.likes, f.safeTopics, Object.entries(f.favorites || {}).filter(([k]) => !k.startsWith('_')).map(([, v]) => v), contact.instagram, contact.address, contact.phone),
+        action: { type: 'friend', id: f.id }
+      });
+      (f.giftIdeas || []).forEach(g => {
+        if (!g || !g.item) return;
+        items.push({
+          group: 'Ide kado', icon: 'fa-gift', title: g.item, sub: `untuk ${f.name}${g.price ? ' · ' + g.price : ''}`,
+          text: join(g.item, g.price, g.tag, f.name), action: { type: 'friend', id: f.id }
+        });
+      });
+    });
+    (MindVaultData.diaries || []).forEach(d => {
+      items.push({
+        group: 'Catatan', icon: 'fa-book', title: d.title || 'Catatan', sub: [d.friendName, d.date].filter(Boolean).join(' · '),
+        text: join(d.title, d.content, d.friendName, d.location, d.tags, d.mood), body: d.content,
+        action: { type: 'diary', id: d.id }
+      });
+    });
+    (MindVaultData.dailyJournals || []).forEach(j => {
+      items.push({
+        group: 'Jurnal harian', icon: 'fa-pen-nib', title: j.title || 'Jurnal', sub: j.date || '',
+        text: join(j.title, j.content, j.gratitude, j.mood), body: j.content, action: { type: 'journal', id: j.id }
+      });
+    });
+    const news = this.getNewsTopicsCache();
+    (news?.topics || []).forEach((t, i) => {
+      items.push({
+        group: 'Topik obrolan', icon: 'fa-comments', title: t.topic, sub: t.headline || '',
+        text: join(t.topic, t.headline, t.summary, t.friend, t.why), action: { type: 'news', index: i }
+      });
+    });
+    (this.getLiveTopicsContext().starters || []).forEach(s => {
+      items.push({ group: 'Topik obrolan', icon: 'fa-bookmark', title: s, sub: 'Topik simpanan', text: s, action: { type: 'topics' } });
+    });
+    (this.getVocabWords() || []).forEach(v => {
+      const d = v.data || {};
+      items.push({
+        group: 'Kosakata', icon: 'fa-language', title: v.word, sub: d.meaning || '',
+        text: join(v.word, d.meaning, (d.forms || []).map(f => [f.word, f.meaning]), v.context?.sentence, v.context?.source),
+        action: { type: 'vocab', id: v.id }
+      });
+    });
+    return items;
+  },
+
+  runGlobalSearch(raw) {
+    const box = document.getElementById('global-search-results');
+    const input = document.getElementById('global-search-input');
+    if (!box) return;
+    const query = this.searchNormalize(raw).trim();
+    if (!query) { this.closeGlobalSearch(); return; }
+    const terms = query.split(/\s+/);
+
+    const scored = [];
+    this.buildSearchIndex().forEach(item => {
+      const title = this.searchNormalize(item.title);
+      const hay = title + ' ' + this.searchNormalize(item.sub) + ' ' + this.searchNormalize(item.text);
+      if (!terms.every(t => hay.includes(t))) return;
+      let score = 1;
+      if (title === query) score += 100;
+      else if (title.startsWith(query)) score += 50;
+      else if (title.includes(query)) score += 25;
+      if (terms.every(t => title.includes(t))) score += 10;
+      scored.push({ ...item, score });
+    });
+
+    const order = ['Teman', 'Catatan', 'Jurnal harian', 'Topik obrolan', 'Ide kado', 'Kosakata'];
+    const groups = order.map(name => ({
+      name,
+      items: scored.filter(i => i.group === name).sort((a, b) => b.score - a.score).slice(0, name === 'Teman' ? 5 : 4)
+    })).filter(g => g.items.length);
+
+    this.searchResults = groups.flatMap(g => g.items);
+    const esc = s => this.escapeHtml(s);
+    const mark = (text) => {
+      let html = esc(text);
+      terms.filter(t => t.length > 1).forEach(t => {
+        const re = new RegExp(`(${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+        html = html.replace(re, '<mark>$1</mark>');
+      });
+      return html;
+    };
+    // For notes, show the part of the text where the word was found
+    const snippet = (item) => {
+      if (!item.body) return item.sub;
+      const body = String(item.body);
+      const at = this.searchNormalize(body).indexOf(terms[0]);
+      if (at < 0) return item.sub;
+      let start = Math.max(0, at - 40);
+      if (start > 0) { const sp = body.indexOf(' ', start); if (sp > -1 && sp < at) start = sp + 1; } // start on a whole word
+      return (start > 0 ? '…' : '') + body.slice(start, at + 80).replace(/\s+/g, ' ') + (at + 80 < body.length ? '…' : '');
+    };
+
+    let index = 0;
+    box.innerHTML = groups.length ? groups.map(g => `
+      <div class="search-group">
+        <p class="search-group-label">${esc(g.name)}</p>
+        ${g.items.map(item => `
+          <button type="button" class="search-result${index === 0 ? ' is-active' : ''}" role="option" data-index="${index++}">
+            <i class="fa-solid ${item.icon}"></i>
+            <span class="search-result-text">
+              <span class="search-result-title">${mark(item.title)}</span>
+              ${item.sub || item.body ? `<span class="search-result-sub">${mark(snippet(item))}</span>` : ''}
+            </span>
+          </button>`).join('')}
+      </div>`).join('') : `<p class="search-empty">Tidak ada hasil untuk "<strong>${esc(raw.trim())}</strong>".</p>`;
+    box.hidden = false;
+    input?.setAttribute('aria-expanded', 'true');
+  },
+
+  openSearchResult(index) {
+    const item = (this.searchResults || [])[index];
+    if (!item) return;
+    const input = document.getElementById('global-search-input');
+    this.closeGlobalSearch();
+    if (input) { input.value = ''; input.blur(); }
+    const a = item.action;
+    const flash = (el) => {
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.remove('search-flash');
+      void el.offsetWidth;
+      el.classList.add('search-flash');
+    };
+    if (a.type === 'friend') {
+      this.viewProfile(a.id);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (a.type === 'diary') {
+      this.switchView('diaries');
+      this.switchDiaryTab('memories');
+      setTimeout(() => flash(document.getElementById(`diary-card-${a.id}`)), 80);
+    } else if (a.type === 'journal') {
+      this.switchView('diaries');
+      this.switchDiaryTab('daily');
+    } else if (a.type === 'news') {
+      this.switchView('dashboard');
+      setTimeout(() => {
+        const topic = document.querySelectorAll('#dash-topics-list .news-topic')[a.index];
+        const details = topic?.querySelector('details');
+        if (details) details.open = true;
+        flash(topic);
+      }, 80);
+    } else if (a.type === 'topics') {
+      this.switchView('topics');
+    } else if (a.type === 'vocab') {
+      this.switchView('vocab');
+      this.showVocab(a.id);
     }
   },
 
@@ -2856,7 +3073,7 @@ const MindVaultApp = {
     }
 
     container.innerHTML = MindVaultData.diaries.map(diary => `
-      <div class="glass-card" style="margin-bottom: 16px;">
+      <div class="glass-card" id="diary-card-${this.escapeHtml(diary.id)}" style="margin-bottom: 16px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
           <div style="display: flex; align-items: center; gap: 10px;">
             <i class="fa-solid fa-book" style="font-size: 18px; color: var(--accent);"></i>

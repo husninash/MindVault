@@ -20,7 +20,7 @@
   
   <!-- FontAwesome & Custom CSS -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="css/styles.css?v=27.0">
+  <link rel="stylesheet" href="css/styles.css?v=28.0">
 </head>
 <body>
 
@@ -149,9 +149,10 @@
     
     <!-- Top Header -->
     <header class="top-header">
-      <div class="search-box">
+      <div class="search-box" id="global-search">
         <i class="fa-solid fa-magnifying-glass"></i>
-        <input type="text" placeholder="Search friends, topics, memories, gifts...">
+        <input type="search" id="global-search-input" placeholder="Cari teman, catatan, topik, kado, kosakata..." autocomplete="off" enterkeyhint="search" aria-label="Cari" aria-controls="global-search-results" aria-expanded="false">
+        <div class="search-results" id="global-search-results" role="listbox" hidden></div>
       </div>
 
       <div class="header-actions">
@@ -1292,11 +1293,11 @@
 
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/data.js?v=42.0"></script>
-<script src="js/supabaseClient.js?v=42.0"></script>
-<script src="js/geminiClient.js?v=42.0"></script>
-<script src="js/graph.js?v=42.0"></script>
-<script src="js/app.js?v=42.0"></script>
+<script src="js/data.js?v=43.0"></script>
+<script src="js/supabaseClient.js?v=43.0"></script>
+<script src="js/geminiClient.js?v=43.0"></script>
+<script src="js/graph.js?v=43.0"></script>
+<script src="js/app.js?v=43.0"></script>
 
 </body>
 </html>
