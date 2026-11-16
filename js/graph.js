@@ -10,13 +10,37 @@ class KnowledgeGraphEngine {
     this.hoveredNode = null;
     this.selectedNode = null;
     this.animationId = null;
+    this.dragNode = null;
+    // All listeners are removed together in destroy(), so re-rendering the graph doesn't stack them
+    this.listeners = new AbortController();
 
     this.init();
   }
 
+  // Positions you dragged bubbles to, stored as fractions of the canvas so they survive resizes
+  static storageKey = 'MINDVAULT_GRAPH_POSITIONS';
+
+  nodeKey(node) {
+    return node.type === 'topic' ? `topic:${String(node.label || '').toLowerCase()}` : node.id;
+  }
+
+  loadPositions() {
+    try { return JSON.parse(localStorage.getItem(KnowledgeGraphEngine.storageKey) || '{}') || {}; } catch (e) { return {}; }
+  }
+
+  savePosition(node) {
+    const all = this.loadPositions();
+    all[this.nodeKey(node)] = { x: node.x / this.canvas.width, y: node.y / this.canvas.height };
+    try { localStorage.setItem(KnowledgeGraphEngine.storageKey, JSON.stringify(all)); } catch (e) {}
+  }
+
+  resetPositions() {
+    try { localStorage.removeItem(KnowledgeGraphEngine.storageKey); } catch (e) {}
+  }
+
   init() {
     this.resize();
-    window.addEventListener('resize', () => this.resize());
+    window.addEventListener('resize', () => this.resize(), { signal: this.listeners.signal });
 
     // Position nodes in radial cluster
     const width = this.canvas.width;
@@ -64,9 +88,9 @@ class KnowledgeGraphEngine {
 
         // Visual Color Coding:
         // High (Green/Purple gradient), Medium (Yellow/Amber), Conflict/Low (Crimson Red)
-        if (score <= 45) {
+        if (node.state === 'conflict') {
           color = '#EF4444'; // Red for conflict / needs repair
-        } else if (score <= 65) {
+        } else if (node.state === 'cooling') {
           color = '#F59E0B'; // Amber for cooling down
         } else {
           color = '#8B5CF6'; // Purple for close friendship
@@ -94,6 +118,17 @@ class KnowledgeGraphEngine {
       };
     });
 
+    // Put dragged bubbles back where you left them
+    const saved = this.loadPositions();
+    this.nodes.forEach(node => {
+      const pos = saved[this.nodeKey(node)];
+      if (pos && node.type !== 'user') {
+        node.x = pos.x * width;
+        node.y = pos.y * height;
+        node.pinned = true;
+      }
+    });
+
     this.setupEvents();
     this.animate();
   }
@@ -106,33 +141,91 @@ class KnowledgeGraphEngine {
     }
   }
 
+  // Pointer position in canvas pixels (the canvas can be drawn smaller/larger than its pixel size)
+  pointerPos(e) {
+    const rect = this.canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) * (this.canvas.width / rect.width),
+      y: (e.clientY - rect.top) * (this.canvas.height / rect.height)
+    };
+  }
+
+  nodeAt(x, y) {
+    // Topmost first (nodes are drawn in order, so search backwards)
+    for (let i = this.nodes.length - 1; i >= 0; i--) {
+      const node = this.nodes[i];
+      if (Math.hypot(node.x - x, node.y - y) <= node.radius + 8) return node;
+    }
+    return null;
+  }
+
   setupEvents() {
-    this.canvas.addEventListener('mousemove', (e) => {
-      const rect = this.canvas.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
+    const opts = { signal: this.listeners.signal };
+    const canvas = this.canvas;
 
-      let found = null;
-      for (const node of this.nodes) {
-        const dist = Math.hypot(node.x - mouseX, node.y - mouseY);
-        if (dist <= node.radius + 8) {
-          found = node;
-          break;
-        }
+    // On touch screens, a finger on a bubble drags it; anywhere else still scrolls the page
+    canvas.addEventListener('touchstart', (e) => {
+      const t = e.touches[0];
+      if (!t) return;
+      const { x, y } = this.pointerPos(t);
+      if (this.nodeAt(x, y)) e.preventDefault();
+    }, { ...opts, passive: false });
+
+    canvas.addEventListener('pointerdown', (e) => {
+      const { x, y } = this.pointerPos(e);
+      const node = this.nodeAt(x, y);
+      if (!node) return;
+      this.dragNode = node;
+      this.dragStart = { x, y, nodeX: node.x, nodeY: node.y };
+      this.dragMoved = false;
+      node.dragging = true;
+      // Bring it to the front so it's drawn above the others
+      this.nodes.splice(this.nodes.indexOf(node), 1);
+      this.nodes.push(node);
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+      canvas.style.cursor = 'grabbing';
+    }, opts);
+
+    canvas.addEventListener('pointermove', (e) => {
+      const { x, y } = this.pointerPos(e);
+      if (this.dragNode) {
+        const dx = x - this.dragStart.x;
+        const dy = y - this.dragStart.y;
+        if (!this.dragMoved && Math.hypot(dx, dy) < 4) return; // tiny wobble = still a click
+        this.dragMoved = true;
+        const pad = this.dragNode.radius + 4;
+        this.dragNode.x = Math.max(pad, Math.min(canvas.width - pad, this.dragStart.nodeX + dx));
+        this.dragNode.y = Math.max(pad, Math.min(canvas.height - pad - 20, this.dragStart.nodeY + dy));
+        this.hoveredNode = this.dragNode;
+        return;
       }
-
+      const found = this.nodeAt(x, y);
       this.hoveredNode = found;
-      this.canvas.style.cursor = found ? 'pointer' : 'default';
-    });
+      canvas.style.cursor = found ? 'grab' : 'default';
+    }, opts);
 
-    this.canvas.addEventListener('click', () => {
-      if (this.hoveredNode) {
-        this.selectedNode = this.hoveredNode;
-        if (window.onGraphNodeClick) {
-          window.onGraphNodeClick(this.hoveredNode);
-        }
+    const endDrag = (e) => {
+      const node = this.dragNode;
+      if (!node) return;
+      node.dragging = false;
+      this.dragNode = null;
+      canvas.style.cursor = 'grab';
+      if (this.dragMoved) {
+        // Dropped: stay here (no more floating), and remember the spot
+        node.pinned = true;
+        node.vx = 0;
+        node.vy = 0;
+        this.savePosition(node);
+        this.suppressClick = true;
+        setTimeout(() => { this.suppressClick = false; }, 0);
+      } else if (e.type === 'pointerup') {
+        this.selectedNode = node;
+        if (window.onGraphNodeClick) window.onGraphNodeClick(node);
       }
-    });
+    };
+    canvas.addEventListener('pointerup', endDrag, opts);
+    canvas.addEventListener('pointercancel', endDrag, opts);
+    canvas.addEventListener('pointerleave', () => { if (!this.dragNode) this.hoveredNode = null; }, opts);
   }
 
   animate() {
@@ -166,9 +259,28 @@ class KnowledgeGraphEngine {
     this.ctx.stroke();
     this.ctx.restore();
 
+    // Gently push apart bubbles that sit on top of each other (ones you placed by hand stay put)
+    for (let i = 0; i < this.nodes.length; i++) {
+      for (let j = i + 1; j < this.nodes.length; j++) {
+        const a = this.nodes[i], b = this.nodes[j];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const dist = Math.hypot(dx, dy) || 0.01;
+        const minDist = a.radius + b.radius + 26; // room for the name labels
+        if (dist >= minDist) continue;
+        const push = (minDist - dist) * 0.04;
+        const ux = dx / dist, uy = dy / dist;
+        const aFixed = a.type === 'user' || a.pinned || a.dragging;
+        const bFixed = b.type === 'user' || b.pinned || b.dragging;
+        if (aFixed && bFixed) continue;
+        const share = aFixed || bFixed ? 1 : 0.5;
+        if (!aFixed) { a.x -= ux * push * share; a.y -= uy * push * share; }
+        if (!bFixed) { b.x += ux * push * share; b.y += uy * push * share; }
+      }
+    }
+
     // Update node positions subtly (floating animation)
     for (const node of this.nodes) {
-      if (node.type !== 'user') {
+      if (node.type !== 'user' && !node.pinned && !node.dragging) {
         node.x += node.vx;
         node.y += node.vy;
 
@@ -194,9 +306,9 @@ class KnowledgeGraphEngine {
         let lineWidth = 1.5;
 
         if (edge.score !== undefined) {
-          if (edge.score <= 45) {
+          if (edge.state === 'conflict') {
             strokeColor = isHighlighted ? 'rgba(239, 68, 68, 0.9)' : 'rgba(239, 68, 68, 0.35)';
-          } else if (edge.score <= 65) {
+          } else if (edge.state === 'cooling') {
             strokeColor = isHighlighted ? 'rgba(245, 158, 11, 0.9)' : 'rgba(245, 158, 11, 0.35)';
           } else {
             strokeColor = isHighlighted ? 'rgba(139, 92, 246, 0.9)' : 'rgba(139, 92, 246, 0.35)';
@@ -283,7 +395,7 @@ class KnowledgeGraphEngine {
       this.ctx.textAlign = 'center';
       
       let displayLabel = node.label;
-      if (node.type === 'friend' && node.score <= 45) {
+      if (node.type === 'friend' && node.state === 'conflict') {
         displayLabel = `[!] ${node.label}`;
       }
       // Show the exact score only on hover; the ring already shows it at a glance
@@ -301,5 +413,6 @@ class KnowledgeGraphEngine {
     if (this.animationId) {
       cancelAnimationFrame(this.animationId);
     }
+    this.listeners.abort();
   }
 }

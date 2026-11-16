@@ -20,7 +20,7 @@
   
   <!-- FontAwesome & Custom CSS -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="css/styles.css?v=30.0">
+  <link rel="stylesheet" href="css/styles.css?v=32.0">
 </head>
 <body>
 
@@ -159,7 +159,7 @@
     <header class="top-header">
       <div class="search-box" id="global-search">
         <i class="fa-solid fa-magnifying-glass"></i>
-        <input type="search" id="global-search-input" placeholder="Cari teman, catatan, topik, kado, kosakata..." autocomplete="off" enterkeyhint="search" aria-label="Cari" aria-controls="global-search-results" aria-expanded="false">
+        <input type="search" id="global-search-input" name="mindvault-search" data-lpignore="true" data-form-type="other" placeholder="Cari teman, catatan, topik, kado, kosakata..." autocomplete="off" enterkeyhint="search" aria-label="Cari" aria-controls="global-search-results" aria-expanded="false">
         <div class="search-results" id="global-search-results" role="listbox" hidden></div>
       </div>
 
@@ -330,6 +330,7 @@
             <span class="tag-chip" id="profile-tier-badge" style="background: var(--lavender-light); color: var(--lavender-deep);">Friend</span>
           </div>
           <div id="profile-contact" class="profile-contact" hidden></div>
+          <div id="profile-score-reasons" class="score-reasons" hidden></div>
         </div>
         <div class="profile-actions-bar">
           <button class="btn btn-secondary" onclick="MindVaultApp.openEditProfileModal(MindVaultApp.selectedFriendId)"><i class="fa-solid fa-pen-to-square" style="color: var(--accent-hover);"></i> Edit Profile</button>
@@ -458,6 +459,10 @@
       </div>
 
       <div class="glass-card">
+        <div class="graph-toolbar">
+          <span class="graph-hint"><i class="fa-solid fa-hand-pointer"></i> Tarik bubble untuk memindahkannya. Klik untuk membuka.</span>
+          <button type="button" class="btn btn-secondary btn-small" onclick="MindVaultApp.resetGraphLayout()"><i class="fa-solid fa-arrows-rotate"></i> <span>Atur ulang posisi</span></button>
+        </div>
         <canvas id="knowledge-graph-canvas"></canvas>
       </div>
     </section>
@@ -926,7 +931,7 @@
 
     <div class="form-group">
       <label>Bio / Bio Ringkas</label>
-      <input type="text" id="add-friend-bio" class="form-control" placeholder="e.g. Coffee enthusiast, UI designer, loves Tokyo travel">
+      <textarea id="add-friend-bio" class="form-control" rows="3" placeholder="e.g. Coffee enthusiast, UI designer, loves Tokyo travel"></textarea>
     </div>
     <div class="form-group">
       <label>Current Life Update</label>
@@ -1306,12 +1311,12 @@
 
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/i18n.js?v=49.0"></script>
-<script src="js/data.js?v=49.0"></script>
-<script src="js/supabaseClient.js?v=49.0"></script>
-<script src="js/geminiClient.js?v=49.0"></script>
-<script src="js/graph.js?v=49.0"></script>
-<script src="js/app.js?v=49.0"></script>
+<script src="js/i18n.js?v=51.0"></script>
+<script src="js/data.js?v=51.0"></script>
+<script src="js/supabaseClient.js?v=51.0"></script>
+<script src="js/geminiClient.js?v=51.0"></script>
+<script src="js/graph.js?v=51.0"></script>
+<script src="js/app.js?v=51.0"></script>
 
 </body>
 </html>

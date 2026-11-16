@@ -474,6 +474,8 @@ const I18N = {
     ['Pernikahan', 'Wedding'],
     ['Kelahiran', 'New Baby'],
     ['HARI INI', 'TODAY'],
+    ['Tarik bubble untuk memindahkannya. Klik untuk membuka.', 'Drag a bubble to move it. Click to open.'],
+    ['Atur ulang posisi', 'Reset layout'],
     ['Tambah konteks: kalimat & sumber tontonan', 'Add context: sentence & where you heard it'],
     ['Konteks kata ini', 'Context for this word'],
     ['Ditemukan di', 'Heard in'],

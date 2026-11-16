@@ -2373,3 +2373,22 @@ body { background: var(--bg-main); }
 .vocab-context-editor input { background: #fff; }
 .vocab-context-actions { display: flex; align-items: center; gap: 8px; }
 .vocab-context-remove { color: #B91C1C; }
+
+/* "Why this score?" breakdown on the friend profile */
+.score-reasons { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,0.85); border: 1px solid var(--card-border); max-width: 460px; text-align: left; }
+.score-reasons[hidden] { display: none; }
+.score-reasons-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); margin-bottom: 6px; }
+.score-reasons ul { list-style: none; margin: 0; padding: 0; }
+.score-reasons li { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 4px 0; border-bottom: 1px dashed var(--card-border); }
+.score-reasons li:last-child { border-bottom: 0; }
+.score-reasons li strong { font-variant-numeric: tabular-nums; color: var(--text-medium); }
+.score-reasons li strong.is-up { color: #059669; }
+.score-reasons li strong.is-down { color: #DC2626; }
+.score-reasons-hint { font-size: 12px; color: var(--text-muted); margin-top: 8px; line-height: 1.45; }
+#add-friend-bio { resize: vertical; min-height: 72px; font-family: inherit; }
+
+/* Knowledge graph toolbar */
+.graph-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.graph-hint { font-size: 12.5px; color: var(--text-muted); }
+.graph-hint i { color: var(--accent); margin-right: 4px; }
+#knowledge-graph-canvas { user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }

@@ -245,6 +245,10 @@ const MindVaultApp = {
     const input = document.getElementById('global-search-input');
     const box = document.getElementById('global-search-results');
     if (!input || !box) return;
+    // Browsers sometimes autofill the saved login email into this box; clear anything typed by autofill
+    const clearAutofill = () => { if (document.activeElement !== input && input.value) input.value = ''; };
+    setTimeout(clearAutofill, 300);
+    setTimeout(clearAutofill, 1500);
     let timer = null;
     input.addEventListener('input', () => {
       clearTimeout(timer);
@@ -2572,61 +2576,123 @@ const MindVaultApp = {
   },
 
   // Dynamic AI Intimacy Score Calculator based on Sentiment & Relationship logs
+  // Closeness score (10-99) built from what you actually recorded about this friend:
+  //  - the kind of relationship (best friend starts higher than an acquaintance)
+  //  - how often and how recently you logged a conversation with them
+  //  - the tone of those notes (warm moments up, fights down; recent notes count more)
+  //  - how much you know about them (birthday, favorites, likes, topics, gift ideas...)
+  // friend.scoreState says whether something needs attention: 'conflict', 'cooling' or 'ok'.
+  // friend.scoreReasons lists what moved the score, shown on the profile.
   calculateDynamicFriendScore(friend) {
-    if (!friend) return 85;
+    if (!friend) return 50;
+    const reasons = [];
+    const add = (points, id, en) => { if (points) reasons.push({ points: Math.round(points), id, en }); return points; };
 
-    let baseScore = 80;
-    const diaries = (MindVaultData.diaries || []).filter(d => 
-      String(d.friendId) === String(friend.id) || 
+    // 1. Starting point from the relationship type
+    const rel = this.normalizeRelation(friend.relation).toLowerCase();
+    const bases = {
+      'pasangan': 70, 'sahabat': 68, 'keluarga': 66, 'teman dekat': 60, 'teman': 50,
+      'mentor / guru': 48, 'rekan kerja': 45, 'kenalan': 35, 'mantan': 30
+    };
+    let base = bases[rel];
+    if (base === undefined) {
+      if (/gebetan|crush|pdkt|pacar|tunangan|suami|istri|partner/.test(rel)) base = 58;
+      else if (/sepupu|kakak|adik|ayah|ibu|mama|papa|om|tante|keluarga/.test(rel)) base = 62;
+      else if (/sahabat|bestie|best/.test(rel)) base = 66;
+      else base = 50;
+    }
+    let score = base;
+    reasons.push({ points: base, id: `Titik awal: ${friend.relation || 'Teman'}`, en: `Starting point: ${I18N.t(friend.relation || 'Teman')}`, base: true });
+
+    // 2. Conversation notes: how many, how recent, and their tone
+    const diaries = (MindVaultData.diaries || []).filter(d =>
+      String(d.friendId) === String(friend.id) ||
       (d.friendName && friend.name && d.friendName.toLowerCase() === friend.name.toLowerCase())
     );
+    const today = new Date();
+    const daysAgo = (d) => {
+      const t = new Date(d.date || d.created_at || 0);
+      return isNaN(t) ? 9999 : Math.max(0, Math.round((today - t) / 86400000));
+    };
+    const severe = /anjing|babi|bangsat|najis|benci|hancur|putus|toxic|sakit hati|menyakiti|dendam|kecewa berat|berantem hebat|blokir|block/i;
+    const moderate = /berantem|marah|kesal|jengkel|ribut|tengkar|cuek|kecewa|badmood|tersinggung|salah paham|canggung/i;
+    const positive = /senang|bahagia|seru|hangat|sayang|tertawa|ketawa|quality time|dukung|bantu|nyaman|harmonis|akur|curhat|cerita banyak|deep talk|asik|asyik|lucu|kangen|peluk|terima kasih|makasih|bangga/i;
 
-    // Negative conflict keywords
-    const severeConflictRegex = /anjing|babi|bangsat|najis|benci|hancur|putus|toxic|parah|sakit hati|menyakiti|dendam|kecewa berat|berantem hebat/i;
-    const moderateConflictRegex = /berantem|marah|kesal|jengkel|ribut|debat|tengkar|dingin|diam|kecewa|badmood|sulit|tersinggung/i;
-    const positiveRegex = /senang|bahagia|seru|hangat|sayang|tertawa|ketawa|quality time|dukung|bantu|nyaman|harmonis|akur|maaf/i;
+    if (diaries.length) {
+      const recent = diaries.filter(d => daysAgo(d) <= 90).length;
+      add(Math.min(recent * 4, 16), `${recent} catatan dalam 3 bulan terakhir`, `${recent} notes in the last 3 months`);
+      score += Math.min(recent * 4, 16);
+      const older = diaries.length - recent;
+      if (older) score += add(Math.min(older, 6), `${older} catatan lebih lama`, `${older} older notes`);
 
-    let penalty = 0;
-    let bonus = 0;
+      const last = Math.min(...diaries.map(daysAgo));
+      if (last <= 14) score += add(6, 'Baru ngobrol dalam 2 minggu terakhir', 'Talked within the last 2 weeks');
+      else if (last <= 30) score += add(3, 'Ngobrol bulan ini', 'Talked this month');
+      else if (last > 90) score += add(-8, `Sudah ${last} hari tidak ada catatan`, `No notes for ${last} days`);
 
-    // 1. Check current life status sentiment
-    const statusText = `${friend.currentLife || ''} ${friend.bio || ''}`;
-    if (severeConflictRegex.test(statusText)) {
-      penalty += 45;
-    } else if (moderateConflictRegex.test(statusText)) {
-      penalty += 25;
-    }
-
-    // 2. Check conversation diaries history
-    diaries.forEach(d => {
-      const fullText = `${d.title || ''} ${d.content || ''} ${d.mood || ''}`;
-      if (severeConflictRegex.test(fullText)) {
-        penalty += 35;
-      } else if (moderateConflictRegex.test(fullText)) {
-        penalty += 20;
-      } else if (positiveRegex.test(fullText)) {
-        bonus += 8;
-      } else {
-        bonus += 3; // Logged interaction bonus
+      let tone = 0, fights = 0, badFights = 0;
+      diaries.forEach(d => {
+        const text = `${d.title || ''} ${d.content || ''} ${d.mood || ''}`;
+        const age = daysAgo(d);
+        const weight = age <= 30 ? 1 : age <= 90 ? 0.6 : 0.3; // recent notes matter more
+        if (severe.test(text)) { tone -= 25 * weight; badFights++; }
+        else if (moderate.test(text)) { tone -= 10 * weight; fights++; }
+        else if (positive.test(text)) tone += 4 * weight;
+        else tone += 1 * weight;
+      });
+      tone = Math.max(-45, Math.min(14, tone));
+      if (tone) {
+        score += add(tone,
+          tone > 0 ? 'Suasana catatan positif' : `Ada ${badFights + fights} catatan konflik`,
+          tone > 0 ? 'Notes have a positive tone' : `${badFights + fights} notes mention conflict`);
       }
-    });
-
-    // 3. Milestones bonus
-    if (friend.milestones && friend.milestones.length > 0) {
-      bonus += Math.min(friend.milestones.length * 3, 10);
+      friend.scoreState = (badFights && tone <= -15) || tone <= -25 ? 'conflict' : (tone < 0 || last > 90) ? 'cooling' : 'ok';
+    } else {
+      reasons.push({ points: 0, id: 'Belum ada catatan percakapan', en: 'No conversation notes yet' });
+      friend.scoreState = 'ok';
     }
 
-    let finalScore = Math.max(10, Math.min(99, baseScore + bonus - penalty));
-    return finalScore;
+    // 3. Their current situation, if it mentions a fight
+    if (severe.test(friend.currentLife || '')) { score += add(-20, 'Kabar terbaru menyebut konflik berat', 'Latest update mentions a serious conflict'); friend.scoreState = 'conflict'; }
+    else if (moderate.test(friend.currentLife || '')) { score += add(-8, 'Kabar terbaru menyebut masalah', 'Latest update mentions a problem'); if (friend.scoreState === 'ok') friend.scoreState = 'cooling'; }
+
+    // 4. How well you know them
+    const fav = Object.entries(friend.favorites || {}).filter(([k, v]) => !k.startsWith('_') && v).length;
+    const known = [
+      !!friend.birthday,
+      fav >= 1, fav >= 3,
+      (friend.likes || []).length > 0,
+      (friend.safeTopics || []).length > 0,
+      (friend.avoidTopics || []).length > 0,
+      (friend.giftIdeas || []).length > 0,
+      (friend.milestones || []).length > 0,
+      Object.keys(friend.contact || {}).length > 0,
+      String(friend.bio || '').length > 20
+    ].filter(Boolean).length;
+    if (known) score += add(known, `Kamu tahu ${known} hal tentang dia`, `You know ${known} things about them`);
+
+    friend.scoreReasons = reasons;
+    return Math.max(10, Math.min(99, Math.round(score)));
+  },
+
+  toggleScoreReasons(friend) {
+    const el = document.getElementById('profile-score-reasons');
+    if (!el) return;
+    if (!el.hidden) { el.hidden = true; return; }
+    const rows = (friend.scoreReasons || []).map(r => `
+      <li><span>${this.escapeHtml(this.L(r.id, r.en))}</span><strong class="${r.base ? '' : r.points > 0 ? 'is-up' : r.points < 0 ? 'is-down' : ''}">${r.base ? r.points : (r.points > 0 ? '+' : '') + r.points}</strong></li>`).join('');
+    el.innerHTML = `<p class="score-reasons-title">${this.L('Kenapa skornya segini?', 'Why this score?')}</p><ul>${rows}</ul>
+      <p class="score-reasons-hint">${this.L('Catat obrolan lewat Log Memory dan lengkapi profilnya supaya skornya makin akurat.', 'Log conversations with Log Memory and fill in the profile to make the score more accurate.')}</p>`;
+    el.hidden = false;
   },
 
   recalculateAllFriendScores() {
     if (!MindVaultData.friends) return;
     MindVaultData.friends.forEach(f => {
       f.score = this.calculateDynamicFriendScore(f);
-      if (f.score <= 45) {
+      if (f.scoreState === 'conflict') {
         f.tier = 'Konflik / Butuh Pemulihan';
-      } else if (f.score <= 65) {
+      } else if (f.scoreState === 'cooling') {
         f.tier = 'Pendinginan / Jarak';
       } else {
         f.tier = f.relation || 'Teman';
@@ -2827,9 +2893,9 @@ const MindVaultApp = {
     }
 
     grid.innerHTML = MindVaultData.friends.map(friend => {
-      const scoreColor = friend.score <= 45 ? '#DC2626' : (friend.score <= 65 ? '#D97706' : '#059669');
-      const badgeBg = friend.score <= 45 ? '#FEE2E2' : (friend.score <= 65 ? '#FEF3C7' : 'var(--secondary)');
-      const badgeColor = friend.score <= 45 ? '#DC2626' : (friend.score <= 65 ? '#D97706' : 'var(--accent-hover)');
+      const scoreColor = friend.scoreState === 'conflict' ? '#DC2626' : (friend.scoreState === 'cooling' ? '#D97706' : '#059669');
+      const badgeBg = friend.scoreState === 'conflict' ? '#FEE2E2' : (friend.scoreState === 'cooling' ? '#FEF3C7' : 'var(--secondary)');
+      const badgeColor = friend.scoreState === 'conflict' ? '#DC2626' : (friend.scoreState === 'cooling' ? '#D97706' : 'var(--accent-hover)');
 
       return `
         <div class="friend-card">
@@ -2887,11 +2953,11 @@ const MindVaultApp = {
     const tierBadgeEl = document.getElementById('profile-tier-badge');
     if (tierBadgeEl) {
       let tierLabel = friend.relation || 'Teman';
-      if (friend.score <= 45) {
+      if (friend.scoreState === 'conflict') {
         tierLabel = 'Konflik / Butuh Pemulihan';
         tierBadgeEl.style.background = '#FEE2E2';
         tierBadgeEl.style.color = '#DC2626';
-      } else if (friend.score <= 65) {
+      } else if (friend.scoreState === 'cooling') {
         tierLabel = 'Pendinginan / Jarak';
         tierBadgeEl.style.background = '#FEF3C7';
         tierBadgeEl.style.color = '#D97706';
@@ -2912,9 +2978,13 @@ const MindVaultApp = {
 
     const scoreEl = document.getElementById('profile-score-val');
     if (scoreEl) {
-      const scoreColor = friend.score <= 45 ? '#DC2626' : (friend.score <= 65 ? '#D97706' : '#059669');
-      scoreEl.innerHTML = `<span style="color: ${scoreColor}; font-weight: 800;">${friend.score}%</span> Intimacy Score`;
+      const scoreColor = friend.scoreState === 'conflict' ? '#DC2626' : (friend.scoreState === 'cooling' ? '#D97706' : '#059669');
+      scoreEl.innerHTML = `<span style="color: ${scoreColor}; font-weight: 800;">${friend.score}%</span> ${this.L('Skor Kedekatan', 'Intimacy Score')} <i class="fa-solid fa-circle-info" style="opacity:.55"></i>`;
+      scoreEl.style.cursor = 'pointer';
+      scoreEl.onclick = () => this.toggleScoreReasons(friend);
     }
+    const reasonsEl = document.getElementById('profile-score-reasons');
+    if (reasonsEl) reasonsEl.hidden = true;
 
     const lifeEl = document.getElementById('profile-current-life');
     if (lifeEl) lifeEl.innerText = friend.currentLife || 'Belum ada kabar terbaru.';
@@ -4293,12 +4363,13 @@ const MindVaultApp = {
 
     friends.forEach((friend, idx) => {
       const friendNodeId = `friend-${friend.id || idx}`;
-      const score = friend.score !== undefined ? friend.score : this.calculateDynamicFriendScore(friend);
+      const score = this.calculateDynamicFriendScore(friend);
       nodes.push({
         id: friendNodeId,
         label: friend.name ? this.formatPersonName(friend.name) : 'Teman',
         type: 'friend',
         score: score,
+        state: friend.scoreState || 'ok',
         tier: friend.tier || friend.relation || 'Teman',
         rawFriend: friend
       });
@@ -4308,7 +4379,8 @@ const MindVaultApp = {
         from: 'user',
         to: friendNodeId,
         label: `${score}% • ${friend.tier || friend.relation || 'Teman'}`,
-        score: score
+        score: score,
+        state: friend.scoreState || 'ok'
       });
 
       // Extract hobbies or favorites
@@ -4356,6 +4428,29 @@ const MindVaultApp = {
     return { nodes, edges };
   },
 
+  // Clicking a bubble: a friend opens their profile, an interest searches for everyone who shares it
+  onGraphNodeClick(node) {
+    if (!node) return;
+    if (node.type === 'friend' && node.rawFriend) {
+      this.viewProfile(node.rawFriend.id);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (node.type === 'topic') {
+      const input = document.getElementById('global-search-input');
+      if (input) {
+        input.value = node.label;
+        input.focus();
+        this.runGlobalSearch(node.label);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+  },
+
+  resetGraphLayout() {
+    if (this.graphEngine) this.graphEngine.resetPositions();
+    else try { localStorage.removeItem('MINDVAULT_GRAPH_POSITIONS'); } catch (e) {}
+    this.renderKnowledgeGraph();
+  },
+
   renderKnowledgeGraph() {
     const canvas = document.getElementById('knowledge-graph-canvas');
     if (!canvas) return;
@@ -4368,6 +4463,7 @@ const MindVaultApp = {
     const graphData = this.generateKnowledgeGraphData();
     MindVaultData.knowledgeGraph = graphData;
 
+    window.onGraphNodeClick = (node) => this.onGraphNodeClick(node);
     this.graphEngine = new KnowledgeGraphEngine('knowledge-graph-canvas', graphData);
   },
 
