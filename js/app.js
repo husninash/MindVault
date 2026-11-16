@@ -34,6 +34,7 @@ const MindVaultApp = {
     await this.loadCloudData();
     this.renderAfterSync();
     this.openFromUrl();
+    this.normalizeSavedFriendNames().catch(() => {});
   },
 
   // ---------- Installable app + offline ----------
@@ -662,7 +663,7 @@ const MindVaultApp = {
   async handleAuthSubmit() {
     const usernameInput = document.getElementById('auth-input-email')?.value.trim();
     const passwordInput = document.getElementById('auth-input-password')?.value.trim();
-    const name = document.getElementById('auth-input-name')?.value.trim();
+    const name = this.formatPersonName(document.getElementById('auth-input-name')?.value);
 
     this.setAuthMessage('');
     if (this.authMode === 'reset' || this.authMode === 'newpassword') {
@@ -967,8 +968,50 @@ const MindVaultApp = {
     }
   },
 
+  // Writes a person's name the way it's normally written in Indonesian:
+  // "ABIGAIL QUEENCYLA SAHARI SARAGIH" / "abigail saragih" -> "Abigail Queencyla Sahari Saragih".
+  // Words typed in deliberate mixed case (McDonald, DeLima) are kept as they are.
+  formatPersonName(raw) {
+    const text = String(raw || '').replace(/\s+/g, ' ').trim();
+    if (!text) return '';
+    const lowerParticles = new Set(['bin', 'binti', 'van', 'der', 'den', 'de', 'von', 'da', 'di', 'la', 'le']);
+    const capitalize = (part) => part.charAt(0).toLocaleUpperCase('id-ID') + part.slice(1).toLocaleLowerCase('id-ID');
+    return text.split(' ').map((word, index) => {
+      const letters = word.replace(/[^\p{L}]/gu, '');
+      if (!letters) return word;
+      const isUpper = letters === letters.toLocaleUpperCase('id-ID');
+      const isLower = letters === letters.toLocaleLowerCase('id-ID');
+      if (!isUpper && !isLower) return word; // deliberate mixed case
+      // Initials and dotted abbreviations stay upper case: "M.", "A.Md", "S.Kom" keep their dots
+      if (/^\p{L}\.$/u.test(word)) return word.toLocaleUpperCase('id-ID');
+      if (index > 0 && lowerParticles.has(word.toLocaleLowerCase('id-ID'))) return word.toLocaleLowerCase('id-ID');
+      // Capitalize each part of hyphenated names (Anak-Agung); after an apostrophe stay lower (Nur'aini)
+      return word.split('-').map(part => {
+        const [head, ...rest] = part.split(/(['’])/);
+        return capitalize(head) + rest.join('').toLocaleLowerCase('id-ID');
+      }).join('-');
+    }).join(' ');
+  },
+
+  // One-time tidy-up for names saved before formatting existed (e.g. typed in all caps)
+  async normalizeSavedFriendNames() {
+    const friends = MindVaultData.friends || [];
+    const changed = friends.filter(f => f && f.name && this.formatPersonName(f.name) !== f.name);
+    if (!changed.length) return;
+    for (const friend of changed) {
+      const oldName = friend.name;
+      friend.name = this.formatPersonName(oldName);
+      (MindVaultData.diaries || []).forEach(d => {
+        if (String(d.friendId) === String(friend.id) && d.friendName === oldName) d.friendName = friend.name;
+      });
+      await MindVaultSupabase.updateFriend(friend);
+    }
+    this.renderFriendsGrid();
+    this.renderDashboard();
+  },
+
   readFriendFormData() {
-    const name = document.getElementById('add-friend-name')?.value.trim();
+    const name = this.formatPersonName(document.getElementById('add-friend-name')?.value);
     
     // Read relation from select or custom text input
     const relSelect = document.getElementById('add-friend-relation-select');
@@ -1277,7 +1320,7 @@ const MindVaultApp = {
   },
 
   async saveUserProfileSettings() {
-    const newName = document.getElementById('user-setting-name')?.value.trim();
+    const newName = this.formatPersonName(document.getElementById('user-setting-name')?.value);
     const newEmail = document.getElementById('user-setting-email')?.value.trim();
     const newQuote = document.getElementById('user-setting-quote')?.value.trim();
 
