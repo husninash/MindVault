@@ -474,6 +474,13 @@ const I18N = {
     ['Pernikahan', 'Wedding'],
     ['Kelahiran', 'New Baby'],
     ['HARI INI', 'TODAY'],
+    ['Tambah konteks: kalimat & sumber tontonan', 'Add context: sentence & where you heard it'],
+    ['Konteks kata ini', 'Context for this word'],
+    ['Ditemukan di', 'Heard in'],
+    ['Ubah konteks', 'Edit context'],
+    ['Simpan', 'Save'],
+    ['Konteks disimpan.', 'Context saved.'],
+    ['Konteks dihapus.', 'Context removed.'],
     ['Bahasa diganti ke Bahasa Inggris.', 'Language switched to English.'],
 
     // ---- More vocab ----

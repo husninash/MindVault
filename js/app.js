@@ -1896,39 +1896,17 @@ const MindVaultApp = {
     if (input) input.value = word;
     this.vocabReview = null;
 
-    // Context (sentence + source) only applies to a word typed in the form, not to clicked synonyms
-    const fromForm = wordArg === undefined;
-    const ctxSentenceEl = document.getElementById('vocab-context-sentence');
-    const ctxSourceEl = document.getElementById('vocab-context-source');
-    const context = fromForm ? {
-      sentence: String(ctxSentenceEl?.value || '').trim().slice(0, 500),
-      source: String(ctxSourceEl?.value || '').trim().slice(0, 120)
-    } : { sentence: '', source: '' };
-    const hasContext = !!(context.sentence || context.source);
-    const clearForm = () => {
-      if (input) input.value = '';
-      if (fromForm) {
-        if (ctxSentenceEl) ctxSentenceEl.value = '';
-        if (ctxSourceEl) ctxSourceEl.value = '';
-        const details = document.getElementById('vocab-context-details');
-        if (details) details.open = false;
-      }
-    };
-    const attachContext = (row) => {
-      // Keep the first context a word was found in; don't overwrite it silently
-      if (!hasContext || row.data?.context?.sentence || row.data?.context?.source) return false;
-      row.data = { ...(row.data || {}), context };
-      this.saveVocabLocal();
-      MindVaultSupabase.upsertJournalRow('vocab_words', row);
-      return true;
-    };
+    // Context (sentence + source) is added per word, on the word's card
+    const context = { sentence: '', source: '' };
+    const hasContext = false;
+    const clearForm = () => { if (input) input.value = ''; };
+    const attachContext = () => false;
 
     const existing = this.findVocab(word);
     if (existing) {
-      const added = attachContext(existing);
       clearForm();
       this.showVocab(existing.id);
-      this.showToast(added ? `Konteks ditambahkan ke "${existing.word}".` : `"${existing.word}" sudah ada di daftarmu.`, 'info');
+      this.showToast(`"${existing.word}" sudah ada di daftarmu.`, 'info');
       return;
     }
     if (this.vocabLoading) return;
@@ -2174,18 +2152,85 @@ const MindVaultApp = {
     return html + this.escapeHtml(text.slice(last));
   },
 
-  vocabContextHtml(row, { showTranslation = true } = {}) {
+  vocabContextHtml(row, { showTranslation = true, editable = false } = {}) {
     const ctx = row.data?.context;
-    if (!ctx || (!ctx.sentence && !ctx.source)) return '';
+    const id = Number(row.id);
+    if (editable && this.editingVocabContextId === id) {
+      return `
+      <form class="vocab-context vocab-context-editor" onsubmit="event.preventDefault(); MindVaultApp.saveVocabContext(${id}, this)">
+        <div class="vocab-context-label"><i class="fa-solid fa-film"></i> Konteks kata ini <span class="form-optional">(opsional)</span></div>
+        <textarea name="sentence" class="form-control" rows="2" maxlength="500" placeholder="Kalimat tempat kamu dengar kata itu, misal: She's really striving for that promotion.">${this.escapeHtml(ctx?.sentence || '')}</textarea>
+        <input type="text" name="source" class="form-control" maxlength="120" autocomplete="off" placeholder="Sumber, misal: Suits S2E4, podcast, YouTube..." value="${this.escapeHtml(ctx?.source || '')}">
+        <div class="vocab-context-actions">
+          ${ctx && (ctx.sentence || ctx.source) ? `<button type="button" class="btn btn-secondary btn-small vocab-context-remove" onclick="MindVaultApp.saveVocabContext(${id}, null)"><i class="fa-solid fa-trash-can"></i> Hapus</button>` : ''}
+          <span style="flex:1"></span>
+          <button type="button" class="btn btn-secondary btn-small" onclick="MindVaultApp.editVocabContext(null)">Batal</button>
+          <button type="submit" class="btn btn-primary btn-small">Simpan</button>
+        </div>
+      </form>`;
+    }
+    if (!ctx || (!ctx.sentence && !ctx.source)) {
+      return editable ? `
+      <button type="button" class="vocab-context-add" onclick="MindVaultApp.editVocabContext(${id})">
+        <i class="fa-solid fa-film"></i> <span>Tambah konteks: kalimat & sumber tontonan</span> <span class="form-optional">(opsional)</span>
+      </button>` : '';
+    }
     return `
       <div class="vocab-context">
-        <div class="vocab-context-label"><i class="fa-solid fa-film"></i> Ditemukan di${ctx.source ? ` <strong>${this.escapeHtml(ctx.source)}</strong>` : ''}</div>
+        <div class="vocab-context-label"><i class="fa-solid fa-film"></i> Ditemukan di${ctx.source ? ` <strong>${this.escapeHtml(ctx.source)}</strong>` : ''}
+          ${editable ? `<button type="button" class="vocab-context-edit" onclick="MindVaultApp.editVocabContext(${id})" title="Ubah konteks" aria-label="Ubah konteks"><i class="fa-solid fa-pen"></i></button>` : ''}
+        </div>
         ${ctx.sentence ? `
           <p class="vocab-context-sentence">“${this.highlightVocabInSentence(ctx.sentence, row)}”
             <button type="button" class="vocab-speak" data-speak="${this.escapeHtml(ctx.sentence)}" title="Dengarkan"><i class="fa-solid fa-volume-low"></i></button>
           </p>` : ''}
         ${showTranslation && ctx.translation ? `<p class="vocab-context-translation">${this.escapeHtml(ctx.translation)}</p>` : ''}
       </div>`;
+  },
+
+  editVocabContext(id) {
+    this.editingVocabContextId = id === null ? null : Number(id);
+    this.renderVocabPage();
+    if (id !== null) setTimeout(() => document.querySelector('.vocab-context-editor textarea')?.focus(), 30);
+  },
+
+  // Saves (or with form = null, removes) the sentence & source a word was heard in.
+  // With a sentence, Gemini adds a translation and picks which meaning fits it.
+  async saveVocabContext(id, form) {
+    const row = this.getVocabWords().find(v => Number(v.id) === Number(id));
+    if (!row) return;
+    const sentence = form ? String(form.sentence.value || '').trim().slice(0, 500) : '';
+    const source = form ? String(form.source.value || '').trim().slice(0, 120) : '';
+    const old = row.data?.context || {};
+    const data = { ...(row.data || {}) };
+    if (!sentence && !source) {
+      delete data.context;
+    } else {
+      const sameSentence = sentence === (old.sentence || '');
+      data.context = {
+        sentence,
+        source,
+        translation: sameSentence ? (old.translation || '') : '',
+        sense: sameSentence ? (old.sense || null) : null
+      };
+    }
+    row.data = data;
+    this.editingVocabContextId = null;
+    this.saveVocabLocal();
+    this.renderVocabPage();
+    MindVaultSupabase.upsertJournalRow('vocab_words', row);
+    this.showToast(data.context ? this.L('Konteks disimpan.', 'Context saved.') : this.L('Konteks dihapus.', 'Context removed.'), 'success');
+
+    if (data.context && sentence && !data.context.translation && MindVaultGemini.getApiKey()) {
+      const info = await MindVaultGemini.explainVocabContext(row.word, sentence, data.senses || []);
+      if (info && !info.error && row.data?.context?.sentence === sentence) {
+        row.data.context.translation = info.translation || '';
+        row.data.context.sense = info.sense || null;
+        this.saveVocabLocal();
+        this.renderVocabPage();
+        MindVaultSupabase.upsertJournalRow('vocab_words', row);
+      }
+    }
   },
 
   vocabReviewHtml() {
@@ -2425,7 +2470,7 @@ const MindVaultApp = {
         </div>
       </div>
 
-      ${this.vocabContextHtml(row)}
+      ${this.vocabContextHtml(row, { editable: true })}
 
       ${senses.length ? `
         <div class="subsection-label">Makna & sinonim</div>
@@ -4267,16 +4312,22 @@ const MindVaultApp = {
       });
 
       // Extract hobbies or favorites
+      // "Lari, Gym, Fotografi" in one field is three separate interests, each its own node
+      const splitList = (value) => String(value || '').split(/[,;\n]+/).map(v => v.trim()).filter(Boolean);
       const itemsToLink = [];
       if (friend.favorites) {
-        if (friend.favorites.hobby) itemsToLink.push({ name: friend.favorites.hobby, relation: 'Hobby' });
-        if (friend.favorites.drink) itemsToLink.push({ name: friend.favorites.drink, relation: 'Fav Drink' });
-        if (friend.favorites.food) itemsToLink.push({ name: friend.favorites.food, relation: 'Fav Food' });
+        splitList(friend.favorites.hobby).forEach(name => itemsToLink.push({ name, relation: 'Hobby' }));
+        splitList(friend.favorites.drink).forEach(name => itemsToLink.push({ name, relation: 'Fav Drink' }));
+        splitList(friend.favorites.food).forEach(name => itemsToLink.push({ name, relation: 'Fav Food' }));
       }
       if (Array.isArray(friend.likes)) {
-        friend.likes.forEach(like => {
-          if (like && like.trim()) itemsToLink.push({ name: like.trim(), relation: 'Likes' });
-        });
+        friend.likes.forEach(like => splitList(like).forEach(name => itemsToLink.push({ name, relation: 'Likes' })));
+      }
+      // Same interest typed twice for one friend (as hobby and as a like) -> one link
+      const seenForFriend = new Set();
+      for (let i = itemsToLink.length - 1; i >= 0; i--) {
+        const key = itemsToLink[i].name.toLowerCase();
+        if (seenForFriend.has(key)) itemsToLink.splice(i, 1); else seenForFriend.add(key);
       }
 
       itemsToLink.forEach(item => {

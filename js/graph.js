@@ -75,7 +75,7 @@ class KnowledgeGraphEngine {
         const totalT = Math.max(topicNodes.length, 1);
         const angle = (topicCount / totalT) * Math.PI * 2;
         topicCount++;
-        const dist = Math.min(width, height) * 0.44;
+        const dist = Math.min(width, height) * 0.40; // leave room for the label under the outermost nodes
         x = centerX + Math.cos(angle) * dist;
         y = centerY + Math.sin(angle) * dist;
         radius = 16;

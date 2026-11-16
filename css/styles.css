@@ -2352,3 +2352,24 @@ body { background: var(--bg-main); }
 .sidebar-lang > i { font-size: 16px; }
 .auth-lang-switch { margin-top: 14px; }
 .form-hint { font-size: 12px; color: var(--text-muted); margin-top: 6px; line-height: 1.45; }
+
+/* Per-word context: add button and inline editor on the word card */
+.vocab-context-add {
+  display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 16px;
+  padding: 11px 14px; border-radius: 12px; border: 1.5px dashed #F3E2C2; background: #FFFCF6;
+  color: #92400E; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; text-align: left;
+}
+.vocab-context-add:hover { background: #FFF8EC; border-color: #E9C98E; }
+.vocab-context-add .form-optional { font-weight: 500; }
+.vocab-context-label { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.vocab-context-edit {
+  margin-left: auto; border: 0; background: transparent; cursor: pointer; color: #B45309;
+  width: 28px; height: 28px; border-radius: 8px; font-size: 12px;
+}
+.vocab-context-edit:hover { background: #FDE68A; }
+.vocab-context-editor { display: flex; flex-direction: column; gap: 8px; }
+.vocab-context-editor .vocab-context-label { text-transform: none; letter-spacing: 0; font-size: 13px; }
+.vocab-context-editor textarea { resize: vertical; min-height: 56px; font-family: inherit; background: #fff; }
+.vocab-context-editor input { background: #fff; }
+.vocab-context-actions { display: flex; align-items: center; gap: 8px; }
+.vocab-context-remove { color: #B91C1C; }

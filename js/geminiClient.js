@@ -84,6 +84,30 @@ const MindVaultGemini = {
 
   // English vocabulary breakdown for a word or phrase the user picked up from shows/videos.
   // Returns the parsed entry object or { error, message }.
+  // For a word already saved: translate the sentence it was heard in and say which meaning fits
+  async explainVocabContext(word, sentence, senses) {
+    const list = (senses || []).map((s, i) => `${i + 1}. (${s.pos || ''}) ${s.definition || ''}`).join('\n');
+    const prompt = `Kata bahasa Inggris: "${word}"
+Kalimat tempat kata itu didengar: "${sentence}"
+${list ? `Daftar makna kata itu:\n${list}\n` : ''}
+Balas HANYA JSON: {"translation": "terjemahan kalimat ke Bahasa Indonesia yang natural", "sense": nomor makna yang dipakai di kalimat itu (angka, atau null kalau tidak ada yang cocok)}`;
+    try {
+      const res = await this.generate({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: 'application/json', temperature: 0.2 }
+      });
+      if (res.error) return res;
+      const text = (res.data.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
+      const match = text.match(/\{[\s\S]*\}/);
+      if (!match) return { error: true };
+      const out = JSON.parse(match[0]);
+      const sense = Number(out.sense);
+      return { translation: String(out.translation || ''), sense: sense >= 1 && sense <= (senses || []).length ? sense : null };
+    } catch (e) {
+      return { error: true };
+    }
+  },
+
   async analyzeVocab(word, contextSentence = '') {
     const apiKey = this.getApiKey();
     if (!apiKey) return { error: true, message: 'Gemini API key belum diatur. Isi di menu Settings.' };
