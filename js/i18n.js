@@ -40,6 +40,9 @@ const I18N = {
     // ---- Search results ----
     ['Total teman', 'Friends'],
     ['Urutkan', 'Sort'],
+    ['(opsional, cadangan kalau Gemini gagal)', '(optional, backup when Gemini fails)'],
+    ['Dipakai otomatis kalau Gemini error, kehabisan kuota, atau tidak memberi jawaban. Pemakaiannya memotong kredit OpenAI-mu. Key hanya disimpan di perangkat ini dan terhapus saat logout.', 'Used automatically when Gemini errors, runs out of quota, or gives no answer. Usage is charged to your OpenAI credit. The key is stored only on this device and removed when you log out.'],
+    ['Simpan OpenAI Key', 'Save OpenAI Key'],
     ['Riwayat Catatan', 'Notes History'],
     ['Ketemu siapa?', 'Meeting who?'],
     ['Kabar terbaru soal yang dia suka', 'Latest news on what they like'],

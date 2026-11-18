@@ -79,14 +79,136 @@ const MindVaultGemini = {
     try { localStorage.removeItem(this.modelsCacheKey); } catch (e) {}
   },
 
-  // POST a generateContent request with retry + model fallback.
-  // Returns { data } on success or { error: true, message } on failure.
+  // OpenAI key (optional): used when Gemini fails or gives an empty answer. Kept on this device only.
+  getOpenAIKey() {
+    return localStorage.getItem('MINDVAULT_OPENAI_KEY') || '';
+  },
+
+  // True when at least one AI provider is set up
+  hasKey() {
+    return !!(this.getApiKey() || this.getOpenAIKey());
+  },
+
+  // Gemini-shaped answer with no text in it (blocked, cut off, or empty)
+  isEmptyAnswer(data) {
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+    return !parts.some(p => String(p.text || '').trim());
+  },
+
+  // Every AI feature goes through here: Gemini first, then OpenAI if Gemini fails or answers
+  // with nothing. Returns { data } in Gemini's response shape, or { error: true, message }.
   async generate(body) {
-    const apiKey = this.getApiKey();
-    if (!apiKey) return { error: true, message: 'Gemini API key belum diatur. Isi di menu Settings.' };
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
       return { error: true, message: 'Kamu sedang offline. Fitur AI butuh internet — daftar kata, review, dan catatanmu tetap bisa dipakai.' };
     }
+    const geminiKey = this.getApiKey();
+    const openaiKey = this.getOpenAIKey();
+    if (!geminiKey && !openaiKey) return { error: true, message: 'API key AI belum diatur. Isi Gemini atau OpenAI key di menu Settings.' };
+
+    let gemini = null;
+    if (geminiKey) {
+      gemini = await this.generateGemini(body);
+      if (!gemini.error && !this.isEmptyAnswer(gemini.data)) return gemini;
+      if (!gemini.error) gemini = { error: true, message: 'Gemini tidak memberi jawaban.' };
+      if (!openaiKey) return gemini;
+      console.warn('Gemini failed, falling back to OpenAI:', gemini.message);
+    }
+    const openai = await this.generateOpenAI(body, openaiKey);
+    if (!openai.error) return openai;
+    if (!gemini) return openai;
+    return { error: true, message: `Gemini: ${gemini.message} — OpenAI juga gagal: ${openai.message}` };
+  },
+
+  // OpenAI models tried in order (a model the account can't use is skipped)
+  openaiModels: ['gpt-5-mini', 'gpt-4.1-mini', 'gpt-4o-mini'],
+
+  // Same request, sent to OpenAI's Responses API, with the answer converted to Gemini's shape
+  // (including Google-Search-style source links) so the rest of the app doesn't need to care.
+  async generateOpenAI(body, apiKey) {
+    const text = (parts) => (parts || []).map(p => p.text || '').join('\n');
+    const input = (body.contents || []).map(c => ({
+      role: c.role === 'model' ? 'assistant' : 'user',
+      content: text(c.parts)
+    }));
+    const wantsSearch = (body.tools || []).some(t => t.google_search || t.googleSearch);
+    const wantsJson = body.generationConfig?.responseMimeType === 'application/json';
+    const instructions = [
+      text(body.systemInstruction?.parts),
+      wantsSearch ? 'Use web search for anything recent. Put the requested JSON in your answer exactly as asked; do not wrap it in markdown.' : ''
+    ].filter(Boolean).join('\n\n');
+
+    let lastError = null;
+    for (const model of this.openaiModels) {
+      const request = { model, input };
+      if (instructions) request.instructions = instructions;
+      if (wantsSearch) request.tools = [{ type: 'web_search' }];
+      if (wantsJson && !wantsSearch) request.text = { format: { type: 'json_object' } };
+      if (/^(gpt-5|o\d)/.test(model)) request.reasoning = { effort: 'low' };
+
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 60000);
+      let response;
+      try {
+        response = await fetch('https://api.openai.com/v1/responses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify(request),
+          signal: controller.signal
+        });
+      } catch (err) {
+        return { error: true, message: err.name === 'AbortError' ? 'OpenAI tidak menjawab (terlalu lama).' : 'Tidak bisa menghubungi OpenAI.' };
+      } finally {
+        clearTimeout(timer);
+      }
+
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const msg = json.error?.message || `HTTP ${response.status}`;
+        const code = json.error?.code || '';
+        console.warn(`OpenAI ${model} error:`, response.status, msg);
+        if (response.status === 401) return { error: true, message: 'OpenAI API key tidak valid. Cek lagi di Settings.' };
+        if (code === 'insufficient_quota') return { error: true, message: 'Kredit OpenAI habis atau belum diisi.' };
+        lastError = msg;
+        // Model not available for this account (or doesn't support a feature): try the next one
+        if (response.status === 404 || response.status === 400 || code === 'model_not_found') continue;
+        if (response.status === 429 || response.status >= 500) continue;
+        return { error: true, message: msg };
+      }
+
+      // Collect the answer text and its web citations
+      let out = '';
+      const chunks = [];
+      const supports = [];
+      const enc = new TextEncoder();
+      for (const item of json.output || []) {
+        if (item.type !== 'message') continue;
+        for (const part of item.content || []) {
+          if (part.type !== 'output_text') continue;
+          const base = out;
+          for (const a of part.annotations || []) {
+            if (a.type !== 'url_citation' || !a.url) continue;
+            let idx = chunks.findIndex(c => c.web.uri === a.url);
+            if (idx < 0) { chunks.push({ web: { uri: a.url, title: a.title || a.url } }); idx = chunks.length - 1; }
+            const start = enc.encode(base + part.text.slice(0, a.start_index || 0)).length;
+            supports.push({ segment: { startIndex: start }, groundingChunkIndices: [idx] });
+          }
+          out += part.text || '';
+        }
+      }
+      if (!out.trim()) { lastError = 'OpenAI tidak memberi jawaban.'; continue; }
+      return {
+        model: `openai:${model}`,
+        data: { candidates: [{ content: { parts: [{ text: out }] }, groundingMetadata: { groundingChunks: chunks, groundingSupports: supports } }] }
+      };
+    }
+    return { error: true, message: lastError || 'Gagal menghubungi OpenAI.' };
+  },
+
+  // POST a generateContent request to Gemini with retry + model fallback.
+  // Returns { data } on success or { error: true, message } on failure.
+  async generateGemini(body) {
+    const apiKey = this.getApiKey();
+    if (!apiKey) return { error: true, message: 'Gemini API key belum diatur. Isi di menu Settings.' };
     const busy =(status) => status === 429 || status === 500 || status === 503 || status === 504;
     let lastError = null;
 
@@ -168,7 +290,7 @@ const MindVaultGemini = {
   },
 
   async askGemini(prompt, systemInstruction = '') {
-    const apiKey = this.getApiKey();
+    const apiKey = this.hasKey();
     if (!apiKey) {
       console.log('ℹ️ Gemini API key not configured. Using local intelligence fallback.');
       return null;
@@ -214,8 +336,8 @@ Balas HANYA JSON: {"translation": "terjemahan kalimat ke Bahasa Indonesia yang n
   },
 
   async analyzeVocab(word, contextSentence = '') {
-    const apiKey = this.getApiKey();
-    if (!apiKey) return { error: true, message: 'Gemini API key belum diatur. Isi di menu Settings.' };
+    const apiKey = this.hasKey();
+    if (!apiKey) return { error: true, message: 'API key AI belum diatur. Isi Gemini atau OpenAI key di menu Settings.' };
 
     const contextRule = contextSentence
       ? `\nKata ini ditemukan di kalimat berikut (dari film/serial/video yang ditonton pengguna): "${contextSentence}".
@@ -287,8 +409,8 @@ Kalau salah satu jenis utama tidak punya bentuk yang umum dipakai, tetap tulis b
   // Returns { topics: [{ headline, topic, friend, why }], sources: [{ title, uri }], searchEntryHtml }
   // or { error: true, message }.
   async fetchNewsTopics(friends) {
-    const apiKey = this.getApiKey();
-    if (!apiKey) return { error: true, message: 'Gemini API key belum diatur. Isi di menu Settings.' };
+    const apiKey = this.hasKey();
+    if (!apiKey) return { error: true, message: 'API key AI belum diatur. Isi Gemini atau OpenAI key di menu Settings.' };
 
     const today = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     const english = typeof I18N !== 'undefined' && I18N.lang === 'en';
@@ -373,8 +495,8 @@ Buat 4 topik obrolan. Balas HANYA dengan JSON array tanpa teks lain, format:
 
   // Fresh news about the things one friend is into, for the 1-minute meeting cheat sheet
   async fetchPrepNews(friend) {
-    const apiKey = this.getApiKey();
-    if (!apiKey) return { error: true, message: 'Gemini API key belum diatur. Isi di menu Settings.' };
+    const apiKey = this.hasKey();
+    if (!apiKey) return { error: true, message: 'API key AI belum diatur. Isi Gemini atau OpenAI key di menu Settings.' };
     const today = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     const english = typeof I18N !== 'undefined' && I18N.lang === 'en';
     const fav = friend.favorites || {};

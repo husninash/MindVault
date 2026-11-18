@@ -489,7 +489,7 @@ const MindVaultApp = {
   async refreshNewsTopics(force) {
     if (this.newsTopicsLoading) return;
     if (!force && (this.getNewsTopicsCache() || this.newsTopicsError)) return;
-    if (!MindVaultGemini.getApiKey()) {
+    if (!MindVaultGemini.hasKey()) {
       if (force) this.showToast('Isi Gemini API key di Settings dulu.', 'warning');
       return;
     }
@@ -551,7 +551,7 @@ const MindVaultApp = {
           `<a href="${esc(s.uri)}" target="_blank" rel="noopener noreferrer">${esc(s.title)}</a>`).join('')}</div>`;
       }
       if (cache.searchEntryHtml) html += '<div class="news-search-entry"></div>';
-    } else if (!MindVaultGemini.getApiKey()) {
+    } else if (!MindVaultGemini.hasKey()) {
       html = '<p class="empty-note">Isi <strong>Gemini API key</strong> di Settings supaya topik obrolan diambil dari berita terbaru.</p>';
     } else if (this.newsTopicsError) {
       html = `<p class="empty-note">Gagal mengambil berita: ${esc(this.newsTopicsError)}</p>`;
@@ -1783,7 +1783,33 @@ const MindVaultApp = {
     this.refreshNewsTopics(false);
   },
 
+  saveOpenAIConfig() {
+    const input = document.getElementById('setting-openai-key');
+    const key = (input?.value || '').trim();
+    if (!/^sk-/.test(key)) {
+      this.showToast(this.L('OpenAI key biasanya diawali "sk-". Cek lagi ya.', 'OpenAI keys usually start with "sk-". Please check it.'), 'warning');
+      return;
+    }
+    try { localStorage.setItem('MINDVAULT_OPENAI_KEY', key); } catch (e) {}
+    if (input) input.value = '';
+    this.syncOpenAIKeyField();
+    this.showToast(this.L('OpenAI key disimpan di perangkat ini. Dipakai kalau Gemini gagal.', 'OpenAI key saved on this device. Used when Gemini fails.'), 'success');
+  },
+
+  clearOpenAIConfig() {
+    try { localStorage.removeItem('MINDVAULT_OPENAI_KEY'); } catch (e) {}
+    this.syncOpenAIKeyField();
+    this.showToast(this.L('OpenAI key dihapus dari perangkat ini.', 'OpenAI key removed from this device.'), 'info');
+  },
+
+  // Show whether a key is saved without ever putting the key itself back on screen
+  syncOpenAIKeyField() {
+    const input = document.getElementById('setting-openai-key');
+    if (input) input.placeholder = MindVaultGemini.getOpenAIKey() ? this.L('Tersimpan ••••••• (isi untuk mengganti)', 'Saved ••••••• (type to replace)') : 'sk-...';
+  },
+
   updateSupabaseStatusUI() {
+    this.syncOpenAIKeyField();
     const badge = document.getElementById('supabase-status-badge');
     if (!badge) return;
     if (typeof MindVaultSupabase !== 'undefined' && MindVaultSupabase.isConfigured) {
@@ -1810,7 +1836,7 @@ const MindVaultApp = {
   testAIKeyConnection() {
     const dot = document.getElementById('admin-ai-dot');
     const title = document.getElementById('admin-ai-status-title');
-    const key = MindVaultGemini.getApiKey();
+    const key = MindVaultGemini.hasKey();
     if (key) {
       if (dot) dot.className = 'status-dot status-dot-active';
       if (title) title.innerText = 'Gemini AI Ready';
@@ -2290,7 +2316,7 @@ const MindVaultApp = {
     MindVaultSupabase.upsertJournalRow('vocab_words', row);
     this.showToast(data.context ? this.L('Konteks disimpan.', 'Context saved.') : this.L('Konteks dihapus.', 'Context removed.'), 'success');
 
-    if (data.context && sentence && !data.context.translation && MindVaultGemini.getApiKey()) {
+    if (data.context && sentence && !data.context.translation && MindVaultGemini.hasKey()) {
       const info = await MindVaultGemini.explainVocabContext(row.word, sentence, data.senses || []);
       if (info && !info.error && row.data?.context?.sentence === sentence) {
         row.data.context.translation = info.translation || '';
@@ -3661,7 +3687,7 @@ const MindVaultApp = {
       this.renderPrepNews(cached.items);
       return;
     }
-    if (!MindVaultGemini.getApiKey()) {
+    if (!MindVaultGemini.hasKey()) {
       box.innerHTML = `<p class="prep-news-note">${this.L('Isi Gemini API key di Pengaturan supaya bisa cari kabar terbaru.', 'Add a Gemini API key in Settings to look up the latest news.')}</p>`;
       return;
     }
@@ -3729,7 +3755,7 @@ const MindVaultApp = {
     log.scrollTop = log.scrollHeight;
 
     // Check if API key is set
-    if (!MindVaultGemini.getApiKey()) {
+    if (!MindVaultGemini.hasKey()) {
       setTimeout(() => {
         const typingEl = document.getElementById(typingId);
         if (typingEl) typingEl.innerHTML = `<em>Roleplay AI membutuhkan API Key. Masukkan Key di Settings -> AI Configuration agar ${friend.name} bisa membalas secara LIVE!</em>`;
