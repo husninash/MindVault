@@ -1294,7 +1294,8 @@ const MindVaultApp = {
         if (!friend.tier || friend.tier === oldRelation || this.normalizeRelation(friend.tier) !== friend.tier) friend.tier = friend.relation;
       }
       (MindVaultData.diaries || []).forEach(d => {
-        if (String(d.friendId) === String(friend.id) && d.friendName === oldName) d.friendName = friend.name;
+        const names = this.diaryPeople(d);
+        if (names.includes(oldName)) d.friendName = names.map(n => n === oldName ? friend.name : n).join(', ');
       });
       await MindVaultSupabase.updateFriend(friend);
     }
@@ -1321,10 +1322,7 @@ const MindVaultApp = {
 
   // Notes you logged with this friend, newest first
   friendDiaries(friend) {
-    return (MindVaultData.diaries || []).filter(d =>
-      String(d.friendId) === String(friend.id) ||
-      (d.friendName && friend.name && d.friendName.toLowerCase() === friend.name.toLowerCase())
-    ).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || String(b.id).localeCompare(String(a.id)));
+    return (MindVaultData.diaries || []).filter(d => this.diaryHasFriend(d, friend)).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || String(b.id).localeCompare(String(a.id)));
   },
 
   renderFriendHistory(friend) {
@@ -1533,10 +1531,8 @@ const MindVaultApp = {
     if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
     if (moodInput) moodInput.selectedIndex = 0;
 
-    this.populateDiaryFriendOptions();
     const preset = this.findFriend(friendId);
-    const friendSelect = document.getElementById('add-diary-friend');
-    if (preset && friendSelect) friendSelect.value = preset.name;
+    this.populateDiaryFriendOptions(preset ? [preset.name] : []);
     document.getElementById('modal-add-diary')?.classList.add('active');
   },
 
@@ -1555,16 +1551,14 @@ const MindVaultApp = {
     const btnEl = document.getElementById('btn-save-diary');
     if (btnEl) btnEl.innerText = 'Update Memory Log';
 
-    this.populateDiaryFriendOptions();
+    this.populateDiaryFriendOptions(this.diaryPeople(diary));
 
     const titleInput = document.getElementById('add-diary-title');
-    const friendSelect = document.getElementById('add-diary-friend');
     const dateInput = document.getElementById('add-diary-date');
     const moodInput = document.getElementById('add-diary-mood');
     const contentInput = document.getElementById('add-diary-content');
 
     if (titleInput) titleInput.value = diary.title || '';
-    if (friendSelect) friendSelect.value = diary.friendName || '';
     if (dateInput) dateInput.value = diary.date || new Date().toISOString().split('T')[0];
     if (moodInput && diary.mood) moodInput.value = diary.mood;
     if (contentInput) contentInput.value = diary.content || '';
@@ -1574,16 +1568,11 @@ const MindVaultApp = {
 
   saveDiaryFromModal() {
     const editId = document.getElementById('edit-diary-id')?.value;
-    if (editId) {
-      this.saveEditedDiary(editId);
-    } else {
-      this.saveNewDiary();
-    }
+    return editId ? this.saveEditedDiary(editId) : this.saveNewDiary();
   },
 
   async saveNewDiary() {
     const title = document.getElementById('add-diary-title')?.value.trim();
-    const friendName = document.getElementById('add-diary-friend')?.value;
     const date = document.getElementById('add-diary-date')?.value || new Date().toISOString().split('T')[0];
     const mood = document.getElementById('add-diary-mood')?.value || 'Energetic & Inspired';
     const content = document.getElementById('add-diary-content')?.value.trim();
@@ -1592,13 +1581,13 @@ const MindVaultApp = {
       this.showToast('Mohon isi Judul dan Detail Percakapan.', 'warning');
       return;
     }
-
-    const matchedFriend = MindVaultData.friends.find(f => f.name === friendName) || MindVaultData.friends[0];
+    const people = await this.readDiaryPeople();
+    if (!people) return;
 
     const newDiary = {
       id: Date.now(),
-      friendId: matchedFriend ? matchedFriend.id : 1,
-      friendName: friendName || (matchedFriend ? matchedFriend.name : 'Friend'),
+      friendId: people[0].id,
+      friendName: people.map(p => p.name).join(', '),
       date: date,
       title: title,
       location: 'Personal Log',
@@ -1617,7 +1606,6 @@ const MindVaultApp = {
 
   async saveEditedDiary(diaryId) {
     const title = document.getElementById('add-diary-title')?.value.trim();
-    const friendName = document.getElementById('add-diary-friend')?.value;
     const date = document.getElementById('add-diary-date')?.value || new Date().toISOString().split('T')[0];
     const mood = document.getElementById('add-diary-mood')?.value || 'Energetic & Inspired';
     const content = document.getElementById('add-diary-content')?.value.trim();
@@ -1627,15 +1615,16 @@ const MindVaultApp = {
       return;
     }
 
+    const people = await this.readDiaryPeople();
+    if (!people) return;
+
     let diaries = this.getLiveDiariesContext();
     let index = diaries.findIndex(d => String(d.id) === String(diaryId) || d.title === title);
 
-    const matchedFriend = MindVaultData.friends.find(f => f.name === friendName) || { id: 1, name: friendName || 'Friend' };
-
     let updatedDiary = {
       id: diaryId || Date.now(),
-      friendId: matchedFriend.id,
-      friendName: friendName || 'Friend',
+      friendId: people[0].id,
+      friendName: people.map(p => p.name).join(', '),
       date: date,
       title: title,
       location: 'Personal Log',
@@ -1690,6 +1679,9 @@ const MindVaultApp = {
       confirmText: 'Ya, Hapus',
       cancelText: 'Batal',
       onConfirm: async () => {
+        // Group notes stay: hand them to someone else on the note first, so deleting this friend
+        // (which also deletes notes linked to them) doesn't take the group's memories with it
+        if (friend) await this.detachFriendFromGroupNotes(friend);
         await MindVaultSupabase.deleteFriend(friendId);
         this.showToast(`Profil ${friendName} berhasil dihapus.`, 'info');
 
@@ -1706,14 +1698,119 @@ const MindVaultApp = {
     });
   },
 
-  populateDiaryFriendOptions() {
-    const select = document.getElementById('add-diary-friend');
-    if (!select) return;
-    if (!MindVaultData.friends || MindVaultData.friends.length === 0) {
-      select.innerHTML = '<option value="">Belum ada teman</option>';
+  // Tick-boxes for every friend in the note form (selected = names already on the note)
+  populateDiaryFriendOptions(selected = null) {
+    const box = document.getElementById('add-diary-people');
+    if (!box) return;
+    // Re-rendering after a friend change keeps whatever is ticked right now
+    const keep = selected || [...box.querySelectorAll('input:checked')].map(i => i.value);
+    const ticked = new Set(keep.map(n => String(n).toLowerCase()));
+    const others = document.getElementById('add-diary-others');
+    if (selected && others) {
+      // Names on the note that aren't (any longer) in the friends list go into the "other" box
+      const known = new Set((MindVaultData.friends || []).map(f => String(f.name).toLowerCase()));
+      others.value = selected.filter(n => !known.has(String(n).toLowerCase())).join(', ');
+    }
+    const friends = [...(MindVaultData.friends || [])];
+    if (!friends.length) {
+      box.innerHTML = `<p class="form-hint" style="margin:0">${this.L('Belum ada teman. Ketik nama di kolom bawah.', 'No friends yet. Type names in the box below.')}</p>`;
       return;
     }
-    select.innerHTML = MindVaultData.friends.map(f => `<option value="${f.name}">${f.name}</option>`).join('');
+    const collator = new Intl.Collator(I18N.locale(), { sensitivity: 'base' });
+    friends.sort((a, b) => collator.compare(String(a.name || ''), String(b.name || '')));
+    const esc = (v) => this.escapeHtml(v);
+    box.innerHTML = friends.map(f => `
+      <label class="people-chip">
+        <input type="checkbox" value="${esc(f.name)}"${ticked.has(String(f.name).toLowerCase()) ? ' checked' : ''}>
+        <span>${esc(f.name)}</span>
+      </label>`).join('');
+  },
+
+  // Before a friend is deleted: take them off every note they share with other people.
+  // Notes that were only with them are left alone (they're removed together with the friend).
+  async detachFriendFromGroupNotes(friend) {
+    const name = String(friend.name || '').toLowerCase();
+    const notes = (MindVaultData.diaries || []).filter(d => this.diaryHasFriend(d, friend));
+    for (const d of notes) {
+      const rest = this.diaryPeople(d).filter(n => n.toLowerCase() !== name);
+      if (!rest.length) continue;
+      const restFriends = rest
+        .map(n => (MindVaultData.friends || []).find(f => String(f.id) !== String(friend.id) && String(f.name || '').toLowerCase() === n.toLowerCase()))
+        .filter(Boolean);
+      const updated = {
+        ...d,
+        // Link the note to someone who is still in the list (or to nobody, so it survives on its own)
+        friendId: restFriends[0] ? restFriends[0].id : null,
+        friendName: rest.join(', ')
+      };
+      await MindVaultSupabase.updateDiary(updated);
+    }
+  },
+
+  // Names on a note. Group notes keep everyone in friendName, separated by commas.
+  diaryPeople(diary) {
+    return String(diary?.friendName || '').split(/\s*,\s*/).map(s => s.trim()).filter(Boolean);
+  },
+
+  // Was this friend part of the note?
+  diaryHasFriend(diary, friend) {
+    if (!diary || !friend) return false;
+    if (String(diary.friendId) === String(friend.id)) return true;
+    const name = String(friend.name || '').toLowerCase();
+    return !!name && this.diaryPeople(diary).some(n => n.toLowerCase() === name);
+  },
+
+  // Reads who was there: ticked friends plus typed names. Typed names that aren't friends yet
+  // are added to the list as "Kenalan". Returns [{ id, name }] or null (after a warning).
+  async readDiaryPeople() {
+    const ticked = [...document.querySelectorAll('#add-diary-people input:checked')].map(i => i.value);
+    const typed = String(document.getElementById('add-diary-others')?.value || '')
+      .split(/[,;\n]/).map(n => this.formatPersonName(n)).filter(Boolean);
+
+    const people = [];
+    const seen = new Set();
+    const added = [];
+    for (const raw of [...ticked, ...typed]) {
+      const key = raw.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      let friend = (MindVaultData.friends || []).find(f => String(f.name || '').toLowerCase() === key);
+      if (!friend) {
+        friend = await MindVaultSupabase.insertFriend({
+          name: raw,
+          relation: 'Kenalan',
+          tier: 'Kenalan',
+          birthday: null,
+          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(raw)}&background=F8BBD9&color=2D1A29&bold=true&size=250`,
+          bio: '',
+          currentLife: '',
+          contact: {},
+          favorites: {},
+          likes: [],
+          dislikes: [],
+          safeTopics: [],
+          avoidTopics: [],
+          giftIdeas: [],
+          score: 35
+        });
+        added.push(raw);
+      }
+      people.push({ id: friend.id, name: friend.name });
+    }
+
+    if (!people.length) {
+      this.showToast(this.L('Pilih atau ketik minimal satu orang yang ikut.', 'Pick or type at least one person who was there.'), 'warning');
+      return null;
+    }
+    if (added.length) {
+      this.showToast(this.L(`${added.join(', ')} ditambahkan ke Daftar Teman sebagai Kenalan.`, `${added.join(', ')} added to your friends as Acquaintance.`), 'info');
+      this.renderFriendsGrid();
+      this.updateFriendsCountBadge();
+      this.populateDiaryFriendOptions();
+    }
+    const others = document.getElementById('add-diary-others');
+    if (others) others.value = '';
+    return people;
   },
 
   async saveUserProfileSettings() {
@@ -2696,10 +2793,7 @@ const MindVaultApp = {
     reasons.push({ points: base, id: `Titik awal: ${friend.relation || 'Teman'}`, en: `Starting point: ${I18N.t(friend.relation || 'Teman')}`, base: true });
 
     // 2. Conversation notes: how many, how recent, and their tone
-    const diaries = (MindVaultData.diaries || []).filter(d =>
-      String(d.friendId) === String(friend.id) ||
-      (d.friendName && friend.name && d.friendName.toLowerCase() === friend.name.toLowerCase())
-    );
+    const diaries = (MindVaultData.diaries || []).filter(d => this.diaryHasFriend(d, friend));
     const today = new Date();
     const daysAgo = (d) => {
       const t = new Date(d.date || d.created_at || 0);

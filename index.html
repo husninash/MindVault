@@ -20,7 +20,7 @@
   
   <!-- FontAwesome & Custom CSS -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="css/styles.css?v=33.3">
+  <link rel="stylesheet" href="css/styles.css?v=33.4">
 </head>
 <body>
 
@@ -1064,17 +1064,16 @@
       <input type="text" id="add-diary-title" class="form-control" placeholder="e.g. Catchup Kopi & Diskusi Proyek">
     </div>
     
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
-      <div class="form-group">
-        <label>Pilih Teman</label>
-        <select id="add-diary-friend" class="form-control">
-          <option value="">Pilih Teman...</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Tanggal / Hari Percakapan <span style="color: red;">*</span></label>
-        <input type="date" id="add-diary-date" class="form-control">
-      </div>
+    <div class="form-group">
+      <label>Siapa saja yang ikut? <span style="color: red;">*</span> <span class="form-optional">(boleh lebih dari satu)</span></label>
+      <div id="add-diary-people" class="people-picker"></div>
+      <input type="text" id="add-diary-others" class="form-control" style="margin-top: 8px;" autocomplete="off" placeholder="Orang lain (belum ada di daftar)? Ketik namanya, pisahkan dengan koma">
+      <p class="form-hint">Nama yang belum ada di daftar otomatis ditambahkan sebagai <strong>Kenalan</strong>.</p>
+    </div>
+
+    <div class="form-group">
+      <label>Tanggal / Hari Percakapan <span style="color: red;">*</span></label>
+      <input type="date" id="add-diary-date" class="form-control">
     </div>
 
     <div class="form-group">
@@ -1368,12 +1367,12 @@
 
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/i18n.js?v=53.3"></script>
-<script src="js/data.js?v=53.3"></script>
-<script src="js/supabaseClient.js?v=53.3"></script>
-<script src="js/geminiClient.js?v=53.3"></script>
-<script src="js/graph.js?v=53.3"></script>
-<script src="js/app.js?v=53.3"></script>
+<script src="js/i18n.js?v=53.6"></script>
+<script src="js/data.js?v=53.6"></script>
+<script src="js/supabaseClient.js?v=53.6"></script>
+<script src="js/geminiClient.js?v=53.6"></script>
+<script src="js/graph.js?v=53.6"></script>
+<script src="js/app.js?v=53.6"></script>
 
 </body>
 </html>

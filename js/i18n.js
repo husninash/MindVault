@@ -40,6 +40,10 @@ const I18N = {
     // ---- Search results ----
     ['Total teman', 'Friends'],
     ['Urutkan', 'Sort'],
+    ['Siapa saja yang ikut?', 'Who was there?'],
+    ['(boleh lebih dari satu)', '(you can pick more than one)'],
+    ['Orang lain (belum ada di daftar)? Ketik namanya, pisahkan dengan koma', 'Someone not on your list? Type their names, separated by commas'],
+    ['Nama yang belum ada di daftar otomatis ditambahkan sebagai', 'Names not on your list are added automatically as'],
     ['(opsional, cadangan kalau Gemini gagal)', '(optional, backup when Gemini fails)'],
     ['Dipakai otomatis kalau Gemini error, kehabisan kuota, atau tidak memberi jawaban. Pemakaiannya memotong kredit OpenAI-mu. Key hanya disimpan di perangkat ini dan terhapus saat logout.', 'Used automatically when Gemini errors, runs out of quota, or gives no answer. Usage is charged to your OpenAI credit. The key is stored only on this device and removed when you log out.'],
     ['Simpan OpenAI Key', 'Save OpenAI Key'],

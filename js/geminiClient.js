@@ -676,7 +676,7 @@ ${reflections.map(r => `  * "${r}"`).join('\n')}
 
     // If friend is mentioned
     if (matchedFriend) {
-      const friendDiaries = diariesData.filter(d => String(d.friendId) === String(matchedFriend.id) || (d.friendName && d.friendName.toLowerCase() === matchedFriend.name.toLowerCase()));
+      const friendDiaries = diariesData.filter(d => String(d.friendId) === String(matchedFriend.id) || String(d.friendName || '').toLowerCase().split(/\s*,\s*/).includes(String(matchedFriend.name || '').toLowerCase()));
       const milestones = matchedFriend.milestones || [];
       const likesStr = (matchedFriend.likes && matchedFriend.likes.length > 0) ? matchedFriend.likes.join(', ') : 'Belum dicatat';
       const safeStr = (matchedFriend.safeTopics && matchedFriend.safeTopics.length > 0) ? matchedFriend.safeTopics.join(', ') : 'Hobi santai, kabar sehari-hari';
